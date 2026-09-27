@@ -1,0 +1,18 @@
+# SwitchCard: keep real configuration data out of the repository.
+# Exports from the app (they can contain real hostnames, addresses and firmware):
+*.zip
+editcontent.txt
+switchcard-project-*.json
+switchcard-autosave-backup*.json
+# Working copies of real recipes / configs (put them here, not next to the example):
+private/
+
+# OS / editor clutter
+Thumbs.db
+desktop.ini
+.DS_Store
+*.tmp
+~$*
+
+# Local editor / assistant configuration
+.claude/
