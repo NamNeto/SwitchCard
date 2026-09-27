@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Repository:** `CONTRIBUTING.md` (feature requests and bug reports welcome as issues; outside pull requests are proposals and changes come from the maintainer), `CODEOWNERS`, and issue forms that ask for placeholder values only. Security problems now go through GitHub private vulnerability reporting (`SECURITY.md`). The README states that `SwitchCard.html` is the only file needed to use the tool. No change to `SwitchCard.html`.
+
 ## v0.7.1 — 2026-09-27
 
 Fleet usability release. Single-card output is byte-for-byte the same as v0.7.0 (golden tests) and project files stay schema v5.

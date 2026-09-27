@@ -39,6 +39,8 @@ Autosave backups use one atomic list with up to three entries. Restore backs up 
 
 ## Reporting a problem
 
+Report security problems privately through GitHub's private vulnerability reporting: open the repository's **Security** tab and choose **Report a vulnerability** ([direct link](https://github.com/NamNeto/SwitchCard/security/advisories/new)). Do not open a public issue for them. Feature requests and ordinary bugs go in [issues](https://github.com/NamNeto/SwitchCard/issues/new/choose); see [CONTRIBUTING.md](CONTRIBUTING.md).
+
 If the preview and the file applied on a switch ever differ, or the app makes a network request, stop using it for production cards and report the case with the recipe (with placeholder values), the preview SHA-256 and the browser version.
 
 MIT licensed. Not affiliated with Cisco.

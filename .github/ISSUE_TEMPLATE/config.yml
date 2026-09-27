@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security problem
+    url: https://github.com/NamNeto/SwitchCard/security/advisories/new
+    about: Report security problems privately, never in a public issue.
+  - name: User guide
+    url: https://github.com/NamNeto/SwitchCard/blob/main/docs/USER-GUIDE.md
+    about: How to build recipes, cards and fleets.
