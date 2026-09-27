@@ -2,7 +2,7 @@
 
 ## You need
 
-1. A **known-working sync-export folder**: the files that belong at the SD-card root for your EEM workflow.
+1. A **known-working sync-export folder**: the files that belong at the SD-card root for your EEM workflow. Typically that is what `sync sdflash:` writes from an empty switch that already holds the SyncConfig applet; see [../examples/eem-applet-example.md](../examples/eem-applet-example.md).
 2. A **tested running configuration** to turn into a recipe template.
 3. `SwitchCard.html`, opened in **Edge** or **Chrome**.
 
