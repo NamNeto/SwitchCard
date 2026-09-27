@@ -1,6 +1,6 @@
 # EEM contract — what SwitchCard assumes about your SD-card / EEM flow
 
-**Applies to:** SwitchCard v0.7.0. **Status:** assumptions, **not device-tested**. EXAMPLE values only.
+**Applies to:** SwitchCard v0.7.1. **Status:** assumptions, **not device-tested**. EXAMPLE values only.
 
 SwitchCard never talks to a switch. It writes one text file, root `editcontent.txt`, into a ZIP next to your baseline files. Something on the switch (your EEM applet / script / boot process, not SwitchCard) reads that file and applies it. This page lists what SwitchCard assumes about that "something", so you can check the assumptions against **your** image on a **spare** switch before production use.
 
@@ -31,7 +31,7 @@ Manage recipes & baseline → *Advanced output options*.
 ### 2a. Provenance header / end marker
 
 ```text
-! SWITCHCARD v0.7.0 host=EXAMPLE-SW1 recipe=EXAMPLE-LAB-ACCESS
+! SWITCHCARD v0.7.1 host=EXAMPLE-SW1 recipe=EXAMPLE-LAB-ACCESS
 ... generated configuration ...
 ! SWITCHCARD-END lines=123 sha256=<64 hex chars>
 ```

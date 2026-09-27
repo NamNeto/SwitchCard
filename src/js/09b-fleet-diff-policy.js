@@ -310,6 +310,131 @@ function parseCsv(text) {
     delimiter: delim,
   };
 }
+// --- Fleet CSV helpers (v0.7.1): column order, CSV text, "Duplicate switch" rows ---
+// Per-switch values first (HOSTNAME, MGMT_IP), then the usual management fields, then any other
+// field the recipe binds, in template order.
+function fleetColumns(r) {
+  const dkeys = deviceKeys(r);
+  const first = CONFIG.FLEET_COLUMN_ORDER.filter((k) => dkeys.includes(k));
+  return first.concat(dkeys.filter((k) => !first.includes(k)));
+}
+// One CSV cell: quoted when it holds a delimiter, a quote, a line break or edge spaces.
+function csvCell(v) {
+  const s = String(v == null ? "" : v);
+  return /[",;\t\r\n]|^\s|\s$/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+}
+function toCsv(columns, rows) {
+  return [columns.join(","), ...rows.map((row) => columns.map((c) => csvCell(row[c])).join(","))].join("\n") + "\n";
+}
+// "SW-01" + 1 -> "SW-02", "SW-09" + 1 -> "SW-10", "SW-99" + 1 -> "SW-100": leading zeros keep their
+// width. null when the text does not end in a digit.
+function bumpTrailingNumber(s, by) {
+  const m = /^(.*?)(\d+)$/.exec(String(s == null ? "" : s));
+  if (!m) return null;
+  return m[1] + (BigInt(m[2]) + BigInt(by)).toString().padStart(m[2].length, "0");
+}
+// Rows for "Duplicate switch": row 1 is the switch on the page, every further row counts the
+// trailing number of HOSTNAME and MGMT_IP up by one. Only those two columns are written, so every
+// other value keeps following Device details. Returns { columns, rows } or { error }.
+function fleetCopyRows(r, count) {
+  const n = Number(String(count == null ? "" : count).trim());
+  if (!Number.isInteger(n) || n < 2 || n > CONFIG.MAX_FLEET_ROWS)
+    return { error: "Enter a number of switches from 2 to " + CONFIG.MAX_FLEET_ROWS + " (the switch on this page counts as one)." };
+  const dkeys = deviceKeys(r);
+  const values = r.values || {};
+  const columns = [];
+  let host = null,
+    ipStart = null;
+  if (dkeys.includes("HOSTNAME")) {
+    host = String(values.HOSTNAME || "").trim();
+    if (!host) return { error: "Fill in Hostname in Device details first; each copy counts its trailing number up." };
+    if (bumpTrailingNumber(host, 0) === null)
+      return {
+        error: 'Hostname "' + host + '" does not end in a number, so there is nothing to count up. Rename it (for example ' + host + "-01) and try again.",
+      };
+    columns.push("HOSTNAME");
+  }
+  if (dkeys.includes("MGMT_IP")) {
+    const ip = String(values.MGMT_IP || "").trim();
+    if (!ipv4(ip)) return { error: "Enter a valid Management IP in Device details first; each copy counts it up by one." };
+    ipStart = ipToInt(ip);
+    const last = ipStart + n - 1;
+    if (last > 0xffffffff) return { error: "Counting " + n + " addresses up from " + ip + " runs past 255.255.255.255." };
+    // SVI designs share one management subnet, so every copy must stay a usable host inside it.
+    // In Loopback mode each switch owns its /32; there is no shared subnet to stay inside.
+    const mask = String(values.MGMT_MASK || "").trim();
+    const loopback = usesMgmtInterface(r) && mgmtInterfaceMode(r) === "loopback";
+    if (!loopback && dkeys.includes("MGMT_MASK") && contiguousMask(mask)) {
+      const prefix = maskPrefix(mask);
+      if (prefix >= 1 && prefix <= 30) {
+        const sn = subnetOf(ip, prefix);
+        const lastUsable = sn.bcast - 1;
+        const where = intToIp(sn.net) + "/" + prefix;
+        if (ipStart <= sn.net || ipStart > lastUsable)
+          return { error: "Management IP " + ip + " is not a usable host address of " + where + "; fix it in Device details first." };
+        if (last > lastUsable) {
+          const fit = lastUsable - ipStart + 1;
+          return {
+            error: "Only " + fit + " switch" + (fit === 1 ? "" : "es") + " fit between " + ip + " and " + intToIp(lastUsable) +
+              ", the last usable address of " + where + ". Lower the number or start from a lower address.",
+          };
+        }
+      }
+    }
+    columns.push("MGMT_IP");
+  }
+  if (!columns.length)
+    return { error: "This recipe has no Hostname or Management IP field to count up, so the copies would be identical. Paste your own CSV instead." };
+  const rows = [];
+  for (let i = 0; i < n; i++) {
+    const row = {};
+    if (host !== null) row.HOSTNAME = bumpTrailingNumber(host, i);
+    if (ipStart !== null) row.MGMT_IP = intToIp(ipStart + i);
+    rows.push(row);
+  }
+  return { columns, rows };
+}
+// Grey example for the empty fleet CSV box: the recipe's own columns, row 1 with the values on the
+// page, row 2 counted up with the other cells left empty (empty = same as Device details).
+function fleetCsvExample(r) {
+  const columns = fleetColumns(r);
+  if (!columns.length) return { columns, text: "" };
+  const values = r.values || {};
+  const row1 = {},
+    row2 = {};
+  for (const k of columns) {
+    const v = String(values[k] || "").trim();
+    row1[k] = v || CONFIG.FLEET_EXAMPLE_VALUES[k] || k.toLowerCase().replace(/_/g, "-");
+  }
+  if (columns.includes("HOSTNAME")) row2.HOSTNAME = bumpTrailingNumber(row1.HOSTNAME, 1) || row1.HOSTNAME + "-02";
+  if (columns.includes("MGMT_IP"))
+    row2.MGMT_IP = ipv4(row1.MGMT_IP) && ipToInt(row1.MGMT_IP) < 0xffffffff ? intToIp(ipToInt(row1.MGMT_IP) + 1) : row1.MGMT_IP;
+  return { columns, text: toCsv(columns, Object.keys(row2).length ? [row1, row2] : [row1]) };
+}
+// DOM: the "Columns for this recipe" line above the fleet CSV box, and the box's grey example.
+function renderFleetColumns() {
+  const line = $("fleetColumns"),
+    box = $("fleetCsv");
+  if (!line || !box) return;
+  const ex = fleetCsvExample(current());
+  line.replaceChildren();
+  if (!ex.columns.length) {
+    line.textContent = "This recipe has no per-switch fields, so every card in a fleet would be the same.";
+    box.placeholder = "";
+    return;
+  }
+  line.append("Columns for this recipe: ");
+  ex.columns.forEach((c, i) => {
+    if (i) line.append(", ");
+    const code = document.createElement("code");
+    code.textContent = c;
+    line.append(code);
+  });
+  line.append(
+    ". The header row names the columns you set per switch; a column you leave out, or an empty cell, takes the value from Device details.",
+  );
+  if (box.placeholder !== ex.text) box.placeholder = ex.text;
+}
 // Pure apart from reading teamPolicies: builds one recipe clone per CSV row and runs generate().
 function checkFleet(r, csvText) {
   const result = { errors: [], warnings: [], rows: [], header: [] };
@@ -349,20 +474,24 @@ function checkFleet(r, csvText) {
     return result;
   }
   result.header = usedCols.map(([h]) => h);
+  result.fields = fleetColumns(r); // every bound field, shown per switch in the table
   const seenHost = new Map(),
     seenIp = new Map();
   parsed.rows.forEach((cells, idx) => {
     const n = idx + 1;
     const rr = structuredClone(r);
     rr.exports = {};
-    const values = {},
-      inherited = [];
+    const fromCsv = [];
     for (const [h, i] of usedCols) {
       const c = cells[i] === undefined ? "" : cells[i];
-      if (c !== "") rr.values[h] = c;
-      else inherited.push(h);
-      values[h] = String(rr.values[h] || "");
+      if (c !== "") {
+        rr.values[h] = c;
+        fromCsv.push(h);
+      }
     }
+    const values = {};
+    for (const k of result.fields) values[k] = String(rr.values[k] || "");
+    const inherited = result.fields.filter((k) => !fromCsv.includes(k)); // taken from Device details
     normalizePorts(rr);
     const g = generate(rr);
     const errors = [...g.errors];
@@ -383,6 +512,19 @@ function checkFleet(r, csvText) {
       sha256: sha256Hex(g.text), lines: previewLineCount(g.text), bytes: previewByteLength(g.text), recipe: rr,
     });
   });
+  // Routed port addresses live in the shared port table, so a multi-switch fleet repeats them.
+  if (result.rows.length > 1 && keys(r.template || "").includes("PORTS")) {
+    const ifaceSet = new Set((r.interfaces || []).map((x) => String(x).toLowerCase()));
+    const routed = (r.ports || []).filter(
+      (p) => p.role === "routed" && ifaceSet.has(String(p.name || "").toLowerCase()) && String(p.ip || "").trim(),
+    );
+    if (routed.length)
+      result.warnings.push(
+        "Routed port addresses come from the shared port table, so every switch in this fleet gets the same ones (" +
+          routed.map((p) => p.name + " " + String(p.ip).trim() + " " + String(p.mask || "").trim()).join(", ") +
+          "). Confirm that is intended, for example for identical cells behind NAT.",
+      );
+  }
   return result;
 }
 // Recognises when a checked fleet no longer matches the recipe, values, policies or CSV.
@@ -390,18 +532,19 @@ function fleetStamp(r) {
   const { exports: _history, ...rest } = r;
   return quickHash(JSON.stringify([rest, teamPolicies, baseline ? baseline.version : null, $("fleetCsv") ? $("fleetCsv").value : ""]));
 }
-// DOM: the fleet table and summary on Build.
+// DOM: the fleet table and summary on Build. Every bound field is a column; values that come from
+// Device details rather than the CSV are shown in italics.
 function renderFleet(result) {
   const sum = $("fleetSummary"),
-    table = $("fleetTable"),
+    wrap = $("fleetScroll"),
     head = $("fleetHead"),
     body = $("fleetRows");
-  if (!sum || !table) return;
+  if (!sum || !wrap) return;
   head.replaceChildren();
   body.replaceChildren();
   if (!result) {
     sum.hidden = true;
-    table.hidden = true;
+    wrap.hidden = true;
     return;
   }
   sum.hidden = false;
@@ -411,15 +554,16 @@ function renderFleet(result) {
   else
     sum.replaceChildren(
       statusNotice(result.warnings.length ? "warning" : "ok", result.rows.length + " switch" + (result.rows.length === 1 ? "" : "es") + " ready", result.warnings,
-        "Every row passed the same checks as a single card; review notes per row are in the Result column tooltip."),
+        "Every row passed the same checks as a single card. Italic values come from Device details; review notes per row are in the Result column tooltip."),
     );
   if (!result.rows.length) {
-    table.hidden = true;
+    wrap.hidden = true;
     return;
   }
-  table.hidden = false;
+  wrap.hidden = false;
+  const columns = result.fields && result.fields.length ? result.fields : result.header;
   const tr = document.createElement("tr");
-  for (const t of ["#", ...result.header, "Result", "Lines", "SHA-256"]) {
+  for (const t of ["#", ...columns, "Result", "Lines", "SHA-256"]) {
     const th = document.createElement("th");
     th.textContent = t;
     tr.append(th);
@@ -435,9 +579,9 @@ function renderFleet(result) {
       el.append(td);
     };
     add(String(row.n));
-    for (const h of result.header) {
+    for (const h of columns) {
       const inh = row.inherited.includes(h);
-      add(row.values[h] || (inh ? "(empty)" : ""), inh ? "inherit" : "", inh ? "inherited from Device details" : "");
+      add(row.values[h] || (inh ? "(empty)" : ""), inh ? "inherit" : "", inh ? "From Device details" : "From the CSV");
     }
     const problems = [...row.errors, ...row.policy.map((p) => "Team policy: " + p)];
     if (problems.length) add(problems[0] + (problems.length > 1 ? " (+" + (problems.length - 1) + " more)" : ""), "bad", problems.join("\n"));
@@ -471,7 +615,7 @@ function refreshFleetButtons() {
     ? "Ready to export " + fleet.rows.length + " card" + (fleet.rows.length === 1 ? "" : "s") + "."
     : fleet
       ? "Fleet export blocked: " + reasons.join(" · ")
-      : "Paste a CSV and click Check fleet.";
+      : "Use Duplicate switch, or paste a CSV and click Check fleet.";
   why.style.color = ok ? "var(--ok,#3dd68c)" : "var(--warn)";
 }
 // Runs inside run(): re-checks everything from scratch, confirms, then exports one ZIP per switch

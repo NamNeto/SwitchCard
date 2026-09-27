@@ -140,22 +140,55 @@ $("useIfaceBrief").onclick = () => {
       ". Click Apply recipe changes to keep it.",
   );
 };
-// Fleet (Build).
-$("checkFleet").onclick = () => {
+// Fleet (Build). Check fleet and Duplicate switch share one check, which returns the summary.
+function runFleetCheck() {
   const r = current();
   const res = checkFleet(r, $("fleetCsv").value);
   fleet = { ...res, recipeId: r.id, stamp: fleetStamp(r) };
   renderFleet(fleet);
   refreshFleetButtons();
   const bad = res.rows.filter((x) => x.errors.length || x.policy.length).length;
+  return res.errors.length
+    ? "Fleet CSV cannot be used: " + res.errors[0]
+    : bad
+      ? "Fleet checked: " + bad + " of " + res.rows.length + " switches have errors (see the Result column)."
+      : "Fleet checked: " + res.rows.length + " switch" + (res.rows.length === 1 ? "" : "es") + " ready.";
+}
+$("checkFleet").onclick = () => message(runFleetCheck());
+// "Duplicate switch": writes HOSTNAME / MGMT_IP rows counted up from the page, then checks them.
+$("fillCopies").onclick = () => {
+  const r = current();
+  const res = fleetCopyRows(r, $("fleetCount").value);
+  if (res.error) {
+    message(res.error);
+    return;
+  }
+  const text = toCsv(res.columns, res.rows);
+  const existing = $("fleetCsv").value.trim();
+  if (
+    existing &&
+    existing !== text.trim() &&
+    !window.confirm("Replace the text in the fleet CSV box with " + res.rows.length + " copies of this switch?")
+  ) {
+    message("Duplicate cancelled — the fleet CSV text was kept.");
+    return;
+  }
+  $("fleetCsv").value = text;
+  const first = res.rows[0],
+    last = res.rows[res.rows.length - 1];
+  const others = fleetColumns(r).filter((c) => !res.columns.includes(c));
   message(
-    res.errors.length
-      ? "Fleet CSV cannot be used: " + res.errors[0]
-      : bad
-        ? "Fleet checked: " + bad + " of " + res.rows.length + " switches have errors (see the Result column)."
-        : "Fleet checked: " + res.rows.length + " switch" + (res.rows.length === 1 ? "" : "es") + " ready.",
+    "Filled " + res.rows.length + " switches: " + res.columns.map((c) => first[c] + " … " + last[c]).join(", ") + "." +
+      (others.length ? " " + others.join(", ") + " and the port table come from Device details for every switch." : "") +
+      " " + runFleetCheck(),
   );
 };
+$("fleetCount").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    $("fillCopies").click();
+  }
+});
 $("fleetCsvInput").onchange = () =>
   run(async () => {
     const f = $("fleetCsvInput").files[0];

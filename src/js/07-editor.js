@@ -104,6 +104,7 @@ function renderPreview() {
   if (fix) fix.hidden = !g.asciiIssue;
   renderDiffPanel(r, g);
   refreshFleetButtons();
+  renderFleetColumns();
 }
 // One status box: a bold heading, an optional list of items and an optional muted footer.
 function statusNotice(kind, heading, items, footer) {
