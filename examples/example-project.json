@@ -1,0 +1,93 @@
+{
+  "format": "switchcard-project",
+  "version": 4,
+  "active": "example-ie3100-svi-01",
+  "baseline": null,
+  "teamHints": [],
+  "customSkuPresets": {},
+  "recipes": [
+    {
+      "id": "example-ie3100-svi-01",
+      "name": "EXAMPLE ONLY - IE3100 demo (SVI management)",
+      "model": "IE3100",
+      "firmware": [],
+      "example": true,
+      "mgmtInterface": "svi",
+      "mgmtSources": "ntp source {{MGMT_INTERFACE}}\nip radius source-interface {{MGMT_INTERFACE}}\nlogging source-interface {{MGMT_INTERFACE}}\nip ssh source-interface {{MGMT_INTERFACE}}",
+      "template": "! EXAMPLE ONLY - fictional demo, not a real configuration\n! Site: {{SITE}}\nhostname {{HOSTNAME}}\n!\n{{VLANS}}\n!\n! Management interface: SVI or Loopback, chosen per recipe in Manage recipes & baseline\ninterface {{MGMT_INTERFACE}}\n description MANAGEMENT\n ip address {{MGMT_IP}} {{MGMT_MASK}}\n no shutdown\n!\nip default-gateway {{GATEWAY}}\n!\n! NTP, RADIUS, logging and SSH sources follow the management interface\n{{MGMT_SOURCES}}\n!\n{{PORTS}}\nend\n",
+      "interfaces": [
+        "GigabitEthernet1/1",
+        "GigabitEthernet1/2",
+        "GigabitEthernet1/3",
+        "GigabitEthernet1/4",
+        "GigabitEthernet1/5",
+        "GigabitEthernet1/6",
+        "GigabitEthernet1/7",
+        "GigabitEthernet1/8",
+        "GigabitEthernet1/9",
+        "GigabitEthernet1/10"
+      ],
+      "roles": {
+        "access": "interface {{INTERFACE}}\n description {{DESCRIPTION}}\n switchport mode access\n switchport access vlan {{VLAN}}\n spanning-tree portfast\n spanning-tree bpduguard enable\n no shutdown\n!",
+        "trunk": "interface {{INTERFACE}}\n description {{DESCRIPTION}}\n switchport mode trunk\n no shutdown\n!",
+        "unused": "interface {{INTERFACE}}\n shutdown\n!",
+        "routed": "interface {{INTERFACE}}\n description {{DESCRIPTION}}\n no switchport\n ip address {{PORT_IP}} {{PORT_MASK}}\n no shutdown\n!"
+      },
+      "values": {
+        "HOSTNAME": "IE3100-DEMO-01",
+        "MGMT_IP": "192.0.2.10",
+        "MGMT_MASK": "255.255.255.0",
+        "MGMT_VLAN": "100",
+        "GATEWAY": "192.0.2.1",
+        "SITE": "Example site"
+      },
+      "ports": []
+    },
+    {
+      "id": "example-ie3x00-loopback-01",
+      "name": "EXAMPLE ONLY - IE3x00 demo (Loopback management, routed uplink)",
+      "model": "IE3x00",
+      "firmware": [],
+      "example": true,
+      "mgmtInterface": "loopback",
+      "mgmtSources": "ntp source {{MGMT_INTERFACE}}\nip radius source-interface {{MGMT_INTERFACE}}\nlogging source-interface {{MGMT_INTERFACE}}\nip ssh source-interface {{MGMT_INTERFACE}}",
+      "template": "! EXAMPLE ONLY - fictional demo, not a real configuration\n! Site: {{SITE}}\nhostname {{HOSTNAME}}\n!\n! Loopback management: the switch routes; the uplink is a Routed port with its own IP/mask\nip routing\n!\n{{VLANS}}\n!\ninterface {{MGMT_INTERFACE}}\n description MANAGEMENT\n ip address {{MGMT_IP}} {{MGMT_MASK}}\n!\nip route 0.0.0.0 0.0.0.0 {{GATEWAY}}\n!\n{{MGMT_SOURCES}}\n!\n{{PORTS}}\nend\n",
+      "interfaces": [
+        "GigabitEthernet1/1",
+        "GigabitEthernet1/2",
+        "GigabitEthernet1/3",
+        "GigabitEthernet1/4",
+        "GigabitEthernet1/5",
+        "GigabitEthernet1/6",
+        "GigabitEthernet1/7",
+        "GigabitEthernet1/8",
+        "GigabitEthernet1/9",
+        "GigabitEthernet1/10"
+      ],
+      "roles": {
+        "access": "interface {{INTERFACE}}\n description {{DESCRIPTION}}\n switchport mode access\n switchport access vlan {{VLAN}}\n spanning-tree portfast\n spanning-tree bpduguard enable\n no shutdown\n!",
+        "trunk": "interface {{INTERFACE}}\n description {{DESCRIPTION}}\n switchport mode trunk\n no shutdown\n!",
+        "unused": "interface {{INTERFACE}}\n shutdown\n!",
+        "routed": "interface {{INTERFACE}}\n description {{DESCRIPTION}}\n no switchport\n ip address {{PORT_IP}} {{PORT_MASK}}\n no shutdown\n!"
+      },
+      "values": {
+        "HOSTNAME": "IE3X00-LOOP-01",
+        "MGMT_IP": "198.51.100.10",
+        "MGMT_MASK": "255.255.255.255",
+        "MGMT_LOOPBACK": "0",
+        "GATEWAY": "192.0.2.1",
+        "SITE": "Example site"
+      },
+      "ports": [
+        {
+          "name": "GigabitEthernet1/1",
+          "role": "routed",
+          "vlan": "",
+          "description": "Uplink (routed)",
+          "ip": "192.0.2.2",
+          "mask": "255.255.255.252"
+        }
+      ]
+    }
+  ]
+}
