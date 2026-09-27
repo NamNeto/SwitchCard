@@ -1,0 +1,5 @@
+# Keep LF everywhere so the committed SwitchCard.html always equals the src/ build (build.py --check),
+# on Windows checkouts too.
+* text=auto eol=lf
+# Golden editcontent.txt files are CRLF by design and must never be normalised.
+tests/golden/*.txt -text

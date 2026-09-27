@@ -1,0 +1,54 @@
+! EXAMPLE ONLY - replace with your tested configuration
+! Site: Example site
+hostname IE3100-DEMO-01
+!
+! Layer-2 VLANs (management + Access/Trunk port VLANs)
+vlan 100
+!
+! Layer-3 management interface: SVI or Loopback, chosen in the recipe editor
+interface Vlan100
+ description MANAGEMENT
+ ip address 192.0.2.10 255.255.255.0
+ no shutdown
+!
+ip default-gateway 192.0.2.1
+!
+! Management-plane sources (NTP, RADIUS, logging, SSH) follow the management interface
+ntp source Vlan100
+ip radius source-interface Vlan100
+logging source-interface Vlan100
+ip ssh source-interface Vlan100
+!
+interface GigabitEthernet1/1
+ description Uplink
+ switchport mode trunk
+ no shutdown
+!
+interface GigabitEthernet1/2
+ shutdown
+!
+interface GigabitEthernet1/3
+ shutdown
+!
+interface GigabitEthernet1/4
+ shutdown
+!
+interface GigabitEthernet1/5
+ shutdown
+!
+interface GigabitEthernet1/6
+ shutdown
+!
+interface GigabitEthernet1/7
+ shutdown
+!
+interface GigabitEthernet1/8
+ shutdown
+!
+interface GigabitEthernet1/9
+ shutdown
+!
+interface GigabitEthernet1/10
+ shutdown
+!
+end
