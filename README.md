@@ -20,13 +20,16 @@
 | [docs/TESTED.md](docs/TESTED.md) | Device test matrix (no results recorded yet) |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Source tree, build, tests, release procedure |
 | [examples/eem-applet-example.md](examples/eem-applet-example.md) | The workflow's EEM applet (SyncConfig), step by step, and how the baseline card is made with `sync sdflash:` |
-| [SECURITY.md](SECURITY.md) | Security model and data-handling guidance |
+| [SECURITY.md](SECURITY.md) | Security model, data handling and private security reports |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to request features and report bugs |
 | [examples/](examples/) | One fictional example project (SVI and Loopback recipes) |
 | [tests/](tests/) | Browser tests and golden outputs (run by CI) |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 | `LICENSE` | MIT |
 
 ## Quick start
+
+To use SwitchCard you need only `SwitchCard.html` from the [latest release](https://github.com/NamNeto/SwitchCard/releases/latest). It runs in the browser and writes nothing to disk except the files you download; everything else in this repository is documentation and maintainer tooling.
 
 1. Open `SwitchCard.html` locally in Edge or Chrome.
 2. Explore an **EXAMPLE ONLY** recipe (card export is blocked for examples). Four are built in, including one switch managed through a loopback.
@@ -92,6 +95,10 @@ Real configurations, credentials, SNMP communities, site names and team packages
 - Product IDs, port counts and interface names in the SKU presets and in [docs/models-and-interfaces.md](docs/models-and-interfaces.md) are factual data read from Cisco's public data sheets and configuration guides. They are hints, not a substitute for those documents or for `show ip interface brief` on your own switch.
 - SwitchCard contains no Cisco software, firmware, images or documentation text. Firmware and configurations you load stay on your computer; do not publish them. You are responsible for holding the licences and rights to any image you place on a card.
 - The code is original and dependency-free. Its ZIP writer and SHA-256 follow the public PKWARE APPNOTE and FIPS 180-4 specifications. It is released under the MIT licence **without warranty of any kind**; a wrong card can take a switch offline, so test on a spare switch first.
+
+## Contributing
+
+Feature requests and bug reports are welcome as [issues](https://github.com/NamNeto/SwitchCard/issues/new/choose); use placeholder values, never real configurations. Pull requests are read as proposals, and changes are made by the maintainer. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
