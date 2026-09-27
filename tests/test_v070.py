@@ -2,7 +2,7 @@
 fingerprints, interface-brief parsing, transliteration, theme. Uses the fixtures in test_switchcard.py."""
 import pytest
 
-from test_switchcard import ev, page, browser  # noqa: F401  (fixtures)
+from helpers import ev
 
 
 # ---------------------------------------------------------------- team policy rules
