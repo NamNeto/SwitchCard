@@ -1,7 +1,7 @@
 // --- Preview, Maintain editor, Apply, New switch ---
 // Export blockers (separate from generate errors): unapplied draft, example recipe,
 // missing baseline, or a baseline whose model / label this recipe does not allow.
-function blockers(r) {
+function blockers(r, g) {
   const a = [];
   if (editorPending)
     a.push("Apply recipe changes or Discard unapplied draft first.");
@@ -13,13 +13,15 @@ function blockers(r) {
     if (r.firmware.length && !r.firmware.includes(baseline.version))
       a.push("Baseline label is not allowed by this recipe.");
   }
+  // Team policy rules (v0.7.0) are evaluated on the generated text and can only block.
+  if (g && !g.errors.length) for (const v of policyViolations(g.text, teamPolicies)) a.push("Team policy: " + v);
   return a;
 }
 
 function renderPreview() {
   const r = current(),
     g = generate(r),
-    b = blockers(r);
+    b = blockers(r, g);
   $("preview").textContent = g.text;
   const meter = $("previewMeter");
   if (meter) meter.textContent = previewSizeLabel(g.text);
@@ -34,6 +36,11 @@ function renderPreview() {
   if (g.errors.length)
     $("checks").append(statusNotice("error",
       g.errors.length === 1 ? "1 error blocks export" : g.errors.length + " errors block export", g.errors));
+  const policyHits = g.errors.length ? [] : policyViolations(g.text, teamPolicies);
+  if (policyHits.length)
+    $("checks").append(statusNotice("error",
+      policyHits.length === 1 ? "1 team policy rule blocks export" : policyHits.length + " team policy rules block export", policyHits,
+      "Rules are edited under Team security hints in Manage recipes & baseline."));
   if (!g.errors.length || notices.length) {
     const count = notices.length === 1 ? "1 note to review" : notices.length + " notes to review";
     const head = g.errors.length
@@ -62,7 +69,7 @@ function renderPreview() {
   }
   // Preview and export use the APPLIED recipe only. An unapplied Maintain draft disables the
   // file downloads (the card ZIP via blockers()); Copy preview only needs a clean generate().
-  $("downloadConfig").disabled = busy || editorPending || !!g.errors.length;
+  $("downloadConfig").disabled = busy || editorPending || !!g.errors.length || !!policyHits.length;
   $("copyPreview").disabled = busy || !!g.errors.length;
   $("downloadCard").disabled =
     busy || !!g.errors.length || !!b.length || !$("reviewed").checked;
@@ -92,6 +99,11 @@ function renderPreview() {
       : "Fix validation errors first."
     : "Download preview as editcontent.txt";
   updateDiscardButton();
+  // v0.7.0 panels: transliteration offer, changes since the last export, fleet gates.
+  const fix = $("asciiFix");
+  if (fix) fix.hidden = !g.asciiIssue;
+  renderDiffPanel(r, g);
+  refreshFleetButtons();
 }
 // One status box: a bold heading, an optional list of items and an optional muted footer.
 function statusNotice(kind, heading, items, footer) {
@@ -146,6 +158,7 @@ function loadEditor() {
     $("baseVersion").value = baseline.version;
   }
   if ($("teamHintsEditor")) $("teamHintsEditor").value = teamHints.join("\n");
+  if ($("teamPoliciesEditor")) $("teamPoliciesEditor").value = teamPolicies.join("\n");
 }
 function lines(s) {
   return s

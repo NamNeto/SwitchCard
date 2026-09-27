@@ -43,6 +43,136 @@ $("teamHintsEditor").addEventListener("input", () => {
   renderPreview();
   scheduleAutosave();
 });
+// Team policy rules: same editing model as hints, but they gate export (see policyViolations).
+function applyTeamPoliciesFromEditor(announce) {
+  const bp = boundedPolicies($("teamPoliciesEditor").value);
+  teamPolicies = bp.rules;
+  const bad = teamPolicies.map(parsePolicyLine).filter((p) => p && p.error).map((p) => p.error);
+  if (announce) {
+    $("teamPoliciesEditor").value = teamPolicies.join("\n");
+    message(
+      (teamPolicies.length ? "Team policy rules applied (" + teamPolicies.length + ")." : "Team policy rules cleared.") +
+        (bad.length ? " " + bad.length + " rule(s) cannot be evaluated and block export until fixed: " + bad[0] : "") +
+        (bp.trimmed ? " Some rules were shortened or dropped (max " + CONFIG.MAX_TEAM_POLICIES + " lines, " + CONFIG.MAX_TEAM_POLICY_CHARS + " characters each)." : ""),
+    );
+  }
+  touch();
+  renderPreview();
+}
+$("applyTeamPolicies").onclick = () => applyTeamPoliciesFromEditor(true);
+$("teamPoliciesEditor").addEventListener("input", () => applyTeamPoliciesFromEditor(false));
+// Theme picker (header).
+$("themeSelect").onchange = () => {
+  const v = $("themeSelect").value;
+  try {
+    if (v === "auto") localStorage.removeItem(CONFIG.THEME_KEY);
+    else localStorage.setItem(CONFIG.THEME_KEY, v);
+  } catch (e) {}
+  applyTheme(v);
+};
+// Transliteration helper: values and descriptions now; template / roles / sources as an editor draft.
+$("fixAscii").onclick = () => {
+  const r = current();
+  const changedValues = [];
+  for (const k of Object.keys(r.values || {})) {
+    const t = transliterateAscii(r.values[k]);
+    if (t !== r.values[k]) {
+      r.values[k] = t.trim();
+      changedValues.push(k);
+    }
+  }
+  let changedPorts = 0;
+  for (const p of r.ports || []) {
+    const t = transliterateAscii(p.description || "");
+    if (t !== (p.description || "")) {
+      p.description = t;
+      changedPorts++;
+    }
+  }
+  const tpl = transliterateAscii(r.template);
+  const roles = {};
+  for (const k of ROLE_NAMES) roles[k] = transliterateAscii(r.roles[k]);
+  const src = transliterateAscii(mgmtSourcesText(r));
+  const editorNeeds = tpl !== r.template || ROLE_NAMES.some((k) => roles[k] !== r.roles[k]) || src !== mgmtSourcesText(r);
+  if (changedValues.length || changedPorts) {
+    touch();
+    renderAll();
+  }
+  let msg = "Transliterated " + (changedValues.length ? "values " + changedValues.join(", ") : "no values") + (changedPorts ? " and " + changedPorts + " port description(s)" : "") + ".";
+  if (editorNeeds) {
+    if (editorPending) msg += " The recipe editor holds an unapplied draft; Apply or Discard it, then run this again for the template.";
+    else {
+      tab(true);
+      $("template").value = tpl;
+      const ids = { access: "roleAccess", trunk: "roleTrunk", unused: "roleUnused", routed: "roleRouted" };
+      for (const k of ROLE_NAMES) $(ids[k]).value = roles[k];
+      $("mgmtSources").value = src;
+      editorPending = true;
+      updateDiscardButton();
+      touch();
+      renderPreview();
+      msg += " A transliterated template, role templates and source block are loaded in the recipe editor — review them and click Apply recipe changes.";
+    }
+  } else if (!changedValues.length && !changedPorts) msg += " No translatable characters found; the reported character must be edited by hand.";
+  message(msg);
+};
+// Interface list from pasted show output (recipe editor).
+$("useIfaceBrief").onclick = () => {
+  const parsed = parseInterfaceBrief($("ifaceBriefPaste").value);
+  if (!parsed.names.length) {
+    message("No physical Ethernet interface names found in the pasted text.");
+    return;
+  }
+  if (parsed.names.length > MAX_INTERFACES) {
+    message("Found " + parsed.names.length + " interfaces; the limit is " + MAX_INTERFACES + ".");
+    return;
+  }
+  $("interfaces").value = parsed.names.join("\n");
+  $("skuPreset").value = "";
+  updateDeleteSkuPresetButton();
+  editorPending = true;
+  touch();
+  updateDiscardButton();
+  renderPreview();
+  message(
+    "Interface list filled with " + parsed.names.length + " port" + (parsed.names.length === 1 ? "" : "s") + " from the pasted output" +
+      (parsed.skipped.length ? "; skipped " + parsed.skipped.length + ": " + parsed.skipped.slice(0, 6).join(", ") + (parsed.skipped.length > 6 ? ", …" : "") : "") +
+      ". Click Apply recipe changes to keep it.",
+  );
+};
+// Fleet (Build).
+$("checkFleet").onclick = () => {
+  const r = current();
+  const res = checkFleet(r, $("fleetCsv").value);
+  fleet = { ...res, recipeId: r.id, stamp: fleetStamp(r) };
+  renderFleet(fleet);
+  refreshFleetButtons();
+  const bad = res.rows.filter((x) => x.errors.length || x.policy.length).length;
+  message(
+    res.errors.length
+      ? "Fleet CSV cannot be used: " + res.errors[0]
+      : bad
+        ? "Fleet checked: " + bad + " of " + res.rows.length + " switches have errors (see the Result column)."
+        : "Fleet checked: " + res.rows.length + " switch" + (res.rows.length === 1 ? "" : "es") + " ready.",
+  );
+};
+$("fleetCsvInput").onchange = () =>
+  run(async () => {
+    const f = $("fleetCsvInput").files[0];
+    if (!f) return;
+    try {
+      if (f.size > 2 * 1024 * 1024) throw Error("CSV file is too large (max 2 MiB).");
+      $("fleetCsv").value = await f.text();
+      fleet = null;
+      renderFleet(null);
+      message("CSV loaded (" + f.name + "). Click Check fleet.");
+    } finally {
+      $("fleetCsvInput").value = "";
+    }
+  });
+$("fleetCsv").addEventListener("input", () => refreshFleetButtons());
+$("exportFleet").onclick = () => run(() => exportFleet(false));
+$("exportFleetText").onclick = () => run(() => exportFleet(true));
 $("newSwitch").onclick = () => newSwitch();
 $("applyBulkVlan").onclick = () => {
   const r = current();
@@ -190,6 +320,7 @@ $("duplicate").onclick = () => {
   }
   const r = structuredClone(current());
   r.id = crypto.randomUUID();
+  r.exports = {}; // export history belongs to the original recipe
   r.name = (r.name.length + 7 > CONFIG.MAX_RECIPE_NAME_CHARS
     ? r.name.slice(0, CONFIG.MAX_RECIPE_NAME_CHARS - 7)
     : r.name) + " - copy";
@@ -306,7 +437,7 @@ $("clearAutosave").onclick = () => {
   if (
     !window.confirm(
       "Clear ALL SwitchCard data stored in this browser?\n\n" +
-        "Removes " + ks.length + " item(s): current and older autosaves, " + nb + " autosave backup(s), custom SKU presets and tips/pin settings." +
+        "Removes " + ks.length + " item(s): current and older autosaves, " + nb + " autosave backup(s), custom SKU presets, theme and tips/pin settings." +
         (nb ? "\n\nTip: Cancel and use Download autosave backup first if you may need a backup." : "") +
         "\n\nIn-memory work stays until you reload.",
     )
@@ -365,12 +496,20 @@ $("folderInput").onchange = () =>
     }));
     checkFiles(files);
     assertBaselineComplete(files, "Baseline folder");
-    baseline = { model, version, files };
+    // Fingerprint every file (hashes only, never bytes) and compare with the project's record.
+    const fingerprint = await fingerprintFiles(files, "Fingerprinting baseline");
+    const compare = baselineExpected && baselineExpected.fingerprint ? compareFingerprints(baselineExpected.fingerprint, fingerprint) : null;
+    baseline = { model, version, files, fingerprint, compare };
     touch();
     renderBaseline();
     const nonAscii = files.filter((f) => /[^\x20-\x7e]/.test(f.path)).length;
     message(
       "Baseline loaded. Verify its file list and model; automatic firmware identification is not included." +
+        (compare
+          ? compare.same
+            ? " Fingerprint matches the project's recorded baseline."
+            : " WARNING: fingerprint " + compare.summary + (compare.changed.length ? "; changed: " + compare.changed.slice(0, 5).join(", ") : "") + ". Use the recorded folder, or Save project to record this one."
+          : " Fingerprint recorded (" + fingerprint.digest.slice(0, 12) + "…); Save project keeps it.") +
         (version !== rawVersion ? " Cleaned baseline label; updated value is shown in the editor." : "") +
         (nonAscii
           ? " Note: " + nonAscii + " file name(s) contain non-ASCII characters; the ZIP marks them as UTF-8 but some extractors may still show them incorrectly."
@@ -385,6 +524,11 @@ $("downloadConfig").onclick = () => {
   }
   const g = generate(current());
   if (g.errors.length) return;
+  const policyHits = policyViolations(g.text, teamPolicies);
+  if (policyHits.length) {
+    message("Team policy blocks this text: " + policyHits[0]);
+    return;
+  }
   download(new Blob([g.text], { type: "text/plain;charset=utf-8" }), "editcontent.txt");
   message(
     "Text exported as editcontent.txt (" +
@@ -397,7 +541,7 @@ function assertExportReady() {
   const r = current();
   // Single generate() result used for preview identity and ZIP root editcontent.txt
   const g = generate(r);
-  const b = blockers(r);
+  const b = blockers(r, g);
   if (editorPending)
     throw Error("Apply recipe changes or Discard unapplied draft first.");
   if (g.errors.length || b.length || !$("reviewed").checked)
@@ -427,6 +571,9 @@ $("downloadCard").onclick = () =>
         RELEASE +
         "-sdcard.zip",
     );
+    // Remember this text per hostname so the next build of the same switch shows a diff.
+    recordExport(r, String((r.values && r.values.HOSTNAME) || ""), g.text);
+    touch();
     message(
       "SD-card ZIP exported (" +
         previewSizeLabel(g.text) +
@@ -464,7 +611,8 @@ $("saveProject").onclick = () => {
     dirty = false;
     autosave();
     message(
-      "Project JSON downloaded. Reload the firmware folder next session (or use a team package to bundle baseline files).",
+      "Project JSON downloaded. Reload the firmware folder next session (or use a team package to bundle baseline files)." +
+        (baseline && baseline.fingerprint ? " The loaded baseline's fingerprint is recorded, so a different folder is flagged next time." : ""),
     );
   } catch (e) {
     message(e.message || String(e));
@@ -548,7 +696,12 @@ $("packageInput").onchange = () =>
         .map((f) => ({ path: f.path.slice(9), blob: f.blob }));
       checkFiles(baseFiles);
       assertBaselineComplete(baseFiles, "Team package baseline");
-      const notes = acceptProject(p, { ...p.baseline, files: baseFiles });
+      const fingerprint = await fingerprintFiles(baseFiles, "Checking package files");
+      if (p.baseline.fingerprint && p.baseline.fingerprint.digest !== fingerprint.digest)
+        throw Error(
+          "The package's baseline files do not match the fingerprint in its manifest (" + p.baseline.fingerprint.fileCount + " files recorded, " + fingerprint.fileCount + " found). It was altered after Save team package; rebuild it from the original workspace.",
+        );
+      const notes = acceptProject(p, { ...p.baseline, files: baseFiles, fingerprint });
       let msg =
         "Team package opened. Baseline integrity checked (complete sync export). Select a recipe to prepare a card.";
       if (notes && notes.length) msg += " Migration notes: " + notes.join(" ");
@@ -623,6 +776,7 @@ function applyRestoredResult(restored, source) {
     message(msg);
   }
 }
+applyTheme(loadThemePref());
 customSkuPresets = loadCustomSkuPresetsFromLocal();
 const restored = restoreAutosave();
 showOnboarding();

@@ -1,6 +1,6 @@
 # SwitchCard
 
-`v0.6.0` · offline · single HTML file · CSP `connect-src 'none'` · MIT
+`v0.7.0` · offline · single HTML file · CSP `connect-src 'none'` · MIT · [online demo](https://namneto.github.io/SwitchCard/)
 
 **SwitchCard** builds SD-card media for Cisco Industrial Ethernet switches (IE3100, IE3x00, IE9300) in environments that use an **on-switch EEM script** to apply a root `editcontent.txt`. Load a firmware baseline folder once, keep configuration **recipes** (templates + port roles), fill in one switch's details and export a ZIP. Extract its contents to the card root and the card is ready.
 
@@ -11,14 +11,18 @@
 | File | Purpose |
 |------|---------|
 | `SwitchCard.html` | The whole app. Open it in Edge or Chrome; nothing to install. |
-| [docs/USER-GUIDE.md](docs/USER-GUIDE.md) | Step-by-step usage, including the SVI / Loopback management setting |
+| [docs/USER-GUIDE.md](docs/USER-GUIDE.md) | Step-by-step usage: management interface, team policy rules, fleet export, diffs, fingerprints |
 | [docs/ROLLOUT-CHECKLIST.md](docs/ROLLOUT-CHECKLIST.md) | Spare-switch test, card verification, reachability, rollback |
 | [docs/EEM-CONTRACT.md](docs/EEM-CONTRACT.md) | What SwitchCard assumes about the EEM flow + **spare-switch checklist C1–C9** |
 | [docs/SAFETY-EXPORT.md](docs/SAFETY-EXPORT.md) | Every export gate, input check and limit |
 | [docs/models-and-interfaces.md](docs/models-and-interfaces.md) | IE3100 / IE3x00 / IE9300 models, interface naming and how the SKU presets were verified |
 | [docs/SECURITY-HINTS.md](docs/SECURITY-HINTS.md) | Optional hardening hints (advisory) |
+| [docs/TESTED.md](docs/TESTED.md) | Device test matrix (no results recorded yet) |
+| [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Source tree, build, tests, release procedure |
+| [examples/eem-applet-example.md](examples/eem-applet-example.md) | Reference apply-once EEM applet (untested) |
 | [SECURITY.md](SECURITY.md) | Security model and data-handling guidance |
 | [examples/](examples/) | One fictional example project (SVI and Loopback recipes) |
+| [tests/](tests/) | Browser tests and golden outputs (run by CI) |
 | [CHANGELOG.md](CHANGELOG.md) | Version history |
 | `LICENSE` | MIT |
 
@@ -43,19 +47,35 @@ Each recipe decides what `{{MGMT_INTERFACE}}` means:
 
 `{{MGMT_SOURCES}}` expands to the recipe's editable list of management-plane source commands. By default that is `ntp source`, `ip radius source-interface`, `logging source-interface` and `ip ssh source-interface`, all pointing at `{{MGMT_INTERFACE}}`. Change the management VLAN on Build, or switch the recipe to a loopback, and every source line follows. A loopback design also needs `ip routing`, a Routed uplink or SVI towards the gateway and `ip route 0.0.0.0 0.0.0.0 {{GATEWAY}}`; SwitchCard adds review notes when those are missing. Details in [docs/USER-GUIDE.md](docs/USER-GUIDE.md).
 
+## Fleets, policies and history
+
+- **Team policy rules** turn a hint into a gate: `require transport input ssh` or `forbid snmp-server community` lines block export until the generated text complies.
+- **Fleet export** builds one card per CSV row with the same checks as a single card, one ZIP per switch or one text-only ZIP, plus a manifest of every SHA-256.
+- **Changes since the last export** shows a line diff when a switch is rebuilt, from the text remembered per hostname.
+- **Baseline fingerprints** record what was loaded, warn when a different folder is loaded under the same label, and refuse an altered team package.
+- **Fill from show ip interface brief** turns the switch's own port list into the recipe's interface list; **Transliterate to ASCII** fixes umlauts and typographic characters that block export; a **light theme** is one click away.
+
+Details for each are in [docs/USER-GUIDE.md](docs/USER-GUIDE.md); the exact gates in [docs/SAFETY-EXPORT.md](docs/SAFETY-EXPORT.md).
+
 ## Built-in safeguards
 
 - The preview text **is** the `editcontent.txt` in the ZIP (same bytes, CRLF). The export confirm shows its SHA-256 so the extracted file can be checked.
 - The whole generated file must be plain printable ASCII; anything else (hidden characters, em dashes, umlauts) blocks export and names the line and column.
-- Export is blocked while there are input errors, while the recipe is an example, without a matching baseline, or while the recipe editor has unapplied changes.
+- Export is blocked while there are input errors, while a team policy rule fails, while the recipe is an example, without a matching baseline, or while the recipe editor has unapplied changes.
 - Basic sanity checks: IPv4 shape, subnet/gateway fit, overlapping subnets, VLAN ranges, reserved VLANs, duplicate addresses, role lines with a missing port value, loopback number range, and loopback-mode review notes for routing and gateway reachability.
 - It does **not** check Cisco command syntax, topology, licensing or EEM behavior.
 
 ## Saving work
 
-- **Save project**: recipes and values (no firmware) as a JSON file (schema v4). Use this to move work between machines or versions. Files from v0.5.x (schema v3) open unchanged; v0.5.x cannot open v4 files.
+- **Save project**: recipes, values, team hints and policy rules, the baseline fingerprint and export history (no firmware) as a JSON file (schema v5). Files from v0.5.x and v0.6.0 (schema v3 and v4) open unchanged; older releases cannot open v5 files.
 - **Save team package**: recipes plus one baseline, for private sharing within a team.
 - **Browser autosave**: a convenience copy in this browser only, with up to three backups. Firmware is never autosaved.
+
+## Try it, verify it
+
+- **Demo:** [namneto.github.io/SwitchCard](https://namneto.github.io/SwitchCard/) serves the same single file from GitHub Pages. Explore the examples there; for real work download the file and open it locally.
+- **Verify a download:** every [release](https://github.com/NamNeto/SwitchCard/releases) lists the SHA-256 of `SwitchCard.html`. On Windows run `certutil -hashfile SwitchCard.html SHA256`, on Linux or macOS `sha256sum SwitchCard.html`, and compare.
+- **Build from source:** `python build.py` assembles the file from `src/`; CI fails if the committed file drifts. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Related tools
 

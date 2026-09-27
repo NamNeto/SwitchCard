@@ -217,8 +217,16 @@ function renderBaseline() {
       " · " +
       baseline.files.length +
       " files · " +
-      size(baseline.files.reduce((n, f) => n + f.blob.size, 0))
-    : "No baseline loaded. Explore the examples, then import a complete sync export in Manage recipes & baseline.";
+      size(baseline.files.reduce((n, f) => n + f.blob.size, 0)) +
+      (baseline.fingerprint
+        ? " · fingerprint " + baseline.fingerprint.digest.slice(0, 12) + "… " +
+          (baseline.compare ? baseline.compare.summary : "(recorded by Save project / team package)")
+        : "")
+    : baselineExpected
+      ? "No baseline loaded. The project expects " + baselineExpected.model + " / " + baselineExpected.version +
+        (baselineExpected.fingerprint ? " (" + baselineExpected.fingerprint.fileCount + " files, fingerprint recorded)" : "") +
+        " — load that sync-export folder in Manage recipes & baseline; it is compared with the record."
+      : "No baseline loaded. Explore the examples, then import a complete sync export in Manage recipes & baseline.";
   $("baselineInfo").textContent = description;
   $("baseDetails").textContent = description;
   $("fileList").textContent = baseline

@@ -111,7 +111,7 @@ function validateProject(p) {
   if (
     !p ||
     p.format !== CONFIG.PROJECT_FORMAT ||
-    ![1, 2, 3, 4].includes(p.version) ||
+    ![1, 2, 3, 4, 5].includes(p.version) ||
     !Array.isArray(p.recipes) ||
     !p.recipes.length ||
     p.recipes.length > MAX_RECIPES
@@ -197,6 +197,27 @@ function validateProject(p) {
     const textIssue = recipeTextIssue(r);
     if (textIssue) throw Error(rname + ": " + textIssue + " Fix the file and reload.");
     sanitizeRecipeFields(r, migrationNotes, rname);
+    // Export history (v0.7.0): optional; every entry must be self-consistent or it is dropped.
+    if (r.exports !== undefined) {
+      if (!r.exports || typeof r.exports !== "object" || Array.isArray(r.exports)) {
+        migrationNotes.push(rname + ": invalid export history dropped.");
+        r.exports = {};
+      } else {
+        const clean = {};
+        let dropped = 0;
+        for (const [k, e] of Object.entries(r.exports)) {
+          if (
+            e && typeof e === "object" && typeof e.host === "string" && typeof e.text === "string" && typeof e.at === "string" &&
+            /^[0-9a-f]{64}$/.test(String(e.sha256 || "")) && k === e.host.trim().toLowerCase() && sha256Hex(e.text) === e.sha256
+          )
+            clean[k] = { host: e.host, at: e.at, release: typeof e.release === "string" ? e.release : "?", sha256: e.sha256, text: e.text };
+          else dropped++;
+        }
+        r.exports = clean;
+        pruneExportHistory(r);
+        if (dropped) migrationNotes.push(rname + ": dropped " + dropped + " invalid export history entr" + (dropped === 1 ? "y" : "ies") + ".");
+      }
+    }
     // Reject duplicate / case-ambiguous saved port names.
     const portNames = r.ports.map((x) => String(x.name || "").toLowerCase());
     if (new Set(portNames).size !== portNames.length)
@@ -265,6 +286,45 @@ function validateProject(p) {
         (cleanHints.length > CONFIG.MAX_TEAM_HINTS ? "; kept the first " + CONFIG.MAX_TEAM_HINTS + " of " + cleanHints.length : "") + ".",
     );
   p.teamHints = cleanHints.slice(0, CONFIG.MAX_TEAM_HINTS);
+  // teamPolicies (v0.7.0) is optional: missing -> []. Rules are strings; an invalid pattern is kept
+  // and reported as a blocking violation at generate time (fail closed), never silently dropped.
+  if (p.teamPolicies === undefined || p.teamPolicies === null) p.teamPolicies = [];
+  else if (!Array.isArray(p.teamPolicies) || !p.teamPolicies.every((x) => typeof x === "string"))
+    throw Error("Invalid teamPolicies in project.");
+  const cleanPolicies = p.teamPolicies
+    .map((h) => sanitizeSingleLine(h).text.trim())
+    .filter(Boolean)
+    .map((h) => h.slice(0, CONFIG.MAX_TEAM_POLICY_CHARS));
+  if (
+    cleanPolicies.length > CONFIG.MAX_TEAM_POLICIES ||
+    cleanPolicies.length !== p.teamPolicies.length ||
+    cleanPolicies.some((h, i) => h !== p.teamPolicies[i])
+  )
+    migrationNotes.push(
+      "Team policy rules cleaned (max " + CONFIG.MAX_TEAM_POLICIES + " lines × " + CONFIG.MAX_TEAM_POLICY_CHARS + " characters, no control characters)" +
+        (cleanPolicies.length > CONFIG.MAX_TEAM_POLICIES ? "; kept the first " + CONFIG.MAX_TEAM_POLICIES + " of " + cleanPolicies.length : "") + ".",
+    );
+  p.teamPolicies = cleanPolicies.slice(0, CONFIG.MAX_TEAM_POLICIES);
+  // baseline.fingerprint (v0.7.0) is optional; an invalid one is dropped with a note.
+  if (p.baseline && p.baseline.fingerprint !== undefined) {
+    const fp = p.baseline.fingerprint;
+    const hex64 = (x) => /^[0-9a-f]{64}$/.test(String(x || ""));
+    const okShape =
+      fp && typeof fp === "object" && !Array.isArray(fp) && hex64(fp.digest) &&
+      Number.isInteger(fp.fileCount) && fp.fileCount >= 0 && Number.isInteger(fp.totalBytes) && fp.totalBytes >= 0 &&
+      (fp.files === undefined ||
+        (Array.isArray(fp.files) && fp.files.length <= CONFIG.MAX_FINGERPRINT_FILES &&
+          fp.files.every((f) => f && typeof f.path === "string" && !singleLineBad(f.path) && Number.isInteger(f.size) && f.size >= 0 && hex64(f.sha256))));
+    if (!okShape) {
+      migrationNotes.push("The baseline fingerprint in the file was invalid and was dropped.");
+      delete p.baseline.fingerprint;
+    } else {
+      p.baseline.fingerprint = {
+        fileCount: fp.fileCount, totalBytes: fp.totalBytes, digest: fp.digest,
+        ...(fp.files ? { files: fp.files.map((f) => ({ path: f.path, size: f.size, sha256: f.sha256 })) } : {}),
+      };
+    }
+  }
   // customSkuPresets is optional: missing -> {}
   if (p.customSkuPresets === undefined || p.customSkuPresets === null) {
     p.customSkuPresets = Object.create(null);
@@ -288,6 +348,10 @@ function acceptProject(p, b, restoredFile = null) {
   preservedAutosaveRaw = restoredFile && restoredFile.preservedAutosaveRaw || null;
   parkedDraft = restoredFile && restoredFile.parkedDraft != null ? restoredFile.parkedDraft : null;
   teamHints = Array.isArray(p.teamHints) ? [...p.teamHints] : [];
+  teamPolicies = Array.isArray(p.teamPolicies) ? [...p.teamPolicies] : [];
+  baselineExpected = p.baseline ? { ...p.baseline } : null;
+  if (b && baselineExpected && baselineExpected.fingerprint && b.fingerprint) b.compare = compareFingerprints(baselineExpected.fingerprint, b.fingerprint);
+  fleet = null;
   customSkuPresets = normalizeCustomSkuPresets(p.customSkuPresets);
   persistCustomSkuPresetsLocal();
   $("reviewed").checked = false;

@@ -1,14 +1,15 @@
 <!doctype html>
 <!--
-  SwitchCard v0.6.0 - offline, single-file SD-card builder for Cisco IE switches
+  SwitchCard v0.7.0 - offline, single-file SD-card builder for Cisco IE switches
   (IE3100 / IE3x00 / IE9300) that use an on-switch EEM script to apply editcontent.txt.
 
   What it does: packs a firmware baseline folder + a configuration recipe into an SD-card ZIP
   whose root holds exactly one generated editcontent.txt. Everything runs in this browser tab:
   no server, no CDN, no network (CSP connect-src 'none'). Firmware bytes are never stored.
 
-  File layout: one style block (theme + layout), then the HTML (Build panel, then Maintain
-  panel), then one script block with all logic. See "CODE MAP" at the top of the script.
+  File layout: a two-line theme bootstrap, one style block (theme + layout), then the HTML
+  (Build panel, then Maintain panel), then one script block with all logic. See "CODE MAP" at
+  the top of the script. Source lives in src/ and is assembled by build.py (docs/DEVELOPMENT.md).
 
   Not affiliated with Cisco; does not replace Cisco Swap Drive (sync sdflash:). MIT licence.
 -->
@@ -21,6 +22,13 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
+    <script>
+      // Theme bootstrap: apply a saved Light/Dark choice before first paint (Auto follows the OS).
+      try {
+        const t = localStorage.getItem("switchcard-theme");
+        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
     <style>
       /* --- Design tokens: colours, radii, fonts (dark theme, green-teal accent) --- */
       :root {
@@ -49,9 +57,82 @@
         --ease: 140ms ease;
         --font: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
         --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+        /* Surfaces that were hard-coded before the light theme existed. */
+        --header-bg: rgba(14, 14, 18, 0.78);
+        --glow2: rgba(61, 139, 253, 0.055);
+        --tab-hover: rgba(255, 255, 255, 0.03);
+        --btn-hover: #26262f;
+        --pre-text: #e8e4da;
+        --pre-bg: #0e0e12;
+        --thead-bg: rgba(255, 255, 255, 0.02);
+        --status-bg: rgba(28, 28, 36, 0.92);
+        color-scheme: dark;
         font: 15px/1.5 var(--font);
         color: var(--text);
         background: var(--bg);
+      }
+      /* --- Light theme: chosen in the header (data-theme="light"), or the OS preference when Auto --- */
+      :root[data-theme="light"] {
+        --bg: #f4f3ef;
+        --bg2: #eceae4;
+        --card: #ffffff;
+        --card2: #f6f5f1;
+        --line: #d8d5cc;
+        --line2: #c6c2b7;
+        --text: #1c1b18;
+        --muted: #5d594f;
+        --faint: #8b867b;
+        --accent: #179c74;
+        --accent2: #12805f;
+        --accent-dim: rgba(23, 156, 116, 0.16);
+        --accent-glow: rgba(23, 156, 116, 0.1);
+        --ok: #1e8a5c;
+        --warn: #8f6400;
+        --err: #c53030;
+        --info: #2160b8;
+        --shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 8px 24px rgba(20, 20, 10, 0.1);
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+        --header-bg: rgba(250, 249, 246, 0.82);
+        --glow2: rgba(61, 139, 253, 0.06);
+        --tab-hover: rgba(0, 0, 0, 0.04);
+        --btn-hover: #e9e7e0;
+        --pre-text: #1c1b18;
+        --pre-bg: #fbfaf7;
+        --thead-bg: rgba(0, 0, 0, 0.03);
+        --status-bg: rgba(255, 255, 255, 0.94);
+        color-scheme: light;
+      }
+      @media (prefers-color-scheme: light) {
+        :root:not([data-theme="dark"]) {
+          --bg: #f4f3ef;
+          --bg2: #eceae4;
+          --card: #ffffff;
+          --card2: #f6f5f1;
+          --line: #d8d5cc;
+          --line2: #c6c2b7;
+          --text: #1c1b18;
+          --muted: #5d594f;
+          --faint: #8b867b;
+          --accent: #179c74;
+          --accent2: #12805f;
+          --accent-dim: rgba(23, 156, 116, 0.16);
+          --accent-glow: rgba(23, 156, 116, 0.1);
+          --ok: #1e8a5c;
+          --warn: #8f6400;
+          --err: #c53030;
+          --info: #2160b8;
+          --shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 8px 24px rgba(20, 20, 10, 0.1);
+          --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
+          --header-bg: rgba(250, 249, 246, 0.82);
+          --glow2: rgba(61, 139, 253, 0.06);
+          --tab-hover: rgba(0, 0, 0, 0.04);
+          --btn-hover: #e9e7e0;
+          --pre-text: #1c1b18;
+          --pre-bg: #fbfaf7;
+          --thead-bg: rgba(0, 0, 0, 0.03);
+          --status-bg: rgba(255, 255, 255, 0.94);
+          color-scheme: light;
+        }
       }
       * {
         box-sizing: border-box;
@@ -60,7 +141,7 @@
         margin: 0;
         background:
           radial-gradient(1100px 520px at 8% -8%, var(--accent-glow), transparent 58%),
-          radial-gradient(800px 420px at 100% 0%, rgba(61, 139, 253, 0.055), transparent 52%),
+          radial-gradient(800px 420px at 100% 0%, var(--glow2), transparent 52%),
           var(--bg);
         min-height: 100vh;
         color: var(--text);
@@ -69,7 +150,7 @@
 
       /* --- Layout: sticky glass header, shell, typography --- */
       header {
-        background: rgba(14, 14, 18, 0.78);
+        background: var(--header-bg);
         color: var(--text);
         padding: calc(var(--space) * 2) calc(var(--space) * 3.5);
         display: flex;
@@ -193,7 +274,7 @@
       }
       .tabs button:hover:not(.active) {
         color: var(--text);
-        background: rgba(255, 255, 255, 0.03);
+        background: var(--tab-hover);
       }
       .grid {
         display: grid;
@@ -336,7 +417,7 @@
       button:hover,
       .filebutton:hover {
         border-color: rgba(45, 212, 168, 0.45);
-        background: #26262f;
+        background: var(--btn-hover);
       }
       button:active:not(:disabled),
       .filebutton:active {
@@ -472,8 +553,8 @@
         white-space: pre-wrap;
         overflow-wrap: anywhere;
         margin: 0;
-        color: #e8e4da;
-        background: #0e0e12;
+        color: var(--pre-text);
+        background: var(--pre-bg);
         border: 1px solid var(--line);
         padding: calc(var(--space) * 2);
         border-radius: var(--radius);
@@ -489,7 +570,7 @@
         min-width: 720px;
       }
       thead th {
-        background: rgba(255, 255, 255, 0.02);
+        background: var(--thead-bg);
         position: sticky;
         top: 0;
         z-index: 1;
@@ -642,11 +723,53 @@
       [hidden] {
         display: none !important;
       }
+      /* --- v0.7.0: theme picker, diff view, fleet table, transliteration notice --- */
+      .theme-pick {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        margin-bottom: 4px;
+        font-size: 12px;
+        color: var(--muted);
+      }
+      .theme-pick select {
+        min-height: 0;
+        padding: 2px 6px;
+        font-size: 12px;
+        width: auto;
+      }
+      pre.diff {
+        max-height: 320px;
+        font-size: 12px;
+      }
+      pre.diff .add {
+        color: var(--ok);
+      }
+      pre.diff .del {
+        color: var(--err);
+      }
+      #asciiFix button {
+        margin: 6px 8px 6px 0;
+      }
+      #fleetTable td.bad {
+        color: var(--err);
+      }
+      #fleetTable td.ok {
+        color: var(--ok);
+      }
+      #fleetTable td.inherit {
+        color: var(--muted);
+        font-style: italic;
+      }
+      #fleetTable td.mono {
+        font-family: var(--mono);
+        font-size: 12px;
+      }
       #status {
         position: sticky;
         bottom: 12px;
         padding: 12px 16px;
-        background: rgba(28, 28, 36, 0.92);
+        background: var(--status-bg);
         color: var(--text);
         border: 1px solid var(--line2);
         border-radius: var(--radius);
@@ -850,11 +973,18 @@
       <div class="brand">
         <span class="mark" aria-hidden="true"></span>
         <div>
-          <strong>SwitchCard <span id="releaseLabel">/ v0.6.0</span></strong>
+          <strong>SwitchCard <span id="releaseLabel">/ v0.7.0</span></strong>
           <div class="tag">Offline card builder</div>
         </div>
       </div>
       <div class="right">
+        <label class="theme-pick"
+          ><span>Theme</span
+          ><select id="themeSelect" aria-label="Colour theme">
+            <option value="auto">Auto</option>
+            <option value="dark">Dark</option>
+            <option value="light">Light</option></select
+        ></label>
         Files stay on this computer<span id="autosaveHint" class="autosave" hidden>Workspace saved locally</span>
       </div>
     </header>
@@ -977,6 +1107,19 @@
                 ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
               </div>
               <p id="exportWhy" class="muted" style="margin-top: 8px"></p>
+              <div id="asciiFix" class="notice warning" hidden>
+                <strong class="notice-head">Non-ASCII characters block export.</strong>
+                <button type="button" id="fixAscii">Transliterate to ASCII</button>
+                <span class="notice-foot"
+                  >Replaces umlauts (ue, oe, ae, ss), accents, dashes, curly quotes and invisible
+                  characters in the values and port descriptions now, and loads a transliterated
+                  template into the recipe editor for you to review and Apply.</span
+                >
+              </div>
+              <details id="diffPanel" hidden>
+                <summary id="diffSummary">Changes since the last export</summary>
+                <pre id="diffOut" class="diff"></pre>
+              </details>
               <p>
                 <small
                   >Extract ZIP contents to the SD card <strong>root</strong> (so
@@ -994,6 +1137,57 @@
                   Your team list from Manage (one tip per line). <strong>Never blocks export</strong>, never rewrites config.
                 </p>
                 <div id="securityHints"></div>
+              </details>
+            </div>
+            <div class="card">
+              <!-- Fleet: many switches from one recipe, values per switch from a CSV. -->
+              <details id="fleetPanel">
+                <summary class="hint-summary">
+                  Fleet export <span class="badge">optional</span>
+                </summary>
+                <p class="muted">
+                  Build many cards from this recipe at once. Paste CSV with a header row of
+                  placeholder names (HOSTNAME, MGMT_IP, …); an empty cell inherits the Device
+                  details above. Port roles, VLANs and descriptions are shared by every switch.
+                </p>
+                <textarea
+                  id="fleetCsv"
+                  rows="6"
+                  spellcheck="false"
+                  placeholder="HOSTNAME,MGMT_IP&#10;EXAMPLE-SW1,192.0.2.11&#10;EXAMPLE-SW2,192.0.2.12"
+                ></textarea>
+                <div class="actions">
+                  <label class="filebutton"
+                    >Load CSV file<input
+                      id="fleetCsvInput"
+                      type="file"
+                      accept=".csv,.txt,text/csv,text/plain"
+                      class="fileinput"
+                  /></label>
+                  <button type="button" id="checkFleet">Check fleet</button>
+                </div>
+                <div id="fleetSummary" hidden></div>
+                <div class="scroll">
+                  <table id="fleetTable" hidden>
+                    <thead id="fleetHead"></thead>
+                    <tbody id="fleetRows"></tbody>
+                  </table>
+                </div>
+                <div class="actions">
+                  <button type="button" id="exportFleet" class="primary" disabled>
+                    Export fleet cards</button
+                  ><button type="button" id="exportFleetText" disabled>Export fleet text only</button>
+                </div>
+                <p id="fleetWhy" class="muted" style="margin-top: 8px">Paste a CSV and click Check fleet.</p>
+                <p>
+                  <small
+                    >Fleet cards pass the same checks and gates as a single card (review box,
+                    baseline, example flag, team policies). Each card is its own ZIP download; the
+                    browser may ask once to allow multiple downloads. <em>Text only</em> writes one
+                    ZIP with <code>HOSTNAME/editcontent.txt</code> per switch plus a manifest, and
+                    a manifest with every SHA-256 is downloaded after a card export.</small
+                  >
+                </p>
               </details>
             </div>
             <div class="card">
@@ -1144,6 +1338,27 @@
                 <div class="actions">
                   <button id="applyTeamHints" type="button">Apply team hints</button>
                 </div>
+                <div class="field" style="margin-top: 14px">
+                  <label for="teamPoliciesEditor">Team policy rules (block export)</label>
+                  <textarea
+                    id="teamPoliciesEditor"
+                    rows="4"
+                    spellcheck="false"
+                    placeholder="require transport input ssh&#10;forbid snmp-server community&#10;require ^ip ssh version 2  # a note after two spaces and a hash"
+                  ></textarea>
+                </div>
+                <div class="actions">
+                  <button id="applyTeamPolicies" type="button">Apply team policies</button>
+                </div>
+                <p class="muted" style="margin-top: 10px">
+                  <small
+                    >One rule per line: <code>require &lt;pattern&gt;</code> or
+                    <code>forbid &lt;pattern&gt;</code>. Patterns are case-insensitive regular
+                    expressions matched line by line against the generated text without
+                    <code>!</code> comments and <code>no …</code> lines. A failing or invalid rule
+                    <strong>blocks export</strong> (single and fleet); hints never do.</small
+                  >
+                </p>
                 <p class="muted" style="margin-top: 10px">
                   <small
                     ><code>docs/SECURITY-HINTS.md</code> is reference; the live list is edited here
@@ -1265,6 +1480,22 @@
               <label for="interfaces">Available interface names (one per line)</label
               ><textarea id="interfaces" class="compact" spellcheck="false"></textarea>
             </div>
+            <details class="sku-notes">
+              <summary>Fill from show ip interface brief</summary>
+              <p>
+                <small
+                  >Paste <code>show ip interface brief</code> or <code>show interfaces status</code>
+                  output from the switch. Physical Ethernet ports are kept in device order; Vlan,
+                  Loopback, Port-channel, Tunnel, AppGigabitEthernet and the out-of-band
+                  <code>GigabitEthernet0/0</code> port are skipped. Then click Apply recipe
+                  changes.</small
+                >
+              </p>
+              <textarea id="ifaceBriefPaste" class="compact" spellcheck="false"></textarea>
+              <div class="actions">
+                <button type="button" id="useIfaceBrief">Use these interface names</button>
+              </div>
+            </details>
             <details>
               <summary>Edit port role commands</summary>
               <p>
@@ -1321,7 +1552,7 @@
       </section>
       <div id="status" role="status" hidden></div>
       <footer>
-        SwitchCard <strong>0.6.0</strong> · offline · CSP <code>connect-src 'none'</code> · not
+        SwitchCard <strong>0.7.0</strong> · offline · CSP <code>connect-src 'none'</code> · not
         affiliated with Cisco · Swap Drive (<code>sync sdflash:</code>) remains Cisco’s flash↔SD
         path · MIT.
       </footer>
@@ -1343,7 +1574,11 @@
            7. Preview / Maintain editor / Apply     renderPreview, loadEditor, applyRecipe, New switch
            8. Persistence                           migrateRecipe, validateProject, open/save project
            9. Baseline + ZIP I/O                    folder import, store-only ZIP writer/reader
-          10. Event wiring + boot                   button handlers, export, autosave restore at load
+          10. Fleet, diff, policies, fingerprints  v0.7.0 helpers (src/js/09b-*.js): CSV fleet export,
+                                                   export history + line diff, team policy rules,
+                                                   baseline fingerprints, interface-brief parsing,
+                                                   transliteration, theme
+          11. Event wiring + boot                   button handlers, export, autosave restore at load
 
          SAFETY INVARIANTS (keep these true when changing anything)
            - The preview text IS the ZIP's editcontent.txt (same string, same bytes, CRLF).
@@ -1353,6 +1588,7 @@
            - Stored data is never overwritten silently: a replaced autosave goes to the backup
              ring first, and autosave pauses when that backup cannot be written.
            - No network access of any kind (enforced by the CSP meta tag in <head>).
+           - Team policy rules can only ever BLOCK an export, never change generated text.
          ========================================================================================== */
 
       /* --- Interface-name builders for the SKU presets below ---
@@ -1381,7 +1617,7 @@
          The UI accent colour lives in CSS (--accent), not here.
          ======================================================================== */
       const CONFIG = Object.freeze({
-        RELEASE: "0.6.0",
+        RELEASE: "0.7.0",
         AUTOSAVE_KEY: "switchcard-autosave-v21",
         // Autosave key used before v0.5.10. Read once for import; never written or deleted.
         LEGACY_AUTOSAVE_KEYS: Object.freeze(["switchcard-autosave-v20"]),
@@ -1395,7 +1631,10 @@
         STORAGE_PREFIX: "switchcard-",
         SHOW_MAINTAIN_TAB_KEY: "switchcard-show-maintain-tab",
         ONBOARD_KEY: "switchcard-onboarding-dismissed",
-        PROJECT_VERSION: 4, // v4 (0.6.0): adds mgmtInterface / mgmtSources; v3 files open unchanged
+        // v5 (0.7.0): teamPolicies (export-blocking rules), baseline fingerprints, per-recipe export
+        // history. v4 (0.6.0): mgmtInterface / mgmtSources. Older files open unchanged; older releases
+        // refuse newer files so a policy is never silently ignored.
+        PROJECT_VERSION: 5,
         PROJECT_FORMAT: "switchcard-project",
         AUTOSAVE_FORMAT: "switchcard-autosave",
         MODELS: Object.freeze(["IE3100", "IE3x00", "IE9300"]),
@@ -1410,6 +1649,16 @@
         // Placeholders SwitchCard computes itself: never Build fields, never taken from typed values.
         DERIVED_KEYS: Object.freeze(["MGMT_INTERFACE", "MGMT_SOURCES"]),
         MAX_LOOPBACK_NUMBER: 2147483647, // IOS-XE: interface Loopback <0-2147483647>
+        // v0.7.0 additions
+        THEME_KEY: "switchcard-theme",
+        MAX_TEAM_POLICIES: 50,
+        MAX_TEAM_POLICY_CHARS: 300,
+        MAX_FLEET_ROWS: 500,
+        MAX_EXPORT_HISTORY: 50, // remembered exports per recipe (newest kept)
+        MAX_EXPORT_HISTORY_CHARS: 512 * 1024, // total remembered text per recipe
+        MAX_FINGERPRINT_FILES: 2000, // per-file hashes are saved in the project up to this count
+        MAX_DIFF_LINES: 6000, // larger comparisons fall back to hashes
+        MAX_DIFF_EDITS: 2000,
         // Default port-role command templates. {{INTERFACE}}, {{VLAN}}, {{DESCRIPTION}}, {{PORT_IP}}
         // and {{PORT_MASK}} are filled per port. Trunk is deliberately "mode trunk" only: its VLAN
         // field just creates VLANs via {{VLANS}}; add an allowed-VLAN line in your own template if needed.
@@ -1642,6 +1891,7 @@
             "! EXAMPLE ONLY - replace with your tested configuration\n! Site: {{SITE}}\nhostname {{HOSTNAME}}\n!\n! Layer-2 VLANs (management + Access/Trunk port VLANs)\n{{VLANS}}\n! Layer-3 management interface: SVI or Loopback, chosen in the recipe editor\ninterface {{MGMT_INTERFACE}}\n description MANAGEMENT\n ip address {{MGMT_IP}} {{MGMT_MASK}}\n no shutdown\n!\nip default-gateway {{GATEWAY}}\n!\n! Management-plane sources (NTP, RADIUS, logging, SSH) follow the management interface\n{{MGMT_SOURCES}}\n!\n{{PORTS}}\nend\n",
           interfaces: [...EXAMPLE_IFACES],
           roles: { ...ROLES },
+          exports: {},
           values: {
             HOSTNAME: model + "-DEMO-01",
             MGMT_IP: "192.0.2.10",
@@ -1689,6 +1939,9 @@
         editorPending = false,
         autosaveTimer = null,
         teamHints = [],
+        teamPolicies = [], // "require <regex>" / "forbid <regex>" lines; failing rules block export
+        baselineExpected = null, // { model, version, fingerprint? } recorded in the open project
+        fleet = null, // last "Check fleet" result for the current recipe
         customSkuPresets = Object.create(null);
       const current = () => recipes.find((r) => r.id === active);
 
@@ -1833,8 +2086,11 @@
           version: PROJECT_VERSION,
           active,
           recipes,
-          baseline: baseline ? { model: baseline.model, version: baseline.version } : null,
+          // The loaded baseline's record (with fingerprint), or the record the project was opened with
+          // when no folder has been loaded yet, so the expectation survives Save project.
+          baseline: baseline ? baselineRecord(baseline) : baselineExpected ? { ...baselineExpected } : null,
           teamHints: Array.isArray(teamHints) ? [...teamHints] : [],
+          teamPolicies: Array.isArray(teamPolicies) ? [...teamPolicies] : [],
           customSkuPresets: cloneCustomSkuPresets(customSkuPresets),
         };
       }
@@ -1857,6 +2113,7 @@
           provenanceComments: !!($("optProvenance") && $("optProvenance").checked),
           defaultInterface: !!($("optDefaultInterface") && $("optDefaultInterface").checked),
           teamHintsDraft: $("teamHintsEditor") ? $("teamHintsEditor").value : "",
+          teamPoliciesDraft: $("teamPoliciesEditor") ? $("teamPoliciesEditor").value : "",
         };
       }
       function setAutosaveHint(kind) {
@@ -1946,6 +2203,8 @@
         $("skuPreset").value = "";
         if ($("teamHintsEditor") && typeof draft.teamHintsDraft === "string")
           $("teamHintsEditor").value = draft.teamHintsDraft;
+        if ($("teamPoliciesEditor") && typeof draft.teamPoliciesDraft === "string")
+          $("teamPoliciesEditor").value = draft.teamPoliciesDraft;
         return true;
       }
       // Cleans a single-line input as you type (pasted zero-width / control characters) and
@@ -2175,7 +2434,7 @@
         if (draft !== null) {
           if (typeof draft !== "object" || Array.isArray(draft) || !p.recipes.some((r) => r.id === draft.recipeId))
             parkedReason = "it does not match any recipe in this workspace";
-          else if (["recipeName", "recipeModel", "firmwareRule", "template", "interfaces", "roleAccess", "roleTrunk", "roleUnused", "roleRouted", "mgmtInterface", "mgmtSources", "teamHintsDraft"]
+          else if (["recipeName", "recipeModel", "firmwareRule", "template", "interfaces", "roleAccess", "roleTrunk", "roleUnused", "roleRouted", "mgmtInterface", "mgmtSources", "teamHintsDraft", "teamPoliciesDraft"]
             .some((k) => draft[k] !== undefined && typeof draft[k] !== "string"))
             parkedReason = "it has a field that is not text";
           if (parkedReason) { parkedDraft = draft; draft = null; }
@@ -2193,6 +2452,9 @@
         preservedAutosaveRaw = result.preservedAutosaveRaw || null;
         parkedDraft = result.parkedDraft != null ? result.parkedDraft : null;
         teamHints = Array.isArray(p.teamHints) ? [...p.teamHints] : [];
+        teamPolicies = Array.isArray(p.teamPolicies) ? [...p.teamPolicies] : [];
+        baselineExpected = p.baseline ? { ...p.baseline } : null;
+        fleet = null;
         customSkuPresets = Object.assign(
           Object.create(null),
           loadCustomSkuPresetsFromLocal(),
@@ -2523,6 +2785,8 @@
         // which leave their output unchanged: neither placeholder appears in an older template.
         if (!CONFIG.MGMT_INTERFACE_MODES.includes(r.mgmtInterface)) r.mgmtInterface = "svi";
         if (typeof r.mgmtSources !== "string") r.mgmtSources = CONFIG.MGMT_SOURCES_DEFAULT;
+        // Export history per hostname (v0.7.0): the last exported text, for the "changes since" view.
+        if (!r.exports || typeof r.exports !== "object" || Array.isArray(r.exports)) r.exports = {};
         return r;
       }
       // --- Render: rebuild the Build panel from state ---
@@ -2744,8 +3008,16 @@
             " · " +
             baseline.files.length +
             " files · " +
-            size(baseline.files.reduce((n, f) => n + f.blob.size, 0))
-          : "No baseline loaded. Explore the examples, then import a complete sync export in Manage recipes & baseline.";
+            size(baseline.files.reduce((n, f) => n + f.blob.size, 0)) +
+            (baseline.fingerprint
+              ? " · fingerprint " + baseline.fingerprint.digest.slice(0, 12) + "… " +
+                (baseline.compare ? baseline.compare.summary : "(recorded by Save project / team package)")
+              : "")
+          : baselineExpected
+            ? "No baseline loaded. The project expects " + baselineExpected.model + " / " + baselineExpected.version +
+              (baselineExpected.fingerprint ? " (" + baselineExpected.fingerprint.fileCount + " files, fingerprint recorded)" : "") +
+              " — load that sync-export folder in Manage recipes & baseline; it is compared with the record."
+            : "No baseline loaded. Explore the examples, then import a complete sync export in Manage recipes & baseline.";
         $("baselineInfo").textContent = description;
         $("baseDetails").textContent = description;
         $("fileList").textContent = baseline
@@ -3024,7 +3296,10 @@
       // --- SHA-256 in plain JS. Synchronous on purpose: generate() (provenance footer) and the
       // export confirm need the hash inline, and crypto.subtle only offers an async API. ---
       function sha256Hex(str) {
-        const bytes = enc.encode(String(str));
+        return sha256Bytes(enc.encode(String(str)));
+      }
+      // Same hash over raw bytes (fingerprints fall back to this when crypto.subtle is unavailable).
+      function sha256Bytes(bytes) {
         const K = [
           0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
           0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -3150,6 +3425,10 @@
           "Baseline: " +
             (baseline
               ? baseline.model + " / " + baseline.version
+              : "(none)"),
+          "Baseline fingerprint: " +
+            (baseline && baseline.fingerprint
+              ? baseline.fingerprint.digest.slice(0, 16) + "… " + (baseline.compare ? baseline.compare.summary : "(no project record to compare with)")
               : "(none)"),
           "",
           "Root editcontent.txt in the ZIP is exactly this preview text.",
@@ -3521,10 +3800,13 @@
             );
           if (gwOk) {
             const gwInt = ipToInt(gw);
-            const reachable = subnets.some((sn) => sn.label !== "management loopback" && gwInt >= sn.net && gwInt <= sn.bcast);
+            // Routed-port subnets plus any literal "interface X / ip address A M" block in the generated
+            // text (a transit SVI typed into the template), excluding the management interface itself.
+            const candidates = subnets.filter((sn) => sn.label !== "management loopback").concat(literalL3Subnets(text, values.MGMT_INTERFACE));
+            const reachable = candidates.some((sn) => gwInt >= sn.net && gwInt <= sn.bcast);
             if (!reachable)
               warnings.push(
-                "Loopback management: GATEWAY " + gw + " is not inside any Routed port subnet — confirm a Routed port or SVI in the template sits on the gateway's subnet (literal addresses are not checked).",
+                "Loopback management: GATEWAY " + gw + " is not inside any Routed port or literal interface subnet — confirm the switch has an L3 interface on the gateway's subnet.",
               );
           }
         }
@@ -3553,9 +3835,11 @@
           const lineCount = body.split("\r\n").length - 1;
           normalized = body + "! SWITCHCARD-END lines=" + lineCount + " sha256=" + sha256Hex(body) + "\r\n";
         }
-        // Final gate on the exact generated bytes; reports line and column.
+        // Final gate on the exact generated bytes; reports line and column. asciiIssue lets the Build
+        // panel offer the transliteration helper.
+        let asciiIssue = false;
         const hit = findInvisibleChar(normalized);
-        if (hit)
+        if (hit && (asciiIssue = true))
           errors.push(
             invisibleCharMessage("Generated editcontent.txt", hit) +
               " It would look different in review than on the switch — remove it from the template, role template or values.",
@@ -3564,6 +3848,7 @@
           // Allowlist: every line must be plain printable ASCII.
           const ci = findCommandCharIssue(normalized);
           if (ci) {
+            asciiIssue = true;
             const src = [];
             for (const [k, v] of Object.entries(values)) if (String(v).includes(ci.ch)) src.push("value " + k);
             for (const p of r.ports || []) if (String(p.description || "").includes(ci.ch)) src.push(p.name + " description");
@@ -3594,12 +3879,13 @@
           text: normalized,
           errors: [...new Set(errors)],
           warnings: [...new Set(warnings)],
+          asciiIssue,
         };
       }
       // --- Preview, Maintain editor, Apply, New switch ---
       // Export blockers (separate from generate errors): unapplied draft, example recipe,
       // missing baseline, or a baseline whose model / label this recipe does not allow.
-      function blockers(r) {
+      function blockers(r, g) {
         const a = [];
         if (editorPending)
           a.push("Apply recipe changes or Discard unapplied draft first.");
@@ -3611,13 +3897,15 @@
           if (r.firmware.length && !r.firmware.includes(baseline.version))
             a.push("Baseline label is not allowed by this recipe.");
         }
+        // Team policy rules (v0.7.0) are evaluated on the generated text and can only block.
+        if (g && !g.errors.length) for (const v of policyViolations(g.text, teamPolicies)) a.push("Team policy: " + v);
         return a;
       }
 
       function renderPreview() {
         const r = current(),
           g = generate(r),
-          b = blockers(r);
+          b = blockers(r, g);
         $("preview").textContent = g.text;
         const meter = $("previewMeter");
         if (meter) meter.textContent = previewSizeLabel(g.text);
@@ -3632,6 +3920,11 @@
         if (g.errors.length)
           $("checks").append(statusNotice("error",
             g.errors.length === 1 ? "1 error blocks export" : g.errors.length + " errors block export", g.errors));
+        const policyHits = g.errors.length ? [] : policyViolations(g.text, teamPolicies);
+        if (policyHits.length)
+          $("checks").append(statusNotice("error",
+            policyHits.length === 1 ? "1 team policy rule blocks export" : policyHits.length + " team policy rules block export", policyHits,
+            "Rules are edited under Team security hints in Manage recipes & baseline."));
         if (!g.errors.length || notices.length) {
           const count = notices.length === 1 ? "1 note to review" : notices.length + " notes to review";
           const head = g.errors.length
@@ -3660,7 +3953,7 @@
         }
         // Preview and export use the APPLIED recipe only. An unapplied Maintain draft disables the
         // file downloads (the card ZIP via blockers()); Copy preview only needs a clean generate().
-        $("downloadConfig").disabled = busy || editorPending || !!g.errors.length;
+        $("downloadConfig").disabled = busy || editorPending || !!g.errors.length || !!policyHits.length;
         $("copyPreview").disabled = busy || !!g.errors.length;
         $("downloadCard").disabled =
           busy || !!g.errors.length || !!b.length || !$("reviewed").checked;
@@ -3690,6 +3983,11 @@
             : "Fix validation errors first."
           : "Download preview as editcontent.txt";
         updateDiscardButton();
+        // v0.7.0 panels: transliteration offer, changes since the last export, fleet gates.
+        const fix = $("asciiFix");
+        if (fix) fix.hidden = !g.asciiIssue;
+        renderDiffPanel(r, g);
+        refreshFleetButtons();
       }
       // One status box: a bold heading, an optional list of items and an optional muted footer.
       function statusNotice(kind, heading, items, footer) {
@@ -3744,6 +4042,7 @@
           $("baseVersion").value = baseline.version;
         }
         if ($("teamHintsEditor")) $("teamHintsEditor").value = teamHints.join("\n");
+        if ($("teamPoliciesEditor")) $("teamPoliciesEditor").value = teamPolicies.join("\n");
       }
       function lines(s) {
         return s
@@ -4031,7 +4330,7 @@
         if (
           !p ||
           p.format !== CONFIG.PROJECT_FORMAT ||
-          ![1, 2, 3, 4].includes(p.version) ||
+          ![1, 2, 3, 4, 5].includes(p.version) ||
           !Array.isArray(p.recipes) ||
           !p.recipes.length ||
           p.recipes.length > MAX_RECIPES
@@ -4117,6 +4416,27 @@
           const textIssue = recipeTextIssue(r);
           if (textIssue) throw Error(rname + ": " + textIssue + " Fix the file and reload.");
           sanitizeRecipeFields(r, migrationNotes, rname);
+          // Export history (v0.7.0): optional; every entry must be self-consistent or it is dropped.
+          if (r.exports !== undefined) {
+            if (!r.exports || typeof r.exports !== "object" || Array.isArray(r.exports)) {
+              migrationNotes.push(rname + ": invalid export history dropped.");
+              r.exports = {};
+            } else {
+              const clean = {};
+              let dropped = 0;
+              for (const [k, e] of Object.entries(r.exports)) {
+                if (
+                  e && typeof e === "object" && typeof e.host === "string" && typeof e.text === "string" && typeof e.at === "string" &&
+                  /^[0-9a-f]{64}$/.test(String(e.sha256 || "")) && k === e.host.trim().toLowerCase() && sha256Hex(e.text) === e.sha256
+                )
+                  clean[k] = { host: e.host, at: e.at, release: typeof e.release === "string" ? e.release : "?", sha256: e.sha256, text: e.text };
+                else dropped++;
+              }
+              r.exports = clean;
+              pruneExportHistory(r);
+              if (dropped) migrationNotes.push(rname + ": dropped " + dropped + " invalid export history entr" + (dropped === 1 ? "y" : "ies") + ".");
+            }
+          }
           // Reject duplicate / case-ambiguous saved port names.
           const portNames = r.ports.map((x) => String(x.name || "").toLowerCase());
           if (new Set(portNames).size !== portNames.length)
@@ -4185,6 +4505,45 @@
               (cleanHints.length > CONFIG.MAX_TEAM_HINTS ? "; kept the first " + CONFIG.MAX_TEAM_HINTS + " of " + cleanHints.length : "") + ".",
           );
         p.teamHints = cleanHints.slice(0, CONFIG.MAX_TEAM_HINTS);
+        // teamPolicies (v0.7.0) is optional: missing -> []. Rules are strings; an invalid pattern is kept
+        // and reported as a blocking violation at generate time (fail closed), never silently dropped.
+        if (p.teamPolicies === undefined || p.teamPolicies === null) p.teamPolicies = [];
+        else if (!Array.isArray(p.teamPolicies) || !p.teamPolicies.every((x) => typeof x === "string"))
+          throw Error("Invalid teamPolicies in project.");
+        const cleanPolicies = p.teamPolicies
+          .map((h) => sanitizeSingleLine(h).text.trim())
+          .filter(Boolean)
+          .map((h) => h.slice(0, CONFIG.MAX_TEAM_POLICY_CHARS));
+        if (
+          cleanPolicies.length > CONFIG.MAX_TEAM_POLICIES ||
+          cleanPolicies.length !== p.teamPolicies.length ||
+          cleanPolicies.some((h, i) => h !== p.teamPolicies[i])
+        )
+          migrationNotes.push(
+            "Team policy rules cleaned (max " + CONFIG.MAX_TEAM_POLICIES + " lines × " + CONFIG.MAX_TEAM_POLICY_CHARS + " characters, no control characters)" +
+              (cleanPolicies.length > CONFIG.MAX_TEAM_POLICIES ? "; kept the first " + CONFIG.MAX_TEAM_POLICIES + " of " + cleanPolicies.length : "") + ".",
+          );
+        p.teamPolicies = cleanPolicies.slice(0, CONFIG.MAX_TEAM_POLICIES);
+        // baseline.fingerprint (v0.7.0) is optional; an invalid one is dropped with a note.
+        if (p.baseline && p.baseline.fingerprint !== undefined) {
+          const fp = p.baseline.fingerprint;
+          const hex64 = (x) => /^[0-9a-f]{64}$/.test(String(x || ""));
+          const okShape =
+            fp && typeof fp === "object" && !Array.isArray(fp) && hex64(fp.digest) &&
+            Number.isInteger(fp.fileCount) && fp.fileCount >= 0 && Number.isInteger(fp.totalBytes) && fp.totalBytes >= 0 &&
+            (fp.files === undefined ||
+              (Array.isArray(fp.files) && fp.files.length <= CONFIG.MAX_FINGERPRINT_FILES &&
+                fp.files.every((f) => f && typeof f.path === "string" && !singleLineBad(f.path) && Number.isInteger(f.size) && f.size >= 0 && hex64(f.sha256))));
+          if (!okShape) {
+            migrationNotes.push("The baseline fingerprint in the file was invalid and was dropped.");
+            delete p.baseline.fingerprint;
+          } else {
+            p.baseline.fingerprint = {
+              fileCount: fp.fileCount, totalBytes: fp.totalBytes, digest: fp.digest,
+              ...(fp.files ? { files: fp.files.map((f) => ({ path: f.path, size: f.size, sha256: f.sha256 })) } : {}),
+            };
+          }
+        }
         // customSkuPresets is optional: missing -> {}
         if (p.customSkuPresets === undefined || p.customSkuPresets === null) {
           p.customSkuPresets = Object.create(null);
@@ -4208,6 +4567,10 @@
         preservedAutosaveRaw = restoredFile && restoredFile.preservedAutosaveRaw || null;
         parkedDraft = restoredFile && restoredFile.parkedDraft != null ? restoredFile.parkedDraft : null;
         teamHints = Array.isArray(p.teamHints) ? [...p.teamHints] : [];
+        teamPolicies = Array.isArray(p.teamPolicies) ? [...p.teamPolicies] : [];
+        baselineExpected = p.baseline ? { ...p.baseline } : null;
+        if (b && baselineExpected && baselineExpected.fingerprint && b.fingerprint) b.compare = compareFingerprints(baselineExpected.fingerprint, b.fingerprint);
+        fleet = null;
         customSkuPresets = normalizeCustomSkuPresets(p.customSkuPresets);
         persistCustomSkuPresetsLocal();
         $("reviewed").checked = false;
@@ -4476,6 +4839,620 @@
           renderPreview();
         }
       }
+      // --- v0.7.0 helpers: transliteration, team policy rules, export history + line diff, baseline
+      //     fingerprints, fleet export, interface-brief parsing, theme. Pure functions first; the ones
+      //     that touch the DOM say so. Event wiring stays in 10-events-boot.js. ---
+
+      // Common Latin-1 letters and typographic punctuation -> printable ASCII. German umlauts use the
+      // ue/oe/ae/ss convention; other accented letters lose their marks (NFKD); dashes, quotes and odd
+      // spaces become their ASCII forms; invisible characters vanish. Anything else is left alone and
+      // still blocks export, so the helper never hides a character it cannot translate.
+      const TRANSLIT = Object.freeze({
+        "ä": "ae", "ö": "oe", "ü": "ue", "Ä": "Ae", "Ö": "Oe", "Ü": "Ue", "ß": "ss",
+        "æ": "ae", "Æ": "AE", "œ": "oe", "Œ": "OE", "ø": "o", "Ø": "O",
+        "đ": "d", "Đ": "D", "ł": "l", "Ł": "L", "þ": "th", "Þ": "Th",
+        "‐": "-", "‑": "-", "‒": "-", "–": "-", "—": "-", "−": "-", "·": "-", "•": "-",
+        "‘": "'", "’": "'", "‚": "'", "‛": "'", "′": "'",
+        "“": '"', "”": '"', "„": '"', "‟": '"', "″": '"',
+        "…": "...", "×": "x", "«": "<<", "»": ">>", "‹": "<", "›": ">",
+        " ": " ", " ": " ", " ": " ", "　": " ",
+      });
+      function transliterateAscii(s) {
+        let out = "";
+        for (const ch of String(s == null ? "" : s)) out += Object.hasOwn(TRANSLIT, ch) ? TRANSLIT[ch] : ch;
+        out = out.replace(hiddenCharRe(), "");
+        return out.normalize("NFKD").replace(/[̀-ͯ]/g, "");
+      }
+
+      // --- Team policy rules: "require <regex>" / "forbid <regex>" [  # note], one per line ---
+      // Matched line by line (case-insensitive) against the generated text without "!" comments and
+      // "no ..." lines. A failing OR invalid rule blocks export (fail closed); hints never block.
+      function parsePolicyLine(line) {
+        const raw = String(line || "").trim();
+        if (!raw || raw.startsWith("#")) return null;
+        const m = /^(require|forbid)\s+(.+?)\s*$/i.exec(raw);
+        if (!m) return { error: 'Rule must start with "require" or "forbid": ' + raw };
+        let pattern = m[2],
+          note = "";
+        const hash = pattern.indexOf(" #");
+        if (hash >= 0) {
+          note = pattern.slice(hash + 2).trim();
+          pattern = pattern.slice(0, hash).trim();
+        }
+        if (!pattern) return { error: "Rule has no pattern: " + raw };
+        try {
+          return { mode: m[1].toLowerCase(), pattern, note, re: new RegExp(pattern, "im") };
+        } catch (e) {
+          return { error: 'Invalid pattern "' + pattern + '": ' + (e && e.message ? e.message : e) };
+        }
+      }
+      function policyViolations(text, rules) {
+        const out = [];
+        const body = positiveConfigText(text);
+        for (const line of rules || []) {
+          const p = parsePolicyLine(line);
+          if (!p) continue;
+          if (p.error) {
+            out.push(p.error + " (fix or remove the rule)");
+            continue;
+          }
+          const hit = p.re.test(body);
+          const why = p.note ? " (" + p.note + ")" : "";
+          if (p.mode === "require" && !hit) out.push("required pattern not found: " + p.pattern + why);
+          if (p.mode === "forbid" && hit) out.push("forbidden pattern present: " + p.pattern + why);
+        }
+        return out;
+      }
+      function boundedPolicies(text) {
+        const all = lines(text).filter((h) => !singleLineBad(h));
+        const out = all.slice(0, CONFIG.MAX_TEAM_POLICIES).map((h) => h.slice(0, CONFIG.MAX_TEAM_POLICY_CHARS));
+        return {
+          rules: out,
+          trimmed: out.length !== lines(text).length || all.some((h) => h.length > CONFIG.MAX_TEAM_POLICY_CHARS),
+        };
+      }
+
+      // --- Export history per recipe and hostname: the last exported text, for "changes since" ---
+      function exportHistoryKey(host) {
+        const k = String(host || "").trim().toLowerCase();
+        return k || null;
+      }
+      function recordExport(r, host, text) {
+        const key = exportHistoryKey(host);
+        if (!key) return;
+        if (!r.exports || typeof r.exports !== "object") r.exports = {};
+        r.exports[key] = { host: String(host).trim(), at: new Date().toISOString(), release: RELEASE, sha256: sha256Hex(text), text };
+        pruneExportHistory(r);
+      }
+      // Newest first; bounded by count and by total text size so autosave never outgrows storage.
+      function pruneExportHistory(r) {
+        const entries = Object.entries(r.exports || {}).sort((a, b) => String(b[1].at).localeCompare(String(a[1].at)));
+        const kept = {};
+        let chars = 0;
+        for (const [k, e] of entries) {
+          const n = String(e.text || "").length;
+          if (Object.keys(kept).length >= CONFIG.MAX_EXPORT_HISTORY || chars + n > CONFIG.MAX_EXPORT_HISTORY_CHARS) continue;
+          kept[k] = e;
+          chars += n;
+        }
+        r.exports = kept;
+      }
+
+      // --- Line diff (Myers, O(ND)). Returns [{ t: " " | "-" | "+", s }] or null when too large. ---
+      function lineDiff(aText, bText) {
+        const split = (t) => String(t || "").replace(/\r\n/g, "\n").replace(/\n$/, "").split("\n");
+        const a = split(aText),
+          b = split(bText);
+        const N = a.length,
+          M = b.length,
+          MAX = N + M;
+        if (MAX > CONFIG.MAX_DIFF_LINES) return null;
+        const off = MAX + 1;
+        const v = new Int32Array(2 * MAX + 3);
+        const trace = [];
+        let done = false;
+        for (let d = 0; d <= MAX && !done; d++) {
+          if (d > CONFIG.MAX_DIFF_EDITS) return null;
+          trace.push(v.slice(off - d - 1, off + d + 2)); // k in [-d-1, d+1] stored at k + d + 1
+          for (let k = -d; k <= d; k += 2) {
+            let x = k === -d || (k !== d && v[off + k - 1] < v[off + k + 1]) ? v[off + k + 1] : v[off + k - 1] + 1;
+            let y = x - k;
+            while (x < N && y < M && a[x] === b[y]) {
+              x++;
+              y++;
+            }
+            v[off + k] = x;
+            if (x >= N && y >= M) {
+              done = true;
+              break;
+            }
+          }
+        }
+        const ops = [];
+        let x = N,
+          y = M;
+        for (let d = trace.length - 1; d >= 0; d--) {
+          const vv = trace[d],
+            base = d + 1,
+            k = x - y;
+          const prevK = k === -d || (k !== d && vv[base + k - 1] < vv[base + k + 1]) ? k + 1 : k - 1;
+          const prevX = vv[base + prevK],
+            prevY = prevX - prevK;
+          while (x > prevX && y > prevY) {
+            ops.push({ t: " ", s: a[x - 1] });
+            x--;
+            y--;
+          }
+          if (d > 0) ops.push(x === prevX ? { t: "+", s: b[y - 1] } : { t: "-", s: a[x - 1] });
+          x = prevX;
+          y = prevY;
+        }
+        return ops.reverse();
+      }
+      // DOM: the "Changes since the last export" panel under the preview (Build).
+      function renderDiffPanel(r, g) {
+        const panel = $("diffPanel");
+        if (!panel) return;
+        const key = exportHistoryKey(r.values && r.values.HOSTNAME);
+        const prev = key && r.exports && Object.hasOwn(r.exports, key) ? r.exports[key] : null;
+        if (!prev || g.errors.length) {
+          panel.hidden = true;
+          return;
+        }
+        panel.hidden = false;
+        const out = $("diffOut");
+        out.replaceChildren();
+        const when = " (" + formatSavedAt(prev.at) + ", v" + prev.release + ")";
+        if (prev.text === g.text) {
+          $("diffSummary").textContent = "Identical to the last export for " + prev.host + when;
+          out.textContent = "No differences.";
+          return;
+        }
+        const ops = lineDiff(prev.text, g.text);
+        if (!ops) {
+          $("diffSummary").textContent = "Changed since the last export for " + prev.host + when;
+          out.textContent = "Too large to diff here; compare the SHA-256 values instead (last export " + prev.sha256.slice(0, 16) + "…).";
+          return;
+        }
+        let added = 0,
+          removed = 0;
+        const keep = new Set();
+        ops.forEach((o, i) => {
+          if (o.t === " ") return;
+          for (let j = Math.max(0, i - 2); j <= Math.min(ops.length - 1, i + 2); j++) keep.add(j);
+        });
+        const frag = document.createDocumentFragment();
+        let last = -1;
+        ops.forEach((o, i) => {
+          if (!keep.has(i)) return;
+          if (last >= 0 && i !== last + 1) frag.append(document.createTextNode("…\n"));
+          const span = document.createElement("span");
+          if (o.t === "+") {
+            span.className = "add";
+            added++;
+          } else if (o.t === "-") {
+            span.className = "del";
+            removed++;
+          }
+          span.textContent = o.t + " " + o.s + "\n";
+          frag.append(span);
+          last = i;
+        });
+        out.append(frag);
+        $("diffSummary").textContent = "Changes since the last export for " + prev.host + when + " · +" + added + " / -" + removed + " lines";
+      }
+
+      // --- Baseline fingerprints: per-file SHA-256 plus one digest over the sorted list ---
+      function hexOf(buf) {
+        return [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, "0")).join("");
+      }
+      async function fingerprintFiles(files, label) {
+        const list = [];
+        let total = 0;
+        for (let i = 0; i < files.length; i++) {
+          const f = files[i];
+          const buf = await f.blob.arrayBuffer();
+          const sha = crypto.subtle ? hexOf(await crypto.subtle.digest("SHA-256", buf)) : sha256Bytes(new Uint8Array(buf));
+          list.push({ path: f.path, size: f.blob.size, sha256: sha });
+          total += f.blob.size;
+          if (i % 25 === 0 || i === files.length - 1) {
+            message((label || "Fingerprinting") + " " + (i + 1) + " / " + files.length + ": " + f.path);
+            await new Promise((r) => setTimeout(r, 0));
+          }
+        }
+        list.sort((a, b) => a.path.toLowerCase().localeCompare(b.path.toLowerCase()));
+        return { fileCount: list.length, totalBytes: total, digest: fingerprintDigest(list), files: list };
+      }
+      function fingerprintDigest(list) {
+        return sha256Hex(list.map((f) => f.path.toLowerCase() + "\n" + f.size + "\n" + f.sha256).join("\n"));
+      }
+      // What Save project / team package record for a loaded baseline: metadata and hashes, never bytes.
+      function baselineRecord(b) {
+        const rec = { model: b.model, version: b.version };
+        if (b.fingerprint && typeof b.fingerprint.digest === "string") {
+          rec.fingerprint = { fileCount: b.fingerprint.fileCount, totalBytes: b.fingerprint.totalBytes, digest: b.fingerprint.digest };
+          if (Array.isArray(b.fingerprint.files) && b.fingerprint.files.length <= CONFIG.MAX_FINGERPRINT_FILES)
+            rec.fingerprint.files = b.fingerprint.files.map((f) => ({ path: f.path, size: f.size, sha256: f.sha256 }));
+        }
+        return rec;
+      }
+      function compareFingerprints(expected, actual) {
+        if (!expected || !actual) return null;
+        if (expected.digest === actual.digest) return { same: true, summary: "matches the project's recorded baseline", added: [], removed: [], changed: [] };
+        const res = { same: false, added: [], removed: [], changed: [] };
+        if (Array.isArray(expected.files) && Array.isArray(actual.files)) {
+          const em = new Map(expected.files.map((f) => [f.path.toLowerCase(), f]));
+          const am = new Map(actual.files.map((f) => [f.path.toLowerCase(), f]));
+          for (const [k, f] of am) {
+            if (!em.has(k)) res.added.push(f.path);
+            else if (em.get(k).sha256 !== f.sha256 || em.get(k).size !== f.size) res.changed.push(f.path);
+          }
+          for (const [k, f] of em) if (!am.has(k)) res.removed.push(f.path);
+          res.summary =
+            "DIFFERS from the project's recorded baseline (" + res.changed.length + " changed, " + res.added.length + " added, " + res.removed.length + " missing)";
+        } else {
+          res.summary = "DIFFERS from the project's recorded baseline (" + expected.fileCount + " files recorded, " + actual.fileCount + " loaded)";
+        }
+        return res;
+      }
+
+      // --- Fleet: one recipe, many switches. Values per switch come from a CSV; everything else
+      //     (template, ports, checks, gates) is exactly the single-card path. ---
+      function parseCsv(text) {
+        const s = String(text || "").replace(/^﻿/, "");
+        const first = s.split(/\r?\n/)[0] || "";
+        const counts = [",", ";", "\t"].map((d) => [d, (first.split(d).length - 1)]);
+        counts.sort((a, b) => b[1] - a[1]);
+        const delim = counts[0][1] > 0 ? counts[0][0] : ",";
+        const rows = [];
+        let row = [],
+          cell = "",
+          q = false;
+        for (let i = 0; i < s.length; i++) {
+          const c = s[i];
+          if (q) {
+            if (c === '"') {
+              if (s[i + 1] === '"') {
+                cell += '"';
+                i++;
+              } else q = false;
+            } else cell += c;
+            continue;
+          }
+          if (c === '"') {
+            q = true;
+            continue;
+          }
+          if (c === delim) {
+            row.push(cell);
+            cell = "";
+            continue;
+          }
+          if (c === "\n" || c === "\r") {
+            if (c === "\r" && s[i + 1] === "\n") i++;
+            row.push(cell);
+            rows.push(row);
+            row = [];
+            cell = "";
+            continue;
+          }
+          cell += c;
+        }
+        if (cell !== "" || row.length) {
+          row.push(cell);
+          rows.push(row);
+        }
+        const nonEmpty = rows.filter((r) => r.some((c) => c.trim() !== ""));
+        if (!nonEmpty.length) return { header: [], rows: [], delimiter: delim };
+        const header = nonEmpty[0].map((h) => sanitizeSingleLine(h).text.trim().toUpperCase().replace(/[\s-]+/g, "_"));
+        return {
+          header,
+          rows: nonEmpty.slice(1).map((r) => r.map((c) => sanitizeSingleLine(c).text.trim())),
+          delimiter: delim,
+        };
+      }
+      // Pure apart from reading teamPolicies: builds one recipe clone per CSV row and runs generate().
+      function checkFleet(r, csvText) {
+        const result = { errors: [], warnings: [], rows: [], header: [] };
+        const parsed = parseCsv(csvText);
+        if (!parsed.header.length) {
+          result.errors.push("Paste a CSV with a header row first.");
+          return result;
+        }
+        const dkeys = deviceKeys(r);
+        const bad = parsed.header.filter((h) => !/^[A-Z][A-Z0-9_]*$/.test(h));
+        if (bad.length) {
+          result.errors.push("Header names must be placeholder names such as HOSTNAME (got: " + bad.join(", ") + ").");
+          return result;
+        }
+        if (new Set(parsed.header).size !== parsed.header.length) {
+          result.errors.push("Duplicate column names in the header.");
+          return result;
+        }
+        const reserved = parsed.header.filter((h) => CONFIG.RESERVED_VALUE_KEYS.includes(h) || CONFIG.DERIVED_KEYS.includes(h) || ["PORTS", "VLANS"].includes(h));
+        if (reserved.length) {
+          result.errors.push("Columns " + reserved.join(", ") + " are filled by SwitchCard and cannot be set per switch.");
+          return result;
+        }
+        const unknown = parsed.header.filter((h) => !dkeys.includes(h));
+        if (unknown.length) result.warnings.push("Columns not used by this recipe are ignored: " + unknown.join(", ") + ".");
+        if (!parsed.rows.length) {
+          result.errors.push("The CSV has a header but no switch rows.");
+          return result;
+        }
+        if (parsed.rows.length > CONFIG.MAX_FLEET_ROWS) {
+          result.errors.push("At most " + CONFIG.MAX_FLEET_ROWS + " switches per fleet (got " + parsed.rows.length + ").");
+          return result;
+        }
+        const usedCols = parsed.header.map((h, i) => [h, i]).filter(([h]) => dkeys.includes(h));
+        if (!usedCols.length) {
+          result.errors.push("No column matches a field of this recipe (" + dkeys.join(", ") + ").");
+          return result;
+        }
+        result.header = usedCols.map(([h]) => h);
+        const seenHost = new Map(),
+          seenIp = new Map();
+        parsed.rows.forEach((cells, idx) => {
+          const n = idx + 1;
+          const rr = structuredClone(r);
+          rr.exports = {};
+          const values = {},
+            inherited = [];
+          for (const [h, i] of usedCols) {
+            const c = cells[i] === undefined ? "" : cells[i];
+            if (c !== "") rr.values[h] = c;
+            else inherited.push(h);
+            values[h] = String(rr.values[h] || "");
+          }
+          normalizePorts(rr);
+          const g = generate(rr);
+          const errors = [...g.errors];
+          const host = String(rr.values.HOSTNAME || "").trim(),
+            ip = String(rr.values.MGMT_IP || "").trim();
+          if (dkeys.includes("HOSTNAME") && host) {
+            const k = host.toLowerCase();
+            if (seenHost.has(k)) errors.push("duplicate HOSTNAME (also row " + seenHost.get(k) + ")");
+            else seenHost.set(k, n);
+          }
+          if (dkeys.includes("MGMT_IP") && ip) {
+            if (seenIp.has(ip)) errors.push("duplicate MGMT_IP (also row " + seenIp.get(ip) + ")");
+            else seenIp.set(ip, n);
+          }
+          const policy = errors.length ? [] : policyViolations(g.text, teamPolicies);
+          result.rows.push({
+            n, values, inherited, host, ip, errors, policy, warnings: g.warnings, text: g.text,
+            sha256: sha256Hex(g.text), lines: previewLineCount(g.text), bytes: previewByteLength(g.text), recipe: rr,
+          });
+        });
+        return result;
+      }
+      // Recognises when a checked fleet no longer matches the recipe, values, policies or CSV.
+      function fleetStamp(r) {
+        const { exports: _history, ...rest } = r;
+        return quickHash(JSON.stringify([rest, teamPolicies, baseline ? baseline.version : null, $("fleetCsv") ? $("fleetCsv").value : ""]));
+      }
+      // DOM: the fleet table and summary on Build.
+      function renderFleet(result) {
+        const sum = $("fleetSummary"),
+          table = $("fleetTable"),
+          head = $("fleetHead"),
+          body = $("fleetRows");
+        if (!sum || !table) return;
+        head.replaceChildren();
+        body.replaceChildren();
+        if (!result) {
+          sum.hidden = true;
+          table.hidden = true;
+          return;
+        }
+        sum.hidden = false;
+        const badRows = result.rows.filter((x) => x.errors.length || x.policy.length).length;
+        if (result.errors.length) sum.replaceChildren(statusNotice("error", "Fleet CSV cannot be used", [...result.errors, ...result.warnings]));
+        else if (badRows) sum.replaceChildren(statusNotice("error", badRows + " of " + result.rows.length + " switches have errors", result.warnings));
+        else
+          sum.replaceChildren(
+            statusNotice(result.warnings.length ? "warning" : "ok", result.rows.length + " switch" + (result.rows.length === 1 ? "" : "es") + " ready", result.warnings,
+              "Every row passed the same checks as a single card; review notes per row are in the Result column tooltip."),
+          );
+        if (!result.rows.length) {
+          table.hidden = true;
+          return;
+        }
+        table.hidden = false;
+        const tr = document.createElement("tr");
+        for (const t of ["#", ...result.header, "Result", "Lines", "SHA-256"]) {
+          const th = document.createElement("th");
+          th.textContent = t;
+          tr.append(th);
+        }
+        head.append(tr);
+        for (const row of result.rows) {
+          const el = document.createElement("tr");
+          const add = (text, cls, title) => {
+            const td = document.createElement("td");
+            td.textContent = text;
+            if (cls) td.className = cls;
+            if (title) td.title = title;
+            el.append(td);
+          };
+          add(String(row.n));
+          for (const h of result.header) {
+            const inh = row.inherited.includes(h);
+            add(row.values[h] || (inh ? "(empty)" : ""), inh ? "inherit" : "", inh ? "inherited from Device details" : "");
+          }
+          const problems = [...row.errors, ...row.policy.map((p) => "Team policy: " + p)];
+          if (problems.length) add(problems[0] + (problems.length > 1 ? " (+" + (problems.length - 1) + " more)" : ""), "bad", problems.join("\n"));
+          else add("OK" + (row.warnings.length ? " · " + row.warnings.length + " note" + (row.warnings.length === 1 ? "" : "s") : ""), "ok", row.warnings.join("\n"));
+          add(String(row.lines));
+          add(row.sha256.slice(0, 16) + "…", "mono", row.sha256);
+          body.append(el);
+        }
+      }
+      // DOM: enable the fleet export buttons only when the checked fleet is current and every gate passes.
+      function refreshFleetButtons() {
+        const btn = $("exportFleet"),
+          btnText = $("exportFleetText"),
+          why = $("fleetWhy");
+        if (!btn || !btnText || !why) return;
+        const r = current();
+        const reasons = [];
+        if (!fleet) reasons.push("Click Check fleet first.");
+        else {
+          if (fleet.recipeId !== r.id || fleet.stamp !== fleetStamp(r)) reasons.push("Recipe, values, policies or CSV changed since the last check — click Check fleet again.");
+          if (fleet.errors.length) reasons.push("Fix the fleet CSV.");
+          const badRows = fleet.rows.filter((x) => x.errors.length || x.policy.length).length;
+          if (badRows) reasons.push(badRows + " row" + (badRows === 1 ? " has" : "s have") + " errors.");
+        }
+        reasons.push(...blockers(r));
+        if (!$("reviewed").checked) reasons.push("Check “I reviewed this configuration…” above.");
+        const ok = !reasons.length && !busy;
+        btn.disabled = !ok;
+        btnText.disabled = !ok;
+        why.textContent = ok
+          ? "Ready to export " + fleet.rows.length + " card" + (fleet.rows.length === 1 ? "" : "s") + "."
+          : fleet
+            ? "Fleet export blocked: " + reasons.join(" · ")
+            : "Paste a CSV and click Check fleet.";
+        why.style.color = ok ? "var(--ok,#3dd68c)" : "var(--warn)";
+      }
+      // Runs inside run(): re-checks everything from scratch, confirms, then exports one ZIP per switch
+      // (or one text-only ZIP) and records each switch in the recipe's export history.
+      async function exportFleet(textOnly) {
+        const r = current();
+        if (editorPending) throw Error("Apply recipe changes or Discard unapplied draft first.");
+        const gates = blockers(r);
+        if (gates.length) throw Error(gates[0]);
+        if (!$("reviewed").checked) throw Error("Tick the review box first.");
+        const res = checkFleet(r, $("fleetCsv").value);
+        fleet = { ...res, recipeId: r.id, stamp: fleetStamp(r) };
+        renderFleet(fleet);
+        if (res.errors.length || res.rows.some((x) => x.errors.length || x.policy.length)) throw Error("The fleet has errors; nothing was exported.");
+        const dkeys = deviceKeys(r);
+        const lines = [
+          (textOnly ? "Export ONE text-only ZIP for " : "Export ") + res.rows.length + " switch" + (res.rows.length === 1 ? "" : "es") + (textOnly ? "?" : " as separate SD-card ZIPs?"),
+          "",
+          "Recipe: " + r.name,
+          "Baseline: " + (baseline ? baseline.model + " / " + baseline.version : "(none)"),
+          "",
+        ];
+        for (const row of res.rows.slice(0, 20))
+          lines.push(row.n + ". " + (row.host || "(no hostname)") + "  " + (row.ip || "") + "  " + row.sha256.slice(0, 16) + "…  " + row.lines + " lines");
+        if (res.rows.length > 20) lines.push("… and " + (res.rows.length - 20) + " more (all listed in the manifest).");
+        lines.push("", "Every editcontent.txt is exactly what Check fleet generated for that row.", "", "Cancel = no download.");
+        if (!window.confirm(lines.join("\n"))) {
+          message("Fleet export cancelled.");
+          return;
+        }
+        const when = new Date();
+        const manifest = ["row\thostname\tmgmt_ip\tfile\teditcontent_sha256\tlines\tbytes"];
+        const folderFor = (row) => (dkeys.includes("HOSTNAME") ? exportHostnameForFile(row.recipe) : "switch-" + row.n);
+        if (textOnly) {
+          const files = [];
+          for (const row of res.rows) {
+            const folder = folderFor(row);
+            files.push({ path: folder + "/editcontent.txt", blob: new Blob([row.text], { type: "text/plain" }) });
+            manifest.push([row.n, row.host, row.ip, folder + "/editcontent.txt", row.sha256, row.lines, row.bytes].join("\t"));
+          }
+          files.push({ path: "fleet-manifest.txt", blob: new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }) });
+          download(await zip(files, when), "switchcard-fleet-" + RELEASE + "-text.zip");
+        } else {
+          for (let i = 0; i < res.rows.length; i++) {
+            const row = res.rows[i];
+            const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
+            message("Fleet card " + (i + 1) + " / " + res.rows.length + ": " + name);
+            download(await zip(buildCardFiles({ text: row.text }), when), name);
+            manifest.push([row.n, row.host, row.ip, name, row.sha256, row.lines, row.bytes].join("\t"));
+            await new Promise((resolve) => setTimeout(resolve, 400));
+          }
+          download(new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }), "switchcard-fleet-" + RELEASE + "-manifest.txt");
+        }
+        for (const row of res.rows) recordExport(r, row.host, row.text);
+        touch();
+        message(
+          "Fleet export finished: " + res.rows.length + " switch" + (res.rows.length === 1 ? "" : "es") +
+            (textOnly ? " in one text-only ZIP (HOSTNAME/editcontent.txt + fleet-manifest.txt)." : " as separate card ZIPs plus a manifest with every SHA-256. If the browser blocked some downloads, allow multiple downloads for this page and export again.") +
+            " Each hostname's text is remembered for the next comparison; Save project to keep that.",
+        );
+      }
+
+      // --- "show ip interface brief" / "show interfaces status" -> interface names (pure) ---
+      function parseInterfaceBrief(text) {
+        const names = [],
+          skipped = [],
+          seen = new Set();
+        const full = ["FastEthernet", "GigabitEthernet", "TwoGigabitEthernet", "FiveGigabitEthernet", "TenGigabitEthernet", "TwentyFiveGigE", "FortyGigabitEthernet", "HundredGigE", "AppGigabitEthernet"];
+        const abbrev = { fa: "FastEthernet", gi: "GigabitEthernet", tw: "TwoGigabitEthernet", fi: "FiveGigabitEthernet", te: "TenGigabitEthernet", twe: "TwentyFiveGigE", fo: "FortyGigabitEthernet", hu: "HundredGigE", ap: "AppGigabitEthernet" };
+        for (const raw of String(text || "").split(/\r?\n/)) {
+          const tok = raw.trim().split(/\s+/)[0] || "";
+          const m = /^([A-Za-z][A-Za-z-]*?)(\d+(?:\/\d+)*)(\.\d+)?$/.exec(tok);
+          if (!m) continue; // headers, prompts, blank lines
+          if (m[3]) {
+            skipped.push(tok + " (subinterface)");
+            continue;
+          }
+          const fam = m[1],
+            slots = m[2],
+            key = fam.toLowerCase();
+          const canon = full.find((f) => f.toLowerCase() === key) || abbrev[key];
+          if (!canon) {
+            skipped.push(tok + (/^(vlan|vl|loopback|lo|port-channel|po|tunnel|tu|null|nu|bluetooth|bl|mgmt)$/i.test(fam) ? "" : " (unknown type)"));
+            continue;
+          }
+          if (canon === "AppGigabitEthernet") {
+            skipped.push(tok + " (app-hosting port)");
+            continue;
+          }
+          if (canon === "GigabitEthernet" && slots === "0/0") {
+            skipped.push(tok + " (out-of-band management port)");
+            continue;
+          }
+          const name = canon + slots;
+          if (seen.has(name.toLowerCase())) continue;
+          seen.add(name.toLowerCase());
+          names.push(name);
+        }
+        return { names, skipped };
+      }
+
+      // --- Theme (DOM). "auto" follows the OS; the choice lives under CONFIG.THEME_KEY. ---
+      function loadThemePref() {
+        try {
+          const t = localStorage.getItem(CONFIG.THEME_KEY);
+          return t === "light" || t === "dark" ? t : "auto";
+        } catch (e) {
+          return "auto";
+        }
+      }
+      function applyTheme(pref) {
+        const root = document.documentElement;
+        if (pref === "light" || pref === "dark") root.dataset.theme = pref;
+        else delete root.dataset.theme;
+        const sel = $("themeSelect");
+        if (sel) sel.value = pref === "light" || pref === "dark" ? pref : "auto";
+      }
+
+      // --- Literal L3 interfaces in generated text (advisory reachability only) ---
+      function literalL3Subnets(text, excludeInterface) {
+        const out = [];
+        let cur = null;
+        for (const raw of String(text || "").split(/\r?\n/)) {
+          const line = raw.replace(/\s+/g, " ").trimEnd();
+          const im = /^interface (\S+)/i.exec(line);
+          if (im) {
+            cur = im[1];
+            continue;
+          }
+          if (!/^\s/.test(raw) && line && !line.startsWith("!")) cur = null; // left the interface block
+          const am = /^ ip address (\d+\.\d+\.\d+\.\d+) (\d+\.\d+\.\d+\.\d+)$/i.exec(line);
+          if (!am || !cur) continue;
+          if (excludeInterface && cur.toLowerCase() === String(excludeInterface).toLowerCase()) continue;
+          if (!ipv4(am[1]) || !contiguousMask(am[2])) continue;
+          const prefix = maskPrefix(am[2]);
+          if (prefix < 1) continue;
+          out.push({ label: cur + " (literal)", ...subnetOf(am[1], prefix) });
+        }
+        return out;
+      }
       // --- Event wiring (buttons, inputs) and boot sequence (end of file) ---
       $("buildTab").onclick = () => tab(false);
       $("maintainTab").onclick = () => tab(true);
@@ -4521,6 +5498,136 @@
         renderPreview();
         scheduleAutosave();
       });
+      // Team policy rules: same editing model as hints, but they gate export (see policyViolations).
+      function applyTeamPoliciesFromEditor(announce) {
+        const bp = boundedPolicies($("teamPoliciesEditor").value);
+        teamPolicies = bp.rules;
+        const bad = teamPolicies.map(parsePolicyLine).filter((p) => p && p.error).map((p) => p.error);
+        if (announce) {
+          $("teamPoliciesEditor").value = teamPolicies.join("\n");
+          message(
+            (teamPolicies.length ? "Team policy rules applied (" + teamPolicies.length + ")." : "Team policy rules cleared.") +
+              (bad.length ? " " + bad.length + " rule(s) cannot be evaluated and block export until fixed: " + bad[0] : "") +
+              (bp.trimmed ? " Some rules were shortened or dropped (max " + CONFIG.MAX_TEAM_POLICIES + " lines, " + CONFIG.MAX_TEAM_POLICY_CHARS + " characters each)." : ""),
+          );
+        }
+        touch();
+        renderPreview();
+      }
+      $("applyTeamPolicies").onclick = () => applyTeamPoliciesFromEditor(true);
+      $("teamPoliciesEditor").addEventListener("input", () => applyTeamPoliciesFromEditor(false));
+      // Theme picker (header).
+      $("themeSelect").onchange = () => {
+        const v = $("themeSelect").value;
+        try {
+          if (v === "auto") localStorage.removeItem(CONFIG.THEME_KEY);
+          else localStorage.setItem(CONFIG.THEME_KEY, v);
+        } catch (e) {}
+        applyTheme(v);
+      };
+      // Transliteration helper: values and descriptions now; template / roles / sources as an editor draft.
+      $("fixAscii").onclick = () => {
+        const r = current();
+        const changedValues = [];
+        for (const k of Object.keys(r.values || {})) {
+          const t = transliterateAscii(r.values[k]);
+          if (t !== r.values[k]) {
+            r.values[k] = t.trim();
+            changedValues.push(k);
+          }
+        }
+        let changedPorts = 0;
+        for (const p of r.ports || []) {
+          const t = transliterateAscii(p.description || "");
+          if (t !== (p.description || "")) {
+            p.description = t;
+            changedPorts++;
+          }
+        }
+        const tpl = transliterateAscii(r.template);
+        const roles = {};
+        for (const k of ROLE_NAMES) roles[k] = transliterateAscii(r.roles[k]);
+        const src = transliterateAscii(mgmtSourcesText(r));
+        const editorNeeds = tpl !== r.template || ROLE_NAMES.some((k) => roles[k] !== r.roles[k]) || src !== mgmtSourcesText(r);
+        if (changedValues.length || changedPorts) {
+          touch();
+          renderAll();
+        }
+        let msg = "Transliterated " + (changedValues.length ? "values " + changedValues.join(", ") : "no values") + (changedPorts ? " and " + changedPorts + " port description(s)" : "") + ".";
+        if (editorNeeds) {
+          if (editorPending) msg += " The recipe editor holds an unapplied draft; Apply or Discard it, then run this again for the template.";
+          else {
+            tab(true);
+            $("template").value = tpl;
+            const ids = { access: "roleAccess", trunk: "roleTrunk", unused: "roleUnused", routed: "roleRouted" };
+            for (const k of ROLE_NAMES) $(ids[k]).value = roles[k];
+            $("mgmtSources").value = src;
+            editorPending = true;
+            updateDiscardButton();
+            touch();
+            renderPreview();
+            msg += " A transliterated template, role templates and source block are loaded in the recipe editor — review them and click Apply recipe changes.";
+          }
+        } else if (!changedValues.length && !changedPorts) msg += " No translatable characters found; the reported character must be edited by hand.";
+        message(msg);
+      };
+      // Interface list from pasted show output (recipe editor).
+      $("useIfaceBrief").onclick = () => {
+        const parsed = parseInterfaceBrief($("ifaceBriefPaste").value);
+        if (!parsed.names.length) {
+          message("No physical Ethernet interface names found in the pasted text.");
+          return;
+        }
+        if (parsed.names.length > MAX_INTERFACES) {
+          message("Found " + parsed.names.length + " interfaces; the limit is " + MAX_INTERFACES + ".");
+          return;
+        }
+        $("interfaces").value = parsed.names.join("\n");
+        $("skuPreset").value = "";
+        updateDeleteSkuPresetButton();
+        editorPending = true;
+        touch();
+        updateDiscardButton();
+        renderPreview();
+        message(
+          "Interface list filled with " + parsed.names.length + " port" + (parsed.names.length === 1 ? "" : "s") + " from the pasted output" +
+            (parsed.skipped.length ? "; skipped " + parsed.skipped.length + ": " + parsed.skipped.slice(0, 6).join(", ") + (parsed.skipped.length > 6 ? ", …" : "") : "") +
+            ". Click Apply recipe changes to keep it.",
+        );
+      };
+      // Fleet (Build).
+      $("checkFleet").onclick = () => {
+        const r = current();
+        const res = checkFleet(r, $("fleetCsv").value);
+        fleet = { ...res, recipeId: r.id, stamp: fleetStamp(r) };
+        renderFleet(fleet);
+        refreshFleetButtons();
+        const bad = res.rows.filter((x) => x.errors.length || x.policy.length).length;
+        message(
+          res.errors.length
+            ? "Fleet CSV cannot be used: " + res.errors[0]
+            : bad
+              ? "Fleet checked: " + bad + " of " + res.rows.length + " switches have errors (see the Result column)."
+              : "Fleet checked: " + res.rows.length + " switch" + (res.rows.length === 1 ? "" : "es") + " ready.",
+        );
+      };
+      $("fleetCsvInput").onchange = () =>
+        run(async () => {
+          const f = $("fleetCsvInput").files[0];
+          if (!f) return;
+          try {
+            if (f.size > 2 * 1024 * 1024) throw Error("CSV file is too large (max 2 MiB).");
+            $("fleetCsv").value = await f.text();
+            fleet = null;
+            renderFleet(null);
+            message("CSV loaded (" + f.name + "). Click Check fleet.");
+          } finally {
+            $("fleetCsvInput").value = "";
+          }
+        });
+      $("fleetCsv").addEventListener("input", () => refreshFleetButtons());
+      $("exportFleet").onclick = () => run(() => exportFleet(false));
+      $("exportFleetText").onclick = () => run(() => exportFleet(true));
       $("newSwitch").onclick = () => newSwitch();
       $("applyBulkVlan").onclick = () => {
         const r = current();
@@ -4668,6 +5775,7 @@
         }
         const r = structuredClone(current());
         r.id = crypto.randomUUID();
+        r.exports = {}; // export history belongs to the original recipe
         r.name = (r.name.length + 7 > CONFIG.MAX_RECIPE_NAME_CHARS
           ? r.name.slice(0, CONFIG.MAX_RECIPE_NAME_CHARS - 7)
           : r.name) + " - copy";
@@ -4784,7 +5892,7 @@
         if (
           !window.confirm(
             "Clear ALL SwitchCard data stored in this browser?\n\n" +
-              "Removes " + ks.length + " item(s): current and older autosaves, " + nb + " autosave backup(s), custom SKU presets and tips/pin settings." +
+              "Removes " + ks.length + " item(s): current and older autosaves, " + nb + " autosave backup(s), custom SKU presets, theme and tips/pin settings." +
               (nb ? "\n\nTip: Cancel and use Download autosave backup first if you may need a backup." : "") +
               "\n\nIn-memory work stays until you reload.",
           )
@@ -4843,12 +5951,20 @@
           }));
           checkFiles(files);
           assertBaselineComplete(files, "Baseline folder");
-          baseline = { model, version, files };
+          // Fingerprint every file (hashes only, never bytes) and compare with the project's record.
+          const fingerprint = await fingerprintFiles(files, "Fingerprinting baseline");
+          const compare = baselineExpected && baselineExpected.fingerprint ? compareFingerprints(baselineExpected.fingerprint, fingerprint) : null;
+          baseline = { model, version, files, fingerprint, compare };
           touch();
           renderBaseline();
           const nonAscii = files.filter((f) => /[^\x20-\x7e]/.test(f.path)).length;
           message(
             "Baseline loaded. Verify its file list and model; automatic firmware identification is not included." +
+              (compare
+                ? compare.same
+                  ? " Fingerprint matches the project's recorded baseline."
+                  : " WARNING: fingerprint " + compare.summary + (compare.changed.length ? "; changed: " + compare.changed.slice(0, 5).join(", ") : "") + ". Use the recorded folder, or Save project to record this one."
+                : " Fingerprint recorded (" + fingerprint.digest.slice(0, 12) + "…); Save project keeps it.") +
               (version !== rawVersion ? " Cleaned baseline label; updated value is shown in the editor." : "") +
               (nonAscii
                 ? " Note: " + nonAscii + " file name(s) contain non-ASCII characters; the ZIP marks them as UTF-8 but some extractors may still show them incorrectly."
@@ -4863,6 +5979,11 @@
         }
         const g = generate(current());
         if (g.errors.length) return;
+        const policyHits = policyViolations(g.text, teamPolicies);
+        if (policyHits.length) {
+          message("Team policy blocks this text: " + policyHits[0]);
+          return;
+        }
         download(new Blob([g.text], { type: "text/plain;charset=utf-8" }), "editcontent.txt");
         message(
           "Text exported as editcontent.txt (" +
@@ -4875,7 +5996,7 @@
         const r = current();
         // Single generate() result used for preview identity and ZIP root editcontent.txt
         const g = generate(r);
-        const b = blockers(r);
+        const b = blockers(r, g);
         if (editorPending)
           throw Error("Apply recipe changes or Discard unapplied draft first.");
         if (g.errors.length || b.length || !$("reviewed").checked)
@@ -4905,6 +6026,9 @@
               RELEASE +
               "-sdcard.zip",
           );
+          // Remember this text per hostname so the next build of the same switch shows a diff.
+          recordExport(r, String((r.values && r.values.HOSTNAME) || ""), g.text);
+          touch();
           message(
             "SD-card ZIP exported (" +
               previewSizeLabel(g.text) +
@@ -4942,7 +6066,8 @@
           dirty = false;
           autosave();
           message(
-            "Project JSON downloaded. Reload the firmware folder next session (or use a team package to bundle baseline files).",
+            "Project JSON downloaded. Reload the firmware folder next session (or use a team package to bundle baseline files)." +
+              (baseline && baseline.fingerprint ? " The loaded baseline's fingerprint is recorded, so a different folder is flagged next time." : ""),
           );
         } catch (e) {
           message(e.message || String(e));
@@ -5026,7 +6151,12 @@
               .map((f) => ({ path: f.path.slice(9), blob: f.blob }));
             checkFiles(baseFiles);
             assertBaselineComplete(baseFiles, "Team package baseline");
-            const notes = acceptProject(p, { ...p.baseline, files: baseFiles });
+            const fingerprint = await fingerprintFiles(baseFiles, "Checking package files");
+            if (p.baseline.fingerprint && p.baseline.fingerprint.digest !== fingerprint.digest)
+              throw Error(
+                "The package's baseline files do not match the fingerprint in its manifest (" + p.baseline.fingerprint.fileCount + " files recorded, " + fingerprint.fileCount + " found). It was altered after Save team package; rebuild it from the original workspace.",
+              );
+            const notes = acceptProject(p, { ...p.baseline, files: baseFiles, fingerprint });
             let msg =
               "Team package opened. Baseline integrity checked (complete sync export). Select a recipe to prepare a card.";
             if (notes && notes.length) msg += " Migration notes: " + notes.join(" ");
@@ -5101,6 +6231,7 @@
           message(msg);
         }
       }
+      applyTheme(loadThemePref());
       customSkuPresets = loadCustomSkuPresetsFromLocal();
       const restored = restoreAutosave();
       showOnboarding();
