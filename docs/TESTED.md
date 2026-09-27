@@ -2,7 +2,7 @@
 
 SwitchCard's checks are static. The assumptions it makes about the switch (A1–A11) and the spare-switch checklist (C1–C9) are in [EEM-CONTRACT.md](EEM-CONTRACT.md). This page records what has actually been run against a switch or a lab image, so a reader can tell evidence from assumption.
 
-**Status: no device or lab results recorded yet.** Automated browser tests cover the generator, the checks and the ZIP writer (see [../tests](../tests)); they prove what the file contains, not how an image applies it. Lab runs in Cisco Modeling Labs are planned; hardware runs on a spare switch remain the reference for production use.
+**Status: no device or lab results recorded yet.** Automated browser tests cover the generator, the checks and the ZIP writer (see [../tests](../tests)); they prove what the file contains, not how an image applies it. Lab runs in Cisco Modeling Labs are planned; hardware runs on a spare switch remain the reference for production use. The SyncConfig applet in [../examples/eem-applet-example.md](../examples/eem-applet-example.md) is the maintainer's own flow; record the image and model it was exercised with here once a run is written up.
 
 ## How to record a run
 

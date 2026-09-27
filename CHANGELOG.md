@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- **Reference EEM applet replaced by the workflow's real one.** `examples/eem-applet-example.md` (and the plain-text `examples/eem-applet-SyncConfig.txt`) now document the `SyncConfig` applet used in the field: copy `editcontent.txt` into the startup-config, merge it into the running configuration, remove the applet's own trigger, `write memory`. The page also describes how the baseline card is created from an empty switch with `sync sdflash:`. The earlier merge-and-rename sketch is kept only as a described alternative. EEM-CONTRACT gained a "Reference flow" section and A5, A7 and A11 were reworded to match. Documentation only; `SwitchCard.html` and the v0.7.0 release are unchanged.
+
 ## v0.7.0 — 2026-09-27
 
 Tooling and workflow release. Existing recipes produce the same `editcontent.txt` as v0.6.0; the golden tests in `tests/golden/` prove it for the built-in examples. Project files are now schema **v5**: team policy rules can block export, so an older release must refuse a file whose rules it cannot enforce. v3 and v4 files open unchanged. Still not device-tested (see `docs/TESTED.md`).

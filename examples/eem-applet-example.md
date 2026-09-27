@@ -1,58 +1,74 @@
-# Reference EEM applet: apply `editcontent.txt` once
+# The SyncConfig EEM applet and how a baseline card is made
 
-> **EXAMPLE ONLY. Not device-tested.** SwitchCard writes the card; something on the switch has to read it. This page shows one way to do that with an Embedded Event Manager (EEM) applet, so a team without an existing flow can build one. Test it on a spare switch or in a lab (checklist C1–C9 in [docs/EEM-CONTRACT.md](../docs/EEM-CONTRACT.md), results in [docs/TESTED.md](../docs/TESTED.md)) before any production use. EEM syntax and prompts vary by IOS XE release.
+SwitchCard writes one file, root `editcontent.txt`, next to a baseline. This page shows the applet that reads that file on the switch, what each step does, and the trick that gets the applet onto every new switch without touching it by hand. The applet is the one used in the workflow SwitchCard was built for; it is reproduced here as plain text in [eem-applet-SyncConfig.txt](eem-applet-SyncConfig.txt).
 
-## What it does
-
-1. About three minutes after boot, checks whether `sdflash:editcontent.txt` exists.
-2. If it does, merges it into the running configuration with `copy sdflash:editcontent.txt running-config` (line-by-line apply, assumption A1; merge semantics, A7).
-3. Renames the file to `editcontent.applied` so a card left in the slot, or re-inserted later, is **never applied twice** (apply-once, A11).
-4. Logs each step to syslog. Saving the configuration is left as an explicit, commented-out step (A5).
+Record the image and model you exercise it with in [docs/TESTED.md](../docs/TESTED.md). The behaviour of `copy`, `sync sdflash:` and EEM prompts can differ between IOS XE releases, so the spare-switch checklist C1–C9 in [docs/EEM-CONTRACT.md](../docs/EEM-CONTRACT.md) still applies before production use.
 
 ## The applet
 
 ```text
-! EXAMPLE ONLY - not device-tested. Read examples/eem-applet-example.md first.
-! Applies sdflash:editcontent.txt once, about 180 s after the applet is (re)registered at boot,
-! then renames the file so it cannot be applied again.
-event manager applet SWITCHCARD-APPLY
- event timer countdown time 180
- action 010 cli command "enable"
- action 020 cli command "dir sdflash:editcontent.txt"
- action 030 regexp "(No such file|Error opening)" "$_cli_result"
- action 040 if $_regexp_result eq "1"
- action 041  syslog priority notifications msg "SWITCHCARD: no sdflash:editcontent.txt, nothing applied"
- action 042  exit 0
- action 043 end
- action 050 syslog priority notifications msg "SWITCHCARD: applying sdflash:editcontent.txt"
- action 060 cli command "copy sdflash:editcontent.txt running-config" pattern "filename"
- action 061 cli command ""
- action 070 syslog priority notifications msg "SWITCHCARD: copy finished"
- action 080 cli command "rename sdflash:editcontent.txt sdflash:editcontent.applied" pattern "filename"
- action 081 cli command ""
- action 090 syslog priority notifications msg "SWITCHCARD: file renamed to editcontent.applied (apply-once)"
-! Optional: persist the result. SwitchCard never emits write memory; decide it here (A5).
-! action 100 cli command "write memory"
+event manager applet SyncConfig
+ event timer countdown time 10 maxrun 150
+ action 1.0  syslog msg "Config started"
+ action 1.1  cli command "enable"
+ action 1.2  cli command "copy sdflash:editcontent.txt startup-config" pattern "Destination filename \[startup-config\]"
+ action 1.21 cli command ""
+ action 1.3  wait 10
+ action 1.4  cli command "copy startup-config running-config" pattern "Destination filename \[running-config\]"
+ action 1.41 cli command ""
+ action 1.42 wait 10
+ action 1.43 cli command "configure terminal"
+ action 1.44 cli command "event manager applet SyncConfig"
+ action 1.45 cli command "no event timer countdown time 10 maxrun 150"
+ action 1.46 cli command "end"
+ action 1.47 cli command "write memory"
+ action 1.48 cli command "configure terminal"
+ action 1.49 cli command "no event manager applet SyncConfig"
 ```
 
-## Notes and variants
+## What each step does
 
-- **Trigger.** `event timer countdown` fires once, 180 s after the applet is registered. Because the applet lives in the startup configuration, that happens again after every reload, which gives the card slot and the file system time to come up. Alternatives: `event syslog pattern "%SYS-5-RESTART"` to react to the boot message, or `event none` and a manual `event manager run SWITCHCARD-APPLY` for a supervised apply.
-- **Prompts.** `copy` and `rename` ask for a destination filename; the `pattern "filename"` clause tells EEM to expect that prompt and the empty `cli command ""` answers it with the default. If your image words the prompt differently, adjust the pattern; a wrong pattern makes the action time out.
-- **Merge, not replace.** `copy ... running-config` merges into the running configuration, which is what SwitchCard assumes (A7). To start every port from defaults, enable the recipe's `default interface` option instead of switching to `configure replace`, and test C4 first.
-- **Card file system.** IE3100 and IE3x00 expose the SD card as `sdflash:`. Confirm the name on your platform with `dir` before relying on it.
-- **Apply-once.** The rename is the whole apply-once mechanism. Check it with C9: after a successful apply, change something harmless by hand, re-insert the same card, reboot, and confirm nothing re-applies.
-- **Where the applet lives.** It must already be in the switch's configuration before the card is inserted, for example in the image or baseline you stage on every switch. SwitchCard does not put it there.
-- **Failure visibility.** The `copy` output (including any `% Invalid input` lines) is not written to syslog here because syslog messages are short; with the console connected you see it, and `show logging` keeps the SWITCHCARD lines. Extend action 070 with `$_cli_result` on images where the message length allows it.
+| Action | Effect |
+|--------|--------|
+| `event timer countdown time 10 maxrun 150` | Fires once, 10 s after the applet is registered, which happens at every boot while the applet is in the startup-config. The whole run may take at most 150 s. |
+| 1.0 – 1.1 | Logs the start and enters privileged mode. |
+| 1.2 – 1.21 | `copy sdflash:editcontent.txt startup-config` **replaces** the startup-config with the card file; the empty `cli command ""` accepts the default destination at the `Destination filename [startup-config]?` prompt. |
+| 1.3 | Waits 10 s for the copy to settle. |
+| 1.4 – 1.41 | `copy startup-config running-config` **merges** the file into the running configuration, line by line, exactly as if typed in `configure terminal`. This is the apply step SwitchCard's assumptions describe (A1, A7). |
+| 1.42 | Waits 10 s for the merge to finish. |
+| 1.43 – 1.46 | Removes the applet's own trigger. With no `event` line the applet can never fire again, which is the **apply-once** guarantee (A11): a card left in the slot, or re-inserted later, does nothing. |
+| 1.47 | `write memory` saves the merged running configuration, including the disarmed applet, over the startup-config. From here on the switch boots with the intended configuration. |
+| 1.48 – 1.49 | Removes the applet from the running configuration. This last change is not saved, so the disarmed applet stays in the startup-config until the next `write memory`; it is harmless there. |
+
+Two consequences worth knowing:
+
+- **If `editcontent.txt` is missing**, the copy in 1.2 fails, the expected prompt never appears, and the applet is stopped by `maxrun` after 150 s without changing anything. It stays armed and tries again at the next boot.
+- **If the run is interrupted** between 1.2 and 1.47 (power loss), the startup-config is the card file alone, without the applet. A SwitchCard card is a complete configuration, so the switch still boots usable; the applet is simply gone.
+
+## How the applet reaches every switch: the baseline trick
+
+The applet has to be in the startup-config that a new switch boots with. It gets there through the baseline, not through SwitchCard:
+
+1. Take a **genuinely empty** switch of the target model (no startup-config).
+2. Paste the applet and nothing else, then `write memory`.
+3. Insert an empty SD card and run `sync sdflash:` (Cisco Swap Drive). The image, its packages and the startup-config that now carries the applet are copied to the card.
+4. Copy the card's contents to a folder on the PC. That folder is the **baseline** ("sync-export folder") you load once in *Manage recipes & baseline*.
+5. For every switch: fill in the device details, export the card ZIP, extract its contents to a wiped card, and put the card into a blank switch of the same model. The switch boots the baseline from the card; 10 s after the applet registers, it applies `editcontent.txt` as described above.
+
+Because SwitchCard replaces only the root `editcontent.txt`, one baseline serves as many switches as you like; only the generated file differs between cards.
 
 ## Mapping to the SwitchCard assumptions
 
-| Assumption | How this applet meets it |
-|------------|--------------------------|
-| A1 line-by-line CLI | `copy file running-config` |
-| A2 CRLF, final newline | handled by IOS XE `copy`; verify with C5 |
-| A4 `!` comments ignored | `copy` treats `!` lines as comments; verify with C3 if provenance comments are on |
-| A5 no automatic save | `write memory` is commented out |
-| A7 merge into existing config | `copy`, not `configure replace` |
+| Assumption | How SyncConfig meets it |
+|------------|-------------------------|
+| A1 line-by-line CLI | `copy startup-config running-config` |
+| A2 CRLF and a final newline | handled by IOS XE `copy`; verify with C5 |
+| A4 `!` comments ignored | the parser skips comment lines; verify with C3 if provenance comments are on |
+| A5 saving is the applet's job | action 1.47 `write memory` |
+| A7 merge into the existing configuration | the running-config copy merges; the startup-config copy replaces, then is overwritten by the save |
 | A8 no marker line | the applet reads the whole file |
-| A11 apply once | rename to `editcontent.applied` |
+| A11 apply once | the applet removes its own trigger before saving |
+
+## An alternative design
+
+A flow can also merge the file directly into the running configuration (`copy sdflash:editcontent.txt running-config`) and rename it afterwards (`rename sdflash:editcontent.txt sdflash:editcontent.applied`) as its apply-once mechanism, leaving saving to a separate step. SwitchCard's checks are the same for both designs; only the assumptions table above tells you what to verify on a spare switch.

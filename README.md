@@ -19,7 +19,7 @@
 | [docs/SECURITY-HINTS.md](docs/SECURITY-HINTS.md) | Optional hardening hints (advisory) |
 | [docs/TESTED.md](docs/TESTED.md) | Device test matrix (no results recorded yet) |
 | [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md) | Source tree, build, tests, release procedure |
-| [examples/eem-applet-example.md](examples/eem-applet-example.md) | Reference apply-once EEM applet (untested) |
+| [examples/eem-applet-example.md](examples/eem-applet-example.md) | The workflow's EEM applet (SyncConfig), step by step, and how the baseline card is made with `sync sdflash:` |
 | [SECURITY.md](SECURITY.md) | Security model and data-handling guidance |
 | [examples/](examples/) | One fictional example project (SVI and Loopback recipes) |
 | [tests/](tests/) | Browser tests and golden outputs (run by CI) |
@@ -79,7 +79,7 @@ Details for each are in [docs/USER-GUIDE.md](docs/USER-GUIDE.md); the exact gate
 
 ## Related tools
 
-- **Cisco Swap Drive** (`sync sdflash:`): Cisco's built-in flash-to-SD backup/restore on IE3100 / IE3x00. A different mechanism from a custom EEM applet that reads `editcontent.txt`.
+- **Cisco Swap Drive** (`sync sdflash:`): Cisco's built-in flash-to-SD copy on IE3100 / IE3x00. In this workflow it produces the **baseline** (the image plus a startup-config that carries the applet) from an empty switch; the applet, not Swap Drive, applies `editcontent.txt`. See [examples/eem-applet-example.md](examples/eem-applet-example.md).
 - **[CiscoDevNet industrial-netdevops](https://github.com/ciscodevnet/industrial-netdevops)**: online NETCONF / RESTCONF / Ansible automation, not offline SD media.
 
 ## Private data
