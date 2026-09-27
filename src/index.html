@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  SwitchCard v0.7.0 - offline, single-file SD-card builder for Cisco IE switches
+  SwitchCard v0.7.1 - offline, single-file SD-card builder for Cisco IE switches
   (IE3100 / IE3x00 / IE9300) that use an on-switch EEM script to apply editcontent.txt.
 
   What it does: packs a firmware baseline folder + a configuration recipe into an SD-card ZIP
@@ -39,7 +39,7 @@
       <div class="brand">
         <span class="mark" aria-hidden="true"></span>
         <div>
-          <strong>SwitchCard <span id="releaseLabel">/ v0.7.0</span></strong>
+          <strong>SwitchCard <span id="releaseLabel">/ v0.7.1</span></strong>
           <div class="tag">Offline card builder</div>
         </div>
       </div>
@@ -167,7 +167,7 @@
                 ><input id="reviewed" type="checkbox" /><span>I reviewed this
                 configuration and the baseline selection.</span></label
               >
-              <div class="actions">
+              <div class="actions even">
                 <button id="downloadConfig">Save text only</button
                 ><button id="copyPreview" type="button">Copy preview</button
                 ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
@@ -206,45 +206,58 @@
               </details>
             </div>
             <div class="card">
-              <!-- Fleet: many switches from one recipe, values per switch from a CSV. -->
+              <!-- Fleet: many switches from one recipe. The per-switch values come from a CSV that is
+                   typed, loaded, or written by "Duplicate switch"; everything else is shared. -->
               <details id="fleetPanel">
                 <summary class="hint-summary">
                   Fleet export <span class="badge">optional</span>
                 </summary>
                 <p class="muted">
-                  Build many cards from this recipe at once. Paste CSV with a header row of
-                  placeholder names (HOSTNAME, MGMT_IP, …); an empty cell inherits the Device
-                  details above. Port roles, VLANs and descriptions are shared by every switch.
+                  Build many cards from this recipe at once. Each switch is one CSV row; port roles,
+                  VLANs and descriptions are shared by every switch.
                 </p>
-                <textarea
-                  id="fleetCsv"
-                  rows="6"
-                  spellcheck="false"
-                  placeholder="HOSTNAME,MGMT_IP&#10;EXAMPLE-SW1,192.0.2.11&#10;EXAMPLE-SW2,192.0.2.12"
-                ></textarea>
-                <div class="actions">
-                  <label class="filebutton"
-                    >Load CSV file<input
-                      id="fleetCsvInput"
-                      type="file"
-                      accept=".csv,.txt,text/csv,text/plain"
-                      class="fileinput"
-                  /></label>
-                  <button type="button" id="checkFleet">Check fleet</button>
+                <div class="fleet-block">
+                  <label for="fleetCount">Copies of this switch (number of switches, this one included)</label>
+                  <div class="actions even">
+                    <input id="fleetCount" type="number" min="2" max="500" step="1" value="5" />
+                    <button type="button" id="fillCopies">Duplicate switch</button>
+                  </div>
+                  <small class="template-help"
+                    >Row 1 is the switch filled in above. Each copy counts the number at the end of the
+                    hostname and the management IP up by one (…-01, …-02 and .10, .11); every other
+                    value comes from Device details. The rows land in the CSV box below and are checked
+                    straight away.</small
+                  >
+                </div>
+                <div class="fleet-block">
+                  <label for="fleetCsv">Fleet CSV, one row per switch</label>
+                  <p id="fleetColumns" class="muted fleet-columns"></p>
+                  <textarea id="fleetCsv" rows="6" spellcheck="false"></textarea>
+                  <div class="actions even">
+                    <label class="filebutton"
+                      >Load CSV file<input
+                        id="fleetCsvInput"
+                        type="file"
+                        accept=".csv,.txt,text/csv,text/plain"
+                        class="fileinput"
+                    /></label>
+                    <button type="button" id="checkFleet">Check fleet</button>
+                  </div>
                 </div>
                 <div id="fleetSummary" hidden></div>
-                <div class="scroll">
-                  <table id="fleetTable" hidden>
+                <div id="fleetScroll" class="scroll" hidden>
+                  <table id="fleetTable">
                     <thead id="fleetHead"></thead>
                     <tbody id="fleetRows"></tbody>
                   </table>
                 </div>
-                <div class="actions">
-                  <button type="button" id="exportFleet" class="primary" disabled>
-                    Export fleet cards</button
-                  ><button type="button" id="exportFleetText" disabled>Export fleet text only</button>
+                <div class="actions even">
+                  <button type="button" id="exportFleet" class="primary" disabled>Export fleet cards</button>
+                  <button type="button" id="exportFleetText" disabled>Export fleet text only</button>
                 </div>
-                <p id="fleetWhy" class="muted" style="margin-top: 8px">Paste a CSV and click Check fleet.</p>
+                <p id="fleetWhy" class="muted" style="margin-top: 8px">
+                  Use Duplicate switch, or paste a CSV and click Check fleet.
+                </p>
                 <p>
                   <small
                     >Fleet cards pass the same checks and gates as a single card (review box,
@@ -272,7 +285,7 @@
                     Recipes + fields as <code>.json</code> (no firmware — reload sync folder next
                     time).
                   </p>
-                  <div class="actions">
+                  <div class="actions even">
                     <button id="saveProject">Save project</button
                     ><label class="filebutton"
                       >Open project<input
@@ -288,7 +301,7 @@
                   <p class="muted" style="margin: 0">
                     Project plus loaded baseline (larger ZIP) for handing off a full kit.
                   </p>
-                  <div class="actions">
+                  <div class="actions even">
                     <button id="savePackage">Save team package</button
                     ><label class="filebutton"
                       >Open team package<input
@@ -374,7 +387,7 @@
                 <label for="editRecipe">Recipe to edit</label
                 ><select id="editRecipe"></select>
               </div>
-              <div class="actions">
+              <div class="actions even">
                 <button id="duplicate">Duplicate recipe</button
                 ><button id="deleteRecipe" type="button">Delete recipe</button>
               </div>
@@ -603,7 +616,7 @@
                 >
               </p>
             </details>
-            <div class="actions">
+            <div class="actions even">
               <button class="primary" id="applyRecipe">Apply recipe changes</button
               ><button id="discardDraft" type="button" hidden>Discard unapplied draft</button>
             </div>
@@ -618,7 +631,7 @@
       </section>
       <div id="status" role="status" hidden></div>
       <footer>
-        SwitchCard <strong>0.7.0</strong> · offline · CSP <code>connect-src 'none'</code> · not
+        SwitchCard <strong>0.7.1</strong> · offline · CSP <code>connect-src 'none'</code> · not
         affiliated with Cisco · Swap Drive (<code>sync sdflash:</code>) remains Cisco’s flash↔SD
         path · MIT.
       </footer>

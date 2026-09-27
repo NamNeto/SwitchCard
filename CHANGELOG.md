@@ -1,8 +1,14 @@
 # Changelog
 
-## Unreleased
+## v0.7.1 — 2026-09-27
 
-- **Reference EEM applet replaced by the workflow's real one.** `examples/eem-applet-example.md` (and the plain-text `examples/eem-applet-SyncConfig.txt`) now document the `SyncConfig` applet used in the field: copy `editcontent.txt` into the startup-config, merge it into the running configuration, remove the applet's own trigger, `write memory`. The page also describes how the baseline card is created from an empty switch with `sync sdflash:`. The earlier merge-and-rename sketch is kept only as a described alternative. EEM-CONTRACT gained a "Reference flow" section and A5, A7 and A11 were reworded to match. Documentation only; `SwitchCard.html` and the v0.7.0 release are unchanged.
+Fleet usability release. Single-card output is byte-for-byte the same as v0.7.0 (golden tests) and project files stay schema v5.
+
+- **Duplicate switch (new).** In Fleet export, enter the number of switches and click *Duplicate switch*: row 1 is the switch on the page and every further row counts the hostname's trailing number and the management IP up by one (`…-01`, `…-02`; `.10`, `.11`). Only those two columns are written, so everything else keeps following Device details, and the rows are checked straight away. It refuses, with the reason, a hostname without a trailing number and a range that would run past the last usable address of the management subnet (Loopback mode has no shared subnet, so no limit there).
+- **The fleet CSV explains itself.** A line above the CSV box lists every column the recipe uses, and the empty box shows a grey two-row example built from the values on the page. The check table now lists every field of every switch, with values taken from Device details in italics.
+- **Aligned buttons.** File buttons (Load CSV file, Open project, Open team package) sat 3 px above the buttons beside them because they kept the generic label margin, and inputs (44 px), selects (43 px) and buttons (38 px) had different heights. All of them now share one 40 px height with centred text, and paired buttons split their row into equal columns, so stacked rows line up and a wrapped row fills the card. The empty table frame under the fleet CSV box stays hidden until there is a result.
+- **Review note for routed ports in a fleet.** When a fleet has more than one switch and Routed ports carry addresses, a note says those addresses come from the shared port table and repeat on every switch.
+- **Reference EEM applet replaced by the workflow's real one.** `examples/eem-applet-example.md` (and the plain-text `examples/eem-applet-SyncConfig.txt`) now document the `SyncConfig` applet used in the field: copy `editcontent.txt` into the startup-config, merge it into the running configuration, remove the applet's own trigger, `write memory`. The page also describes how the baseline card is created from an empty switch with `sync sdflash:`. The earlier merge-and-rename sketch is kept only as a described alternative. EEM-CONTRACT gained a "Reference flow" section and A5, A7 and A11 were reworded to match. Documentation only.
 
 ## v0.7.0 — 2026-09-27
 

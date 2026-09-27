@@ -57,7 +57,7 @@ const freezeIfaces = (arr) => Object.freeze(arr.slice());
    The UI accent colour lives in CSS (--accent), not here.
    ======================================================================== */
 const CONFIG = Object.freeze({
-  RELEASE: "0.7.0",
+  RELEASE: "0.7.1",
   AUTOSAVE_KEY: "switchcard-autosave-v21",
   // Autosave key used before v0.5.10. Read once for import; never written or deleted.
   LEGACY_AUTOSAVE_KEYS: Object.freeze(["switchcard-autosave-v20"]),
@@ -99,6 +99,17 @@ const CONFIG = Object.freeze({
   MAX_FINGERPRINT_FILES: 2000, // per-file hashes are saved in the project up to this count
   MAX_DIFF_LINES: 6000, // larger comparisons fall back to hashes
   MAX_DIFF_EDITS: 2000,
+  // v0.7.1: fleet CSV column order (per-switch values first) and example values for the CSV hint.
+  FLEET_COLUMN_ORDER: Object.freeze(["HOSTNAME", "MGMT_IP", "MGMT_MASK", "MGMT_VLAN", "MGMT_LOOPBACK", "GATEWAY", "SITE"]),
+  FLEET_EXAMPLE_VALUES: Object.freeze({
+    HOSTNAME: "EXAMPLE-SW-01",
+    MGMT_IP: "192.0.2.11",
+    MGMT_MASK: "255.255.255.0",
+    MGMT_VLAN: "100",
+    MGMT_LOOPBACK: "0",
+    GATEWAY: "192.0.2.1",
+    SITE: "Example site",
+  }),
   // Default port-role command templates. {{INTERFACE}}, {{VLAN}}, {{DESCRIPTION}}, {{PORT_IP}}
   // and {{PORT_MASK}} are filled per port. Trunk is deliberately "mode trunk" only: its VLAN
   // field just creates VLANs via {{VLANS}}; add an allowed-VLAN line in your own template if needed.

@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  SwitchCard v0.7.0 - offline, single-file SD-card builder for Cisco IE switches
+  SwitchCard v0.7.1 - offline, single-file SD-card builder for Cisco IE switches
   (IE3100 / IE3x00 / IE9300) that use an on-switch EEM script to apply editcontent.txt.
 
   What it does: packs a firmware baseline folder + a configuration recipe into an SD-card ZIP
@@ -52,6 +52,7 @@
         --radius: 12px;
         --radius-sm: 8px;
         --space: 8px;
+        --control-h: 40px; /* buttons, file buttons, selects and single-line inputs share one height */
         --shadow: 0 1px 0 rgba(255, 255, 255, 0.03) inset, 0 8px 24px rgba(0, 0, 0, 0.32);
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
         --ease: 140ms ease;
@@ -334,11 +335,19 @@
         color: var(--text);
         padding: 10px 12px;
         border-radius: var(--radius-sm);
-        min-height: 40px;
+        min-height: var(--control-h);
         transition: border-color var(--ease), box-shadow var(--ease), background var(--ease);
       }
       select {
         cursor: pointer;
+      }
+      /* Single-line controls are exactly one control height (text stays centred), so an input or a
+         select lines up with the buttons beside it. */
+      input:not([type="checkbox"], [type="radio"], [type="file"]),
+      select {
+        height: var(--control-h);
+        padding-top: 0;
+        padding-bottom: 0;
       }
       textarea {
         font: 13px/1.55 var(--mono);
@@ -407,9 +416,19 @@
         color: var(--text);
         padding: 9px 14px;
         font-weight: 600;
-        display: inline-block;
+        /* inline-flex centres the text of a <button> and of a <label class="filebutton"> the same way.
+           The label must also drop the generic label margin and letter-spacing, or it sits 3 px higher
+           than the button next to it. */
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        margin: 0;
+        letter-spacing: normal;
+        white-space: nowrap;
+        text-align: center;
         font-size: 13.5px;
-        min-height: 38px;
+        min-height: var(--control-h);
         line-height: 1.2;
         transition: border-color var(--ease), background var(--ease), filter var(--ease),
           box-shadow var(--ease), transform var(--ease);
@@ -594,9 +613,10 @@
       tbody tr:hover {
         background: rgba(45, 212, 168, 0.05);
       }
-      td input,
+      td input:not([type="checkbox"]),
       td select {
-        padding: 7px 8px;
+        height: 34px;
+        padding: 0 8px;
         font-size: 13px;
         border-radius: 7px;
         min-height: 34px;
@@ -719,6 +739,23 @@
         margin: calc(var(--space) * 2) 0 0;
         align-items: center;
       }
+      /* Same side padding as a button: equal-split rows start every item from its padding, so a
+         different padding would shift the column edge. */
+      .actions > input,
+      .actions > select {
+        width: auto;
+        margin: 0;
+        padding-left: 14px;
+        padding-right: 14px;
+      }
+      .actions > input[type="number"] {
+        min-width: 90px;
+      }
+      /* "even" rows split their width into equal columns: stacked rows line up, and a row that wraps
+         still fills the card instead of leaving a ragged edge. */
+      .actions.even > * {
+        flex: 1 1 0;
+      }
       .hidden,
       [hidden] {
         display: none !important;
@@ -734,6 +771,7 @@
       }
       .theme-pick select {
         min-height: 0;
+        height: auto;
         padding: 2px 6px;
         font-size: 12px;
         width: auto;
@@ -764,6 +802,30 @@
       #fleetTable td.mono {
         font-family: var(--mono);
         font-size: 12px;
+      }
+      /* --- v0.7.1: fleet panel blocks (copies, CSV) --- */
+      .fleet-block {
+        margin-top: 14px;
+      }
+      .fleet-block + .fleet-block {
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+      }
+      .fleet-block > label + .actions {
+        margin-top: 0;
+      }
+      .fleet-block .template-help {
+        margin-top: 8px;
+      }
+      .fleet-columns {
+        margin: 0 0 8px;
+        font-size: 12.5px;
+      }
+      .fleet-columns code {
+        font-size: 12px;
+      }
+      #fleetScroll {
+        margin-top: 12px;
       }
       #status {
         position: sticky;
@@ -973,7 +1035,7 @@
       <div class="brand">
         <span class="mark" aria-hidden="true"></span>
         <div>
-          <strong>SwitchCard <span id="releaseLabel">/ v0.7.0</span></strong>
+          <strong>SwitchCard <span id="releaseLabel">/ v0.7.1</span></strong>
           <div class="tag">Offline card builder</div>
         </div>
       </div>
@@ -1101,7 +1163,7 @@
                 ><input id="reviewed" type="checkbox" /><span>I reviewed this
                 configuration and the baseline selection.</span></label
               >
-              <div class="actions">
+              <div class="actions even">
                 <button id="downloadConfig">Save text only</button
                 ><button id="copyPreview" type="button">Copy preview</button
                 ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
@@ -1140,45 +1202,58 @@
               </details>
             </div>
             <div class="card">
-              <!-- Fleet: many switches from one recipe, values per switch from a CSV. -->
+              <!-- Fleet: many switches from one recipe. The per-switch values come from a CSV that is
+                   typed, loaded, or written by "Duplicate switch"; everything else is shared. -->
               <details id="fleetPanel">
                 <summary class="hint-summary">
                   Fleet export <span class="badge">optional</span>
                 </summary>
                 <p class="muted">
-                  Build many cards from this recipe at once. Paste CSV with a header row of
-                  placeholder names (HOSTNAME, MGMT_IP, …); an empty cell inherits the Device
-                  details above. Port roles, VLANs and descriptions are shared by every switch.
+                  Build many cards from this recipe at once. Each switch is one CSV row; port roles,
+                  VLANs and descriptions are shared by every switch.
                 </p>
-                <textarea
-                  id="fleetCsv"
-                  rows="6"
-                  spellcheck="false"
-                  placeholder="HOSTNAME,MGMT_IP&#10;EXAMPLE-SW1,192.0.2.11&#10;EXAMPLE-SW2,192.0.2.12"
-                ></textarea>
-                <div class="actions">
-                  <label class="filebutton"
-                    >Load CSV file<input
-                      id="fleetCsvInput"
-                      type="file"
-                      accept=".csv,.txt,text/csv,text/plain"
-                      class="fileinput"
-                  /></label>
-                  <button type="button" id="checkFleet">Check fleet</button>
+                <div class="fleet-block">
+                  <label for="fleetCount">Copies of this switch (number of switches, this one included)</label>
+                  <div class="actions even">
+                    <input id="fleetCount" type="number" min="2" max="500" step="1" value="5" />
+                    <button type="button" id="fillCopies">Duplicate switch</button>
+                  </div>
+                  <small class="template-help"
+                    >Row 1 is the switch filled in above. Each copy counts the number at the end of the
+                    hostname and the management IP up by one (…-01, …-02 and .10, .11); every other
+                    value comes from Device details. The rows land in the CSV box below and are checked
+                    straight away.</small
+                  >
+                </div>
+                <div class="fleet-block">
+                  <label for="fleetCsv">Fleet CSV, one row per switch</label>
+                  <p id="fleetColumns" class="muted fleet-columns"></p>
+                  <textarea id="fleetCsv" rows="6" spellcheck="false"></textarea>
+                  <div class="actions even">
+                    <label class="filebutton"
+                      >Load CSV file<input
+                        id="fleetCsvInput"
+                        type="file"
+                        accept=".csv,.txt,text/csv,text/plain"
+                        class="fileinput"
+                    /></label>
+                    <button type="button" id="checkFleet">Check fleet</button>
+                  </div>
                 </div>
                 <div id="fleetSummary" hidden></div>
-                <div class="scroll">
-                  <table id="fleetTable" hidden>
+                <div id="fleetScroll" class="scroll" hidden>
+                  <table id="fleetTable">
                     <thead id="fleetHead"></thead>
                     <tbody id="fleetRows"></tbody>
                   </table>
                 </div>
-                <div class="actions">
-                  <button type="button" id="exportFleet" class="primary" disabled>
-                    Export fleet cards</button
-                  ><button type="button" id="exportFleetText" disabled>Export fleet text only</button>
+                <div class="actions even">
+                  <button type="button" id="exportFleet" class="primary" disabled>Export fleet cards</button>
+                  <button type="button" id="exportFleetText" disabled>Export fleet text only</button>
                 </div>
-                <p id="fleetWhy" class="muted" style="margin-top: 8px">Paste a CSV and click Check fleet.</p>
+                <p id="fleetWhy" class="muted" style="margin-top: 8px">
+                  Use Duplicate switch, or paste a CSV and click Check fleet.
+                </p>
                 <p>
                   <small
                     >Fleet cards pass the same checks and gates as a single card (review box,
@@ -1206,7 +1281,7 @@
                     Recipes + fields as <code>.json</code> (no firmware — reload sync folder next
                     time).
                   </p>
-                  <div class="actions">
+                  <div class="actions even">
                     <button id="saveProject">Save project</button
                     ><label class="filebutton"
                       >Open project<input
@@ -1222,7 +1297,7 @@
                   <p class="muted" style="margin: 0">
                     Project plus loaded baseline (larger ZIP) for handing off a full kit.
                   </p>
-                  <div class="actions">
+                  <div class="actions even">
                     <button id="savePackage">Save team package</button
                     ><label class="filebutton"
                       >Open team package<input
@@ -1308,7 +1383,7 @@
                 <label for="editRecipe">Recipe to edit</label
                 ><select id="editRecipe"></select>
               </div>
-              <div class="actions">
+              <div class="actions even">
                 <button id="duplicate">Duplicate recipe</button
                 ><button id="deleteRecipe" type="button">Delete recipe</button>
               </div>
@@ -1537,7 +1612,7 @@
                 >
               </p>
             </details>
-            <div class="actions">
+            <div class="actions even">
               <button class="primary" id="applyRecipe">Apply recipe changes</button
               ><button id="discardDraft" type="button" hidden>Discard unapplied draft</button>
             </div>
@@ -1552,7 +1627,7 @@
       </section>
       <div id="status" role="status" hidden></div>
       <footer>
-        SwitchCard <strong>0.7.0</strong> · offline · CSP <code>connect-src 'none'</code> · not
+        SwitchCard <strong>0.7.1</strong> · offline · CSP <code>connect-src 'none'</code> · not
         affiliated with Cisco · Swap Drive (<code>sync sdflash:</code>) remains Cisco’s flash↔SD
         path · MIT.
       </footer>
@@ -1617,7 +1692,7 @@
          The UI accent colour lives in CSS (--accent), not here.
          ======================================================================== */
       const CONFIG = Object.freeze({
-        RELEASE: "0.7.0",
+        RELEASE: "0.7.1",
         AUTOSAVE_KEY: "switchcard-autosave-v21",
         // Autosave key used before v0.5.10. Read once for import; never written or deleted.
         LEGACY_AUTOSAVE_KEYS: Object.freeze(["switchcard-autosave-v20"]),
@@ -1659,6 +1734,17 @@
         MAX_FINGERPRINT_FILES: 2000, // per-file hashes are saved in the project up to this count
         MAX_DIFF_LINES: 6000, // larger comparisons fall back to hashes
         MAX_DIFF_EDITS: 2000,
+        // v0.7.1: fleet CSV column order (per-switch values first) and example values for the CSV hint.
+        FLEET_COLUMN_ORDER: Object.freeze(["HOSTNAME", "MGMT_IP", "MGMT_MASK", "MGMT_VLAN", "MGMT_LOOPBACK", "GATEWAY", "SITE"]),
+        FLEET_EXAMPLE_VALUES: Object.freeze({
+          HOSTNAME: "EXAMPLE-SW-01",
+          MGMT_IP: "192.0.2.11",
+          MGMT_MASK: "255.255.255.0",
+          MGMT_VLAN: "100",
+          MGMT_LOOPBACK: "0",
+          GATEWAY: "192.0.2.1",
+          SITE: "Example site",
+        }),
         // Default port-role command templates. {{INTERFACE}}, {{VLAN}}, {{DESCRIPTION}}, {{PORT_IP}}
         // and {{PORT_MASK}} are filled per port. Trunk is deliberately "mode trunk" only: its VLAN
         // field just creates VLANs via {{VLANS}}; add an allowed-VLAN line in your own template if needed.
@@ -3988,6 +4074,7 @@
         if (fix) fix.hidden = !g.asciiIssue;
         renderDiffPanel(r, g);
         refreshFleetButtons();
+        renderFleetColumns();
       }
       // One status box: a bold heading, an optional list of items and an optional muted footer.
       function statusNotice(kind, heading, items, footer) {
@@ -5151,6 +5238,131 @@
           delimiter: delim,
         };
       }
+      // --- Fleet CSV helpers (v0.7.1): column order, CSV text, "Duplicate switch" rows ---
+      // Per-switch values first (HOSTNAME, MGMT_IP), then the usual management fields, then any other
+      // field the recipe binds, in template order.
+      function fleetColumns(r) {
+        const dkeys = deviceKeys(r);
+        const first = CONFIG.FLEET_COLUMN_ORDER.filter((k) => dkeys.includes(k));
+        return first.concat(dkeys.filter((k) => !first.includes(k)));
+      }
+      // One CSV cell: quoted when it holds a delimiter, a quote, a line break or edge spaces.
+      function csvCell(v) {
+        const s = String(v == null ? "" : v);
+        return /[",;\t\r\n]|^\s|\s$/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      }
+      function toCsv(columns, rows) {
+        return [columns.join(","), ...rows.map((row) => columns.map((c) => csvCell(row[c])).join(","))].join("\n") + "\n";
+      }
+      // "SW-01" + 1 -> "SW-02", "SW-09" + 1 -> "SW-10", "SW-99" + 1 -> "SW-100": leading zeros keep their
+      // width. null when the text does not end in a digit.
+      function bumpTrailingNumber(s, by) {
+        const m = /^(.*?)(\d+)$/.exec(String(s == null ? "" : s));
+        if (!m) return null;
+        return m[1] + (BigInt(m[2]) + BigInt(by)).toString().padStart(m[2].length, "0");
+      }
+      // Rows for "Duplicate switch": row 1 is the switch on the page, every further row counts the
+      // trailing number of HOSTNAME and MGMT_IP up by one. Only those two columns are written, so every
+      // other value keeps following Device details. Returns { columns, rows } or { error }.
+      function fleetCopyRows(r, count) {
+        const n = Number(String(count == null ? "" : count).trim());
+        if (!Number.isInteger(n) || n < 2 || n > CONFIG.MAX_FLEET_ROWS)
+          return { error: "Enter a number of switches from 2 to " + CONFIG.MAX_FLEET_ROWS + " (the switch on this page counts as one)." };
+        const dkeys = deviceKeys(r);
+        const values = r.values || {};
+        const columns = [];
+        let host = null,
+          ipStart = null;
+        if (dkeys.includes("HOSTNAME")) {
+          host = String(values.HOSTNAME || "").trim();
+          if (!host) return { error: "Fill in Hostname in Device details first; each copy counts its trailing number up." };
+          if (bumpTrailingNumber(host, 0) === null)
+            return {
+              error: 'Hostname "' + host + '" does not end in a number, so there is nothing to count up. Rename it (for example ' + host + "-01) and try again.",
+            };
+          columns.push("HOSTNAME");
+        }
+        if (dkeys.includes("MGMT_IP")) {
+          const ip = String(values.MGMT_IP || "").trim();
+          if (!ipv4(ip)) return { error: "Enter a valid Management IP in Device details first; each copy counts it up by one." };
+          ipStart = ipToInt(ip);
+          const last = ipStart + n - 1;
+          if (last > 0xffffffff) return { error: "Counting " + n + " addresses up from " + ip + " runs past 255.255.255.255." };
+          // SVI designs share one management subnet, so every copy must stay a usable host inside it.
+          // In Loopback mode each switch owns its /32; there is no shared subnet to stay inside.
+          const mask = String(values.MGMT_MASK || "").trim();
+          const loopback = usesMgmtInterface(r) && mgmtInterfaceMode(r) === "loopback";
+          if (!loopback && dkeys.includes("MGMT_MASK") && contiguousMask(mask)) {
+            const prefix = maskPrefix(mask);
+            if (prefix >= 1 && prefix <= 30) {
+              const sn = subnetOf(ip, prefix);
+              const lastUsable = sn.bcast - 1;
+              const where = intToIp(sn.net) + "/" + prefix;
+              if (ipStart <= sn.net || ipStart > lastUsable)
+                return { error: "Management IP " + ip + " is not a usable host address of " + where + "; fix it in Device details first." };
+              if (last > lastUsable) {
+                const fit = lastUsable - ipStart + 1;
+                return {
+                  error: "Only " + fit + " switch" + (fit === 1 ? "" : "es") + " fit between " + ip + " and " + intToIp(lastUsable) +
+                    ", the last usable address of " + where + ". Lower the number or start from a lower address.",
+                };
+              }
+            }
+          }
+          columns.push("MGMT_IP");
+        }
+        if (!columns.length)
+          return { error: "This recipe has no Hostname or Management IP field to count up, so the copies would be identical. Paste your own CSV instead." };
+        const rows = [];
+        for (let i = 0; i < n; i++) {
+          const row = {};
+          if (host !== null) row.HOSTNAME = bumpTrailingNumber(host, i);
+          if (ipStart !== null) row.MGMT_IP = intToIp(ipStart + i);
+          rows.push(row);
+        }
+        return { columns, rows };
+      }
+      // Grey example for the empty fleet CSV box: the recipe's own columns, row 1 with the values on the
+      // page, row 2 counted up with the other cells left empty (empty = same as Device details).
+      function fleetCsvExample(r) {
+        const columns = fleetColumns(r);
+        if (!columns.length) return { columns, text: "" };
+        const values = r.values || {};
+        const row1 = {},
+          row2 = {};
+        for (const k of columns) {
+          const v = String(values[k] || "").trim();
+          row1[k] = v || CONFIG.FLEET_EXAMPLE_VALUES[k] || k.toLowerCase().replace(/_/g, "-");
+        }
+        if (columns.includes("HOSTNAME")) row2.HOSTNAME = bumpTrailingNumber(row1.HOSTNAME, 1) || row1.HOSTNAME + "-02";
+        if (columns.includes("MGMT_IP"))
+          row2.MGMT_IP = ipv4(row1.MGMT_IP) && ipToInt(row1.MGMT_IP) < 0xffffffff ? intToIp(ipToInt(row1.MGMT_IP) + 1) : row1.MGMT_IP;
+        return { columns, text: toCsv(columns, Object.keys(row2).length ? [row1, row2] : [row1]) };
+      }
+      // DOM: the "Columns for this recipe" line above the fleet CSV box, and the box's grey example.
+      function renderFleetColumns() {
+        const line = $("fleetColumns"),
+          box = $("fleetCsv");
+        if (!line || !box) return;
+        const ex = fleetCsvExample(current());
+        line.replaceChildren();
+        if (!ex.columns.length) {
+          line.textContent = "This recipe has no per-switch fields, so every card in a fleet would be the same.";
+          box.placeholder = "";
+          return;
+        }
+        line.append("Columns for this recipe: ");
+        ex.columns.forEach((c, i) => {
+          if (i) line.append(", ");
+          const code = document.createElement("code");
+          code.textContent = c;
+          line.append(code);
+        });
+        line.append(
+          ". The header row names the columns you set per switch; a column you leave out, or an empty cell, takes the value from Device details.",
+        );
+        if (box.placeholder !== ex.text) box.placeholder = ex.text;
+      }
       // Pure apart from reading teamPolicies: builds one recipe clone per CSV row and runs generate().
       function checkFleet(r, csvText) {
         const result = { errors: [], warnings: [], rows: [], header: [] };
@@ -5190,20 +5402,24 @@
           return result;
         }
         result.header = usedCols.map(([h]) => h);
+        result.fields = fleetColumns(r); // every bound field, shown per switch in the table
         const seenHost = new Map(),
           seenIp = new Map();
         parsed.rows.forEach((cells, idx) => {
           const n = idx + 1;
           const rr = structuredClone(r);
           rr.exports = {};
-          const values = {},
-            inherited = [];
+          const fromCsv = [];
           for (const [h, i] of usedCols) {
             const c = cells[i] === undefined ? "" : cells[i];
-            if (c !== "") rr.values[h] = c;
-            else inherited.push(h);
-            values[h] = String(rr.values[h] || "");
+            if (c !== "") {
+              rr.values[h] = c;
+              fromCsv.push(h);
+            }
           }
+          const values = {};
+          for (const k of result.fields) values[k] = String(rr.values[k] || "");
+          const inherited = result.fields.filter((k) => !fromCsv.includes(k)); // taken from Device details
           normalizePorts(rr);
           const g = generate(rr);
           const errors = [...g.errors];
@@ -5224,6 +5440,19 @@
             sha256: sha256Hex(g.text), lines: previewLineCount(g.text), bytes: previewByteLength(g.text), recipe: rr,
           });
         });
+        // Routed port addresses live in the shared port table, so a multi-switch fleet repeats them.
+        if (result.rows.length > 1 && keys(r.template || "").includes("PORTS")) {
+          const ifaceSet = new Set((r.interfaces || []).map((x) => String(x).toLowerCase()));
+          const routed = (r.ports || []).filter(
+            (p) => p.role === "routed" && ifaceSet.has(String(p.name || "").toLowerCase()) && String(p.ip || "").trim(),
+          );
+          if (routed.length)
+            result.warnings.push(
+              "Routed port addresses come from the shared port table, so every switch in this fleet gets the same ones (" +
+                routed.map((p) => p.name + " " + String(p.ip).trim() + " " + String(p.mask || "").trim()).join(", ") +
+                "). Confirm that is intended, for example for identical cells behind NAT.",
+            );
+        }
         return result;
       }
       // Recognises when a checked fleet no longer matches the recipe, values, policies or CSV.
@@ -5231,18 +5460,19 @@
         const { exports: _history, ...rest } = r;
         return quickHash(JSON.stringify([rest, teamPolicies, baseline ? baseline.version : null, $("fleetCsv") ? $("fleetCsv").value : ""]));
       }
-      // DOM: the fleet table and summary on Build.
+      // DOM: the fleet table and summary on Build. Every bound field is a column; values that come from
+      // Device details rather than the CSV are shown in italics.
       function renderFleet(result) {
         const sum = $("fleetSummary"),
-          table = $("fleetTable"),
+          wrap = $("fleetScroll"),
           head = $("fleetHead"),
           body = $("fleetRows");
-        if (!sum || !table) return;
+        if (!sum || !wrap) return;
         head.replaceChildren();
         body.replaceChildren();
         if (!result) {
           sum.hidden = true;
-          table.hidden = true;
+          wrap.hidden = true;
           return;
         }
         sum.hidden = false;
@@ -5252,15 +5482,16 @@
         else
           sum.replaceChildren(
             statusNotice(result.warnings.length ? "warning" : "ok", result.rows.length + " switch" + (result.rows.length === 1 ? "" : "es") + " ready", result.warnings,
-              "Every row passed the same checks as a single card; review notes per row are in the Result column tooltip."),
+              "Every row passed the same checks as a single card. Italic values come from Device details; review notes per row are in the Result column tooltip."),
           );
         if (!result.rows.length) {
-          table.hidden = true;
+          wrap.hidden = true;
           return;
         }
-        table.hidden = false;
+        wrap.hidden = false;
+        const columns = result.fields && result.fields.length ? result.fields : result.header;
         const tr = document.createElement("tr");
-        for (const t of ["#", ...result.header, "Result", "Lines", "SHA-256"]) {
+        for (const t of ["#", ...columns, "Result", "Lines", "SHA-256"]) {
           const th = document.createElement("th");
           th.textContent = t;
           tr.append(th);
@@ -5276,9 +5507,9 @@
             el.append(td);
           };
           add(String(row.n));
-          for (const h of result.header) {
+          for (const h of columns) {
             const inh = row.inherited.includes(h);
-            add(row.values[h] || (inh ? "(empty)" : ""), inh ? "inherit" : "", inh ? "inherited from Device details" : "");
+            add(row.values[h] || (inh ? "(empty)" : ""), inh ? "inherit" : "", inh ? "From Device details" : "From the CSV");
           }
           const problems = [...row.errors, ...row.policy.map((p) => "Team policy: " + p)];
           if (problems.length) add(problems[0] + (problems.length > 1 ? " (+" + (problems.length - 1) + " more)" : ""), "bad", problems.join("\n"));
@@ -5312,7 +5543,7 @@
           ? "Ready to export " + fleet.rows.length + " card" + (fleet.rows.length === 1 ? "" : "s") + "."
           : fleet
             ? "Fleet export blocked: " + reasons.join(" · ")
-            : "Paste a CSV and click Check fleet.";
+            : "Use Duplicate switch, or paste a CSV and click Check fleet.";
         why.style.color = ok ? "var(--ok,#3dd68c)" : "var(--warn)";
       }
       // Runs inside run(): re-checks everything from scratch, confirms, then exports one ZIP per switch
@@ -5595,22 +5826,55 @@
             ". Click Apply recipe changes to keep it.",
         );
       };
-      // Fleet (Build).
-      $("checkFleet").onclick = () => {
+      // Fleet (Build). Check fleet and Duplicate switch share one check, which returns the summary.
+      function runFleetCheck() {
         const r = current();
         const res = checkFleet(r, $("fleetCsv").value);
         fleet = { ...res, recipeId: r.id, stamp: fleetStamp(r) };
         renderFleet(fleet);
         refreshFleetButtons();
         const bad = res.rows.filter((x) => x.errors.length || x.policy.length).length;
+        return res.errors.length
+          ? "Fleet CSV cannot be used: " + res.errors[0]
+          : bad
+            ? "Fleet checked: " + bad + " of " + res.rows.length + " switches have errors (see the Result column)."
+            : "Fleet checked: " + res.rows.length + " switch" + (res.rows.length === 1 ? "" : "es") + " ready.";
+      }
+      $("checkFleet").onclick = () => message(runFleetCheck());
+      // "Duplicate switch": writes HOSTNAME / MGMT_IP rows counted up from the page, then checks them.
+      $("fillCopies").onclick = () => {
+        const r = current();
+        const res = fleetCopyRows(r, $("fleetCount").value);
+        if (res.error) {
+          message(res.error);
+          return;
+        }
+        const text = toCsv(res.columns, res.rows);
+        const existing = $("fleetCsv").value.trim();
+        if (
+          existing &&
+          existing !== text.trim() &&
+          !window.confirm("Replace the text in the fleet CSV box with " + res.rows.length + " copies of this switch?")
+        ) {
+          message("Duplicate cancelled — the fleet CSV text was kept.");
+          return;
+        }
+        $("fleetCsv").value = text;
+        const first = res.rows[0],
+          last = res.rows[res.rows.length - 1];
+        const others = fleetColumns(r).filter((c) => !res.columns.includes(c));
         message(
-          res.errors.length
-            ? "Fleet CSV cannot be used: " + res.errors[0]
-            : bad
-              ? "Fleet checked: " + bad + " of " + res.rows.length + " switches have errors (see the Result column)."
-              : "Fleet checked: " + res.rows.length + " switch" + (res.rows.length === 1 ? "" : "es") + " ready.",
+          "Filled " + res.rows.length + " switches: " + res.columns.map((c) => first[c] + " … " + last[c]).join(", ") + "." +
+            (others.length ? " " + others.join(", ") + " and the port table come from Device details for every switch." : "") +
+            " " + runFleetCheck(),
         );
       };
+      $("fleetCount").addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          $("fillCopies").click();
+        }
+      });
       $("fleetCsvInput").onchange = () =>
         run(async () => {
           const f = $("fleetCsvInput").files[0];
