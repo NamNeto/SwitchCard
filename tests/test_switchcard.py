@@ -87,7 +87,7 @@ def test_loopback_mode_binds_loopback_and_relaxes_svi_rules(page):
                  sources: /ntp source Loopback0\\r\\nip radius source-interface Loopback0\\r\\nlogging source-interface Loopback0\\r\\nip ssh source-interface Loopback0/.test(g.text),
                  badErr: generate(bad).errors, mask24: generate(mask24).warnings.filter(w => /MGMT_MASK is \\/24/.test(w)).length,
                  noRouting: generate(noRouting).warnings.filter(w => /Loopback management/.test(w)).length,
-                 noRouted: generate(noRouted).warnings.filter(w => /not inside any Routed port subnet/.test(w)).length,
+                 noRouted: generate(noRouted).warnings.filter(w => /not inside any Routed port/.test(w)).length,
                  confirm: exportConfirmSummary(r, g) };
     }""")
     assert "MGMT_LOOPBACK" in r["keys"] and "MGMT_VLAN" not in r["keys"]
