@@ -8,43 +8,11 @@ Run locally:
 Regenerate the golden editcontent.txt files after an intended output change:
     python -m pytest -q --update-golden
 """
-import json
-import pathlib
+import re
 
 import pytest
-from playwright.sync_api import sync_playwright
 
-ROOT = pathlib.Path(__file__).resolve().parents[1]
-HTML = ROOT / "SwitchCard.html"
-GOLDEN = ROOT / "tests" / "golden"
-
-
-
-@pytest.fixture(scope="session")
-def browser():
-    with sync_playwright() as p:
-        b = p.chromium.launch()
-        yield b
-        b.close()
-
-
-@pytest.fixture
-def page(browser):
-    ctx = browser.new_context()
-    pg = ctx.new_page()
-    problems = []
-    pg.on("pageerror", lambda e: problems.append("pageerror: %s" % e))
-    pg.on("console", lambda m: problems.append("console.%s: %s" % (m.type, m.text)) if m.type == "error" else None)
-    pg.on("dialog", lambda d: d.accept())
-    pg.goto(HTML.as_uri())
-    pg.wait_for_function("typeof generate === 'function' && typeof recipes !== 'undefined'")
-    pg.problems = problems
-    yield pg
-    ctx.close()
-
-
-def ev(page, expr, *args):
-    return page.evaluate(expr, *args)
+from helpers import ev, ROOT, HTML, GOLDEN
 
 
 # ---------------------------------------------------------------- static properties
@@ -59,7 +27,6 @@ def test_single_file_no_external_resources():
 
 def test_release_strings_agree():
     html = HTML.read_text(encoding="utf-8")
-    import re
     release = re.search(r'RELEASE: "([0-9.]+)"', html).group(1)
     assert ("SwitchCard v%s" % release) in html
     assert ('/ v%s</span>' % release) in html
