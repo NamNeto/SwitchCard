@@ -165,12 +165,12 @@ FLEET_CSV = "HOSTNAME,MGMT_IP,IGNORED\\nEXAMPLE-SW1,192.0.2.11,x\\nEXAMPLE-SW2,1
 
 
 def test_parse_csv_quotes_and_delimiters(page):
-    r = ev(page, """() => ({
+    r = ev(page, '''() => ({
         comma: parseCsv('HOSTNAME,SITE\\nsw1,"Site, with comma"\\nsw2,"say ""hi"""\\n'),
         semi: parseCsv('hostname;mgmt ip\\r\\nsw1;192.0.2.1\\r\\n'),
         tab: parseCsv('HOSTNAME\\tMGMT_IP\\nsw1\\t192.0.2.1\\n\\n'),
         bom: parseCsv('\\uFEFFHOSTNAME\\nsw1'),
-    })""")
+    })''')
     assert r["comma"]["rows"] == [["sw1", "Site, with comma"], ["sw2", 'say "hi"']]
     assert r["semi"]["header"] == ["HOSTNAME", "MGMT_IP"] and r["semi"]["rows"] == [["sw1", "192.0.2.1"]]
     assert r["tab"]["delimiter"] == "\t" and r["tab"]["rows"] == [["sw1", "192.0.2.1"]]
