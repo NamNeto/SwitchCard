@@ -1,0 +1,55 @@
+! EXAMPLE ONLY - replace with your tested configuration
+! Site: Example site
+hostname IE3x00-LOOP-01
+!
+! Loopback management: the switch routes; the uplink is a Routed port with its own IP/mask
+ip routing
+!
+! No Layer-2 VLANs collected yet
+! Management address on the loopback (Loopback mode in the recipe editor)
+interface Loopback0
+ description MANAGEMENT
+ ip address 198.51.100.10 255.255.255.255
+!
+ip route 0.0.0.0 0.0.0.0 192.0.2.1
+!
+! Management-plane sources follow the management interface
+ntp source Loopback0
+ip radius source-interface Loopback0
+logging source-interface Loopback0
+ip ssh source-interface Loopback0
+!
+interface GigabitEthernet1/1
+ description Uplink (routed)
+ no switchport
+ ip address 192.0.2.2 255.255.255.252
+ no shutdown
+!
+interface GigabitEthernet1/2
+ shutdown
+!
+interface GigabitEthernet1/3
+ shutdown
+!
+interface GigabitEthernet1/4
+ shutdown
+!
+interface GigabitEthernet1/5
+ shutdown
+!
+interface GigabitEthernet1/6
+ shutdown
+!
+interface GigabitEthernet1/7
+ shutdown
+!
+interface GigabitEthernet1/8
+ shutdown
+!
+interface GigabitEthernet1/9
+ shutdown
+!
+interface GigabitEthernet1/10
+ shutdown
+!
+end

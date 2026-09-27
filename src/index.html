@@ -1,0 +1,514 @@
+<!doctype html>
+<!--
+  SwitchCard v0.6.0 - offline, single-file SD-card builder for Cisco IE switches
+  (IE3100 / IE3x00 / IE9300) that use an on-switch EEM script to apply editcontent.txt.
+
+  What it does: packs a firmware baseline folder + a configuration recipe into an SD-card ZIP
+  whose root holds exactly one generated editcontent.txt. Everything runs in this browser tab:
+  no server, no CDN, no network (CSP connect-src 'none'). Firmware bytes are never stored.
+
+  File layout: one style block (theme + layout), then the HTML (Build panel, then Maintain
+  panel), then one script block with all logic. See "CODE MAP" at the top of the script.
+
+  Not affiliated with Cisco; does not replace Cisco Swap Drive (sync sdflash:). MIT licence.
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>SwitchCard · Offline card builder</title>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+    />
+    <style>
+@@STYLES@@
+    </style>
+  </head>
+  <body>
+    <!-- ===== Header ===== -->
+    <header>
+      <div class="brand">
+        <span class="mark" aria-hidden="true"></span>
+        <div>
+          <strong>SwitchCard <span id="releaseLabel">/ v0.6.0</span></strong>
+          <div class="tag">Offline card builder</div>
+        </div>
+      </div>
+      <div class="right">
+        Files stay on this computer<span id="autosaveHint" class="autosave" hidden>Workspace saved locally</span>
+      </div>
+    </header>
+    <!-- ===== Main shell ===== -->
+    <main class="shell">
+      <div class="top">
+        <div>
+          <h1>Prepare a switch card</h1>
+          <p class="muted">
+            One baseline · many recipes · SD root with <code>editcontent.txt</code>
+          </p>
+        </div>
+        <nav id="tabs" class="tabs" aria-label="Workspace" hidden>
+          <button id="buildTab" class="active">Build a card</button
+          ><button id="maintainTab" type="button" hidden>Manage recipes & baseline</button>
+        </nav>
+      </div>
+      <!-- ===== Build workspace ===== -->
+      <section id="build">
+        <!-- Quick-start tip. "Got it" hides it for good (flag stored under CONFIG.ONBOARD_KEY). -->
+        <div id="onboarding" class="onboard" hidden>
+          <div class="onboard-head">
+            <div>
+              <strong>Quick start</strong>
+              <ol>
+                <li>
+                  First time: <strong>Manage recipes &amp; baseline</strong> → load sync-export,
+                  shape recipes.
+                </li>
+                <li>Build → device + ports → review → <strong>Export SD-card ZIP</strong>.</li>
+                <li>Extract ZIP contents to the card <strong>root</strong> (examples block export).</li>
+              </ol>
+            </div>
+            <button type="button" id="dismissOnboarding">Got it</button>
+          </div>
+        </div>
+        <div class="grid">
+          <div>
+            <div class="card">
+              <!-- Step 1: recipe picker -->
+              <h2><span class="step">1</span>Choose a configuration</h2>
+              <div class="field">
+                <label for="recipe">Configuration recipe</label
+                ><select id="recipe"></select>
+              </div>
+              <div id="recipeInfo"></div>
+              <div id="baselineInfo" class="notice"></div>
+              <button id="setup">Manage recipes &amp; baseline</button>
+            </div>
+            <div class="card">
+              <!-- Step 2: device identity fields -->
+              <h2><span class="step">2</span>Device details</h2>
+              <div id="fields" class="fields"></div>
+              <div class="actions"><button type="button" id="newSwitch">New switch</button></div>
+              <p>
+                <small
+                  >Clears hostname, management IP and every other per-device value. Keeps
+                  MGMT_MASK, MGMT_VLAN, MGMT_LOOPBACK, GATEWAY, SITE and the port roles, VLANs and
+                  descriptions.</small
+                >
+              </p>
+            </div>
+            <div class="card">
+              <!-- Step 3: ports + bulk VLAN -->
+              <h2><span class="step">3</span>Port assignments</h2>
+              <details class="help-mini" id="portHelp">
+                <summary>Port roles &amp; VLAN tips</summary>
+                <p class="muted">
+                  Names come from your recipe. <strong>Access</strong>: portfast + bpduguard.
+                  <strong>Trunk</strong>: mode trunk only. <code>{{VLANS}}</code> builds Layer-2
+                  <code>vlan</code> lines. Management L3 is the SVI (often Vlan100) or a Loopback,
+                  chosen in the recipe editor; a loopback design also needs a Routed uplink. Bulk-apply
+                  VLAN to checked Access/Trunk. IP/mask columns appear only for Routed ports.
+                </p>
+              </details>
+              <div id="bulkPorts" class="bulk" hidden>
+                <label class="check"
+                  ><input type="checkbox" id="selectAllPorts" /><span>Select
+                  all</span></label
+                >
+                <input
+                  type="text"
+                  id="bulkVlan"
+                  placeholder="VLAN or list"
+                  aria-label="Bulk VLAN value"
+                  autocomplete="off"
+                />
+                <button type="button" id="applyBulkVlan">Apply VLAN to checked</button>
+                <small
+                  >Updates checked Access and Trunk ports only. Unused and Routed are
+                  skipped.</small
+                >
+              </div>
+              <div class="scroll">
+                <table>
+                  <thead id="portsHead"></thead>
+                  <tbody id="ports"></tbody>
+                </table>
+              </div>
+              <p id="noPorts" hidden>This recipe does not use a port section.</p>
+            </div>
+          </div>
+          <div>
+            <div class="card">
+              <div class="previewhead">
+                <!-- Preview + export. The preview text is byte-for-byte the editcontent.txt that goes in the ZIP. -->
+                <h2>Configuration preview</h2>
+                <span class="badge">editcontent.txt</span>
+              </div>
+              <div id="checks"></div>
+              <pre id="preview" tabindex="0"></pre>
+              <p id="previewMeter" class="muted" style="margin-top: 6px"></p>
+              <label style="margin-top: 14px"
+                ><input id="reviewed" type="checkbox" /><span>I reviewed this
+                configuration and the baseline selection.</span></label
+              >
+              <div class="actions">
+                <button id="downloadConfig">Save text only</button
+                ><button id="copyPreview" type="button">Copy preview</button
+                ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
+              </div>
+              <p id="exportWhy" class="muted" style="margin-top: 8px"></p>
+              <p>
+                <small
+                  >Extract ZIP contents to the SD card <strong>root</strong> (so
+                  <code>editcontent.txt</code> sits beside baseline files). Source folder is never
+                  modified.</small
+                >
+              </p>
+            </div>
+            <div class="card">
+              <details id="securityPanel">
+                <summary class="hint-summary">
+                  Config security hints <span class="badge">optional</span>
+                </summary>
+                <p class="muted">
+                  Your team list from Manage (one tip per line). <strong>Never blocks export</strong>, never rewrites config.
+                </p>
+                <div id="securityHints"></div>
+              </details>
+            </div>
+            <div class="card">
+              <!-- Save: project / team package / browser autosave (collapsed by default) -->
+              <details id="saveWorkPanel">
+                <summary class="hint-summary">
+                  Save your work <span class="badge">optional</span>
+                </summary>
+                <p class="muted">
+                  Recipes and fill-ins only — not the SD card. Use <strong>Export</strong> above for
+                  that.
+                </p>
+                <div class="save-block">
+                  <strong>Project file</strong>
+                  <p class="muted" style="margin: 0">
+                    Recipes + fields as <code>.json</code> (no firmware — reload sync folder next
+                    time).
+                  </p>
+                  <div class="actions">
+                    <button id="saveProject">Save project</button
+                    ><label class="filebutton"
+                      >Open project<input
+                        id="projectInput"
+                        type="file"
+                        accept=".json"
+                        class="fileinput"
+                    /></label>
+                  </div>
+                </div>
+                <div class="save-block">
+                  <strong>Team package</strong>
+                  <p class="muted" style="margin: 0">
+                    Project plus loaded baseline (larger ZIP) for handing off a full kit.
+                  </p>
+                  <div class="actions">
+                    <button id="savePackage">Save team package</button
+                    ><label class="filebutton"
+                      >Open team package<input
+                        id="packageInput"
+                        type="file"
+                        accept=".zip"
+                        class="fileinput"
+                    /></label>
+                  </div>
+                </div>
+                <div class="save-block">
+                  <strong>Browser autosave</strong>
+                  <p class="muted" style="margin: 0">
+                    Sticky note in <em>this</em> browser only — never stores baseline files.
+                    One autosave per browser profile is shared by all SwitchCard tabs;
+                    use Save project to keep separate workspaces.
+                  </p>
+                  <p id="backupInfo" class="muted" style="margin: 0" hidden></p>
+                  <div class="actions">
+                    <button id="clearAutosave" type="button">Clear browser autosave</button
+                    ><select id="backupSlot" aria-label="Autosave backup to restore or download" hidden></select
+                    ><button id="restoreBackup" type="button" hidden>Restore autosave backup</button
+                    ><button id="downloadBackup" type="button" hidden>Download autosave backup</button>
+                  </div>
+                </div>
+              </details>
+            </div>
+          </div>
+        </div>
+      </section>
+      <!-- ===== Maintain: recipes & baseline ===== -->
+      <section id="maintain" hidden>
+        <div class="grid">
+          <div>
+            <div class="card">
+              <!-- Firmware baseline: the sync-export folder whose contents go to the SD-card root. -->
+              <h2>Firmware baseline</h2>
+              <p class="muted">
+                Select the sync-export folder (card root itself, not its parent).
+              </p>
+              <div class="fields">
+                <div class="field">
+                  <label for="baseModel">Model family</label
+                  ><select id="baseModel">
+                    <option>IE3100</option>
+                    <option>IE3x00</option>
+                    <option>IE9300</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <label for="baseVersion">Firmware / baseline label</label
+                  ><input id="baseVersion" placeholder="Your actual version or baseline name" />
+                </div>
+              </div>
+              <label class="filebutton"
+                >Select sync export folder<input
+                  type="file"
+                  id="folderInput"
+                  webkitdirectory
+                  multiple
+                  class="fileinput"
+              /></label>
+              <div id="baseDetails" class="notice">No firmware files loaded.</div>
+              <details>
+                <summary>View baseline files</summary>
+                <pre id="fileList">No files loaded.</pre>
+                <p>
+                  <small
+                    >The selected folder's own name is dropped; nested paths and file bytes are kept.
+                    A root <code>editcontent.txt</code> is replaced only in the exported ZIP. Empty
+                    folders are not captured by browser folder selection.</small
+                  >
+                </p>
+              </details>
+            </div>
+            <div class="card">
+              <!-- Recipe list. Example recipes can be explored but never exported. -->
+              <h2>Configuration recipes</h2>
+              <p class="muted">
+                Recipes can share the loaded baseline when model and firmware rules match.
+              </p>
+              <div class="field">
+                <label for="editRecipe">Recipe to edit</label
+                ><select id="editRecipe"></select>
+              </div>
+              <div class="actions">
+                <button id="duplicate">Duplicate recipe</button
+                ><button id="deleteRecipe" type="button">Delete recipe</button>
+              </div>
+              <div class="notice warning">
+                Included recipes are fictional examples, not approved Cisco configurations. Replace
+                and test them before preparing deployment cards.
+              </div>
+            </div>
+            <div class="card">
+              <!-- Team security hints: advisory text only, collapsed by default. -->
+              <details id="teamHintsPanel">
+                <summary class="hint-summary">
+                  Team security hints <span class="badge">optional</span>
+                </summary>
+                <p class="muted">
+                  One hint per line. Shown on Build under Config security hints as
+                  <strong>Team</strong> (even when preview has errors). Advisory only — never block export.
+                </p>
+                <div class="field">
+                  <label for="teamHintsEditor">Hints</label>
+                  <textarea
+                    id="teamHintsEditor"
+                    rows="6"
+                    placeholder="One hint per line, e.g.&#10;Prefer TACACS+ over local enable on edge switches&#10;Never enable Telnet on VTY"
+                  ></textarea>
+                </div>
+                <div class="actions">
+                  <button id="applyTeamHints" type="button">Apply team hints</button>
+                </div>
+                <p class="muted" style="margin-top: 10px">
+                  <small
+                    ><code>docs/SECURITY-HINTS.md</code> is reference; the live list is edited here
+                    (saved with project / team package / autosave).</small
+                  >
+                </p>
+              </details>
+            </div>
+            <div class="card">
+              <!-- Preference: show the Maintain tab in the top bar. -->
+              <div class="tab-pin">
+                <label
+                  ><input id="pinMaintainTab" type="checkbox" /><span>Show “Manage
+                  recipes &amp; baseline” in the top tabs</span></label
+                >
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <!-- Recipe editor -->
+            <div class="previewhead" style="margin-bottom: 12px">
+              <h2 style="margin: 0">Recipe editor</h2>
+              <button id="backBuild" type="button">Back to card builder</button>
+            </div>
+            <div class="field">
+              <label for="recipeName">Recipe name</label><input id="recipeName" />
+            </div>
+            <div class="fields">
+              <div class="field">
+                <label for="recipeModel">Model family</label
+                ><select id="recipeModel">
+                  <option>IE3100</option>
+                  <option>IE3x00</option>
+                  <option>IE9300</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="firmwareRule">Allowed baseline labels</label
+                ><textarea
+                  id="firmwareRule"
+                  class="compact-xs"
+                  rows="2"
+                  placeholder="One per line; blank = any"
+                ></textarea>
+              </div>
+            </div>
+            <div class="field">
+              <label for="template">Configuration template</label
+              ><textarea id="template" rows="12" spellcheck="false"></textarea
+              ><small class="template-help"
+                >Placeholders: {{HOSTNAME}}, {{MGMT_IP}}, {{MGMT_MASK}}, {{MGMT_VLAN}}, {{GATEWAY}},
+                {{SITE}}, {{VLANS}}, {{PORTS}}, {{MGMT_INTERFACE}}, {{MGMT_SOURCES}}. Add fields with
+                {{UPPER_SNAKE}}. Apply, then Back to card builder to see new fields.</small
+              >
+            </div>
+            <div class="field">
+              <!-- Management interface: {{MGMT_INTERFACE}} = Vlan<MGMT_VLAN> (SVI) or Loopback<MGMT_LOOPBACK>. -->
+              <label for="mgmtInterface">Management interface ({{MGMT_INTERFACE}})</label
+              ><select id="mgmtInterface">
+                <option value="svi">SVI — interface Vlan{{MGMT_VLAN}} (Build asks for the management VLAN)</option>
+                <option value="loopback">Loopback — interface Loopback{{MGMT_LOOPBACK}} (Build asks for the loopback number)</option>
+              </select>
+              <small class="template-help"
+                >Write <code>interface {{MGMT_INTERFACE}}</code> in the template and use the same
+                placeholder wherever a source interface is needed. A loopback design also needs
+                <code>ip routing</code>, a Routed uplink or SVI towards the gateway, and
+                <code>ip route 0.0.0.0 0.0.0.0 {{GATEWAY}}</code> instead of
+                <code>ip default-gateway</code>.</small
+              >
+            </div>
+            <details>
+              <summary>Edit management source commands ({{MGMT_SOURCES}})</summary>
+              <p>
+                <small
+                  >One command per line. <code>{{MGMT_INTERFACE}}</code> follows the choice above, so
+                  changing the management VLAN or loopback moves the NTP, RADIUS, logging and SSH
+                  sources together. Add <code>ip tacacs source-interface</code> or
+                  <code>snmp-server trap-source</code> lines if your standard uses them.</small
+                >
+              </p>
+              <label for="mgmtSources">Management source commands</label
+              ><textarea id="mgmtSources" class="compact" spellcheck="false"></textarea>
+            </details>
+            <div class="field recipe-sku-row">
+              <label for="skuPreset">SKU interface preset</label
+              ><select id="skuPreset"></select>
+              <details class="sku-notes">
+                <summary>SKU preset notes</summary>
+                <p>
+                  <small
+                    >Choosing a SKU fills <strong>Available interface names</strong> with typical CLI
+                    names for that PID (starting point only). You still must click
+                    <strong>Apply recipe changes</strong> to keep them on the recipe. Always confirm
+                    with <code>show ip interface brief</code> on the real device (combo/SFP vs copper
+                    still share GigabitEthernet names on IE3x00/IE3100). AppGigabitEthernet is omitted
+                    from presets (not used in recipes). On IE3x00 modular (IE3400 + IEM), expansion
+                    ports are <strong>Gi2/x</strong> (module 2), not a continued Gi1/x sequence —
+                    confirm on device.</small
+                  >
+                </p>
+              </details>
+            </div>
+            <div class="row custom-sku-row">
+              <div class="field" style="margin: 0; flex: 1 1 180px">
+                <label for="customSkuName">Save current list as SKU preset</label
+                ><input
+                  id="customSkuName"
+                  placeholder="Preset name"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
+              </div>
+              <button type="button" id="saveSkuPreset">Save as SKU preset</button
+              ><button type="button" id="deleteSkuPreset" hidden>
+                Delete selected custom preset
+              </button>
+            </div>
+            <div class="field">
+              <label for="interfaces">Available interface names (one per line)</label
+              ><textarea id="interfaces" class="compact" spellcheck="false"></textarea>
+            </div>
+            <details>
+              <summary>Edit port role commands</summary>
+              <p>
+                <small
+                  >Role placeholders: {{INTERFACE}}, {{VLAN}} (Access), {{DESCRIPTION}},
+                  {{PORT_IP}}, {{PORT_MASK}}. Trunk is mode trunk only. Routed uses no switchport +
+                  per-port IP/mask.</small
+                >
+              </p>
+              <label for="roleAccess">Access <small>(includes portfast + bpduguard)</small></label
+              ><textarea id="roleAccess" class="compact" spellcheck="false"></textarea
+              ><label for="roleTrunk">Trunk <small>(mode trunk only)</small></label
+              ><textarea id="roleTrunk" class="compact" spellcheck="false"></textarea
+              ><label for="roleUnused">Unused</label
+              ><textarea id="roleUnused" class="compact" spellcheck="false"></textarea
+              ><label for="roleRouted">Routed (L3 / no switchport)</label
+              ><textarea id="roleRouted" class="compact" spellcheck="false"></textarea>
+            </details>
+            <label style="margin-top: 20px"
+              ><input id="exampleFlag" type="checkbox" /><span>Example recipe —
+              blocks SD-card export until unchecked + Apply</span></label
+            >
+            <details id="advancedOutput">
+              <summary>Advanced output options (opt-in, not device-tested)</summary>
+              <label
+                ><input id="optProvenance" type="checkbox" /><span>Add
+                <code>! SWITCHCARD</code> header and <code>! SWITCHCARD-END … sha256=</code> footer
+                comment lines to editcontent.txt</span></label
+              >
+              <label
+                ><input id="optDefaultInterface" type="checkbox" /><span>Emit
+                <code>default interface &lt;name&gt;</code> before each port's role commands</span></label
+              >
+              <p>
+                <small
+                  >Both are off by default. Try them on a spare switch first — see
+                  docs/EEM-CONTRACT.md. <code>default interface</code> wipes any existing port
+                  config (including on the uplink you are connected through).</small
+                >
+              </p>
+            </details>
+            <div class="actions">
+              <button class="primary" id="applyRecipe">Apply recipe changes</button
+              ><button id="discardDraft" type="button" hidden>Discard unapplied draft</button>
+            </div>
+            <p>
+              <small
+                >Apply, then <strong>Save project</strong> / team package to keep changes across
+                folders. Autosave holds an unapplied draft in this browser only (not firmware).</small
+              >
+            </p>
+          </div>
+        </div>
+      </section>
+      <div id="status" role="status" hidden></div>
+      <footer>
+        SwitchCard <strong>0.6.0</strong> · offline · CSP <code>connect-src 'none'</code> · not
+        affiliated with Cisco · Swap Drive (<code>sync sdflash:</code>) remains Cisco’s flash↔SD
+        path · MIT.
+      </footer>
+    </main>
+    <script>
+@@SCRIPT@@
+    </script>
+  </body>
+</html>

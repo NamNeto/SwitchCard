@@ -16,3 +16,8 @@ desktop.ini
 
 # Local editor / assistant configuration
 .claude/
+
+# Python / test artefacts and the Pages build folder
+__pycache__/
+.pytest_cache/
+site/
