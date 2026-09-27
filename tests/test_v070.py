@@ -57,7 +57,7 @@ def test_policies_round_trip_project(page):
         teamPolicies = [];
         return { version: p.version, rules: v.teamPolicies, missing: v2.teamPolicies, bad };
     }""")
-    # rule lines are trimmed on the way in (use \s or  for a space at a pattern edge)
+    # rule lines are trimmed on the way in (use \s or \b for a space at a pattern edge)
     assert r["version"] == 5 and r["rules"] == ["require ^hostname"] and r["missing"] == [] and "teamPolicies" in r["bad"]
 
 
