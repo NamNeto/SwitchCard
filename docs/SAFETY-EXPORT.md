@@ -17,9 +17,25 @@ Reference for every export gate and input check. SwitchCard does **not** validat
 
 Export shows a `confirm()` summary from `exportConfirmSummary()`: recipe name, **bound** hostname / MGMT_IP / GATEWAY / MGMT_VLAN / MGMT_LOOPBACK, the resolved management interface (for example `Vlan100 (SVI mode)`), **every extra bound value without truncation**, preview lines/bytes, the **SHA-256 of editcontent.txt**, advanced options, baseline model/label, and the reminder that root `editcontent.txt` is **exactly** the preview. Extra values used outside ASCII-space-indented `!` lines come first; comment-only extras follow. Binding scans the main template and used role templates. Unbound identity fields show **NOT SET (not bound in template)**. ZIP filename uses the bound hostname or a neutral `switch-…` name. Cancel aborts with no download. Long summaries stay complete; review them before accepting.
 
+## Team policy rules (blocking)
+
+`teamPolicies` lines are parsed as `require <regex>` / `forbid <regex>` [`  # note`] and evaluated by `policyViolations()` on `positiveConfigText(text)` (comments and `no …` lines removed; flags `im`). Violations are added by `blockers()`, appear as a red box above the preview and disable **Export SD-card ZIP**, **Save text only** and both fleet exports. A rule that cannot be parsed or an invalid regular expression counts as a violation (fail closed). Rules never alter generated text. Copy preview is not gated.
+
+## Fleet export
+
+`checkFleet()` parses the CSV (`parseCsv`: comma, semicolon or tab, quoted cells, BOM), maps header names to the recipe's bound fields and builds one recipe clone per row; an empty cell inherits the current value and the port table is shared. Each clone runs the full `generate()` plus the team policies; duplicate hostnames (case-insensitive) and duplicate `MGMT_IP` across rows are errors. Reserved and derived names (`PORTS`, `VLANS`, `INTERFACE`, `VLAN`, `DESCRIPTION`, `PORT_IP`, `PORT_MASK`, `MGMT_INTERFACE`, `MGMT_SOURCES`) cannot be columns. Export re-runs the check from scratch, applies `blockers()` and the review box, confirms with per-row hashes, then writes one ZIP per row (`buildCardFiles` on that row's text) plus a manifest, or one text-only ZIP. A stale check (recipe, values, rules or CSV changed) disables the buttons. Limit: `MAX_FLEET_ROWS`.
+
+## Export history and diff
+
+`recordExport(recipe, host, text)` stores `{ host, at, release, sha256, text }` per lower-cased hostname in `recipe.exports`, pruned newest-first to `MAX_EXPORT_HISTORY` entries and `MAX_EXPORT_HISTORY_CHARS` characters. `validateProject` keeps only self-consistent entries (key equals the lower-cased host and the stored hash equals the hash of the text) and reports dropped ones. The Build panel diffs the current text against the entry for the current hostname (Myers line diff; beyond `MAX_DIFF_LINES` / `MAX_DIFF_EDITS` only the hashes are shown). Duplicate recipe starts the copy with an empty history.
+
+## Baseline fingerprint
+
+`fingerprintFiles()` hashes every file with SHA-256 (`crypto.subtle`, falling back to the built-in implementation) and derives one digest over the sorted `path / size / sha256` list. `projectPayload().baseline` carries `{ model, version, fingerprint }`, with per-file entries when the folder has at most `MAX_FINGERPRINT_FILES` files; when no folder is loaded, the record the project was opened with is preserved. Loading a folder compares digests and lists changed, added and missing paths; a mismatch is a warning repeated in the export confirm, never a hard block, because re-saving the project is how a new baseline is adopted. A team package is refused when its files do not match the manifest fingerprint. Invalid fingerprints in a file are dropped with a migration note.
+
 ## Project load and port remapping
 
-- Opening a current-format (schema v3 or v4) project, team package or autosave does **not** rewrite recipe templates. Legacy CLI migrations run only for schema v1/v2 and are reported as migration notes. Schema v4 (v0.6.0) adds the per-recipe `mgmtInterface` and `mgmtSources` fields; a v3 file gets the defaults (SVI, default source block), which do not change its output. An unknown `mgmtInterface` value or a non-text `mgmtSources` is reset with a migration note, never refused.
+- Opening a current-format (schema v3, v4 or v5) project, team package or autosave does **not** rewrite recipe templates. Legacy CLI migrations run only for schema v1/v2 and are reported as migration notes. Schema v4 (v0.6.0) adds the per-recipe `mgmtInterface` and `mgmtSources` fields; a v3 file gets the defaults (SVI, default source block), which do not change its output. An unknown `mgmtInterface` value or a non-text `mgmtSources` is reset with a migration note, never refused. Schema v5 (v0.7.0) adds `teamPolicies`, `baseline.fingerprint` and per-recipe `exports`; older releases refuse v5 files so a blocking rule is never silently ignored.
 - Changing the interface list (e.g. a SKU preset) keeps port roles by interface name and **confirms** before dropping unmatched assignments. Open, team package and autosave restore confirm the same way (Cancel = no change); until then, unmatched ports stay visible and block export. Unknown roles are validation errors, never a silent shutdown.
 - The confirm, the ZIP filename and "bound" fields use only placeholders from the main template and the role templates actually assigned to ports.
 - Team package save/import require a complete baseline (at least one file besides root `editcontent.txt`).
@@ -63,6 +79,11 @@ The Configuration preview and the ZIP's root `editcontent.txt` come from **separ
 | `MAX_DESCRIPTION_CHARS` | 200 per port description |
 | `MAX_RECIPE_NAME_CHARS` / `MAX_PRESET_NAME_CHARS` | 120 / 60 |
 | `MAX_TEAM_HINTS` / `MAX_TEAM_HINT_CHARS` | 50 hints / 300 chars each |
+| `MAX_TEAM_POLICIES` / `MAX_TEAM_POLICY_CHARS` | 50 rules / 300 chars each |
+| `MAX_FLEET_ROWS` | 500 switches per fleet |
+| `MAX_EXPORT_HISTORY` / `MAX_EXPORT_HISTORY_CHARS` | 50 hostnames / 512 KiB of text per recipe |
+| `MAX_FINGERPRINT_FILES` | 2,000 per-file hashes saved in the project |
+| `MAX_DIFF_LINES` / `MAX_DIFF_EDITS` | 6,000 lines / 2,000 edits before the diff falls back to hashes |
 
 Oversized templates/roles/interface lists fail `applyRecipe` and `validateProject` with a clear error.
 

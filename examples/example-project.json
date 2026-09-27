@@ -1,9 +1,10 @@
 {
   "format": "switchcard-project",
-  "version": 4,
+  "version": 5,
   "active": "example-ie3100-svi-01",
   "baseline": null,
   "teamHints": [],
+  "teamPolicies": [],
   "customSkuPresets": {},
   "recipes": [
     {
@@ -41,7 +42,8 @@
         "GATEWAY": "192.0.2.1",
         "SITE": "Example site"
       },
-      "ports": []
+      "ports": [],
+      "exports": {}
     },
     {
       "id": "example-ie3x00-loopback-01",
@@ -87,7 +89,8 @@
           "ip": "192.0.2.2",
           "mask": "255.255.255.252"
         }
-      ]
+      ],
+      "exports": {}
     }
   ]
 }

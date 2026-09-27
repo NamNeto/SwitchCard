@@ -18,6 +18,15 @@ Offline packaging does not make the **content** safe to share. Configurations ca
 - Follow your organization's policies for HTML files, removable media and SD cards.
 - SwitchCard is **not** a Cisco configuration validator. It checks basic fields (IPv4 shape, VLAN ranges, address collisions); it does not prove command syntax, topology, licensing or EEM behavior. Test every recipe on a spare switch first ([docs/EEM-CONTRACT.md](docs/EEM-CONTRACT.md)).
 
+## What the v0.7.0 features store
+
+- **Export history** keeps the last generated `editcontent.txt` per hostname inside each recipe (project file, team package, browser autosave). It has the same sensitivity as the template it came from, so the same storage rules apply.
+- **Baseline fingerprints** store file paths, sizes and SHA-256 hashes, never file contents.
+- **Team policy rules** are regular expressions evaluated locally; a pathological pattern can only slow down your own browser.
+- **Fleet CSV** text stays in the page and is not saved with the project. The manifest downloads list hostnames, addresses and hashes.
+- The **theme** choice is one browser-local key (`switchcard-theme`); Clear browser autosave removes it.
+- The **GitHub Pages demo** serves the same file from GitHub's servers. Once loaded the page still makes no requests, but for real work download `SwitchCard.html` from a release, check its SHA-256 and open it locally.
+
 ## Recommended practice
 
 1. **Save project** (and team packages when needed) to approved private storage.

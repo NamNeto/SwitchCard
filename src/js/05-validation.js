@@ -267,7 +267,10 @@ function interfaceFamilyMismatches(r) {
 // --- SHA-256 in plain JS. Synchronous on purpose: generate() (provenance footer) and the
 // export confirm need the hash inline, and crypto.subtle only offers an async API. ---
 function sha256Hex(str) {
-  const bytes = enc.encode(String(str));
+  return sha256Bytes(enc.encode(String(str)));
+}
+// Same hash over raw bytes (fingerprints fall back to this when crypto.subtle is unavailable).
+function sha256Bytes(bytes) {
   const K = [
     0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
     0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
@@ -393,6 +396,10 @@ function exportConfirmSummary(r, g) {
     "Baseline: " +
       (baseline
         ? baseline.model + " / " + baseline.version
+        : "(none)"),
+    "Baseline fingerprint: " +
+      (baseline && baseline.fingerprint
+        ? baseline.fingerprint.digest.slice(0, 16) + "… " + (baseline.compare ? baseline.compare.summary : "(no project record to compare with)")
         : "(none)"),
     "",
     "Root editcontent.txt in the ZIP is exactly this preview text.",

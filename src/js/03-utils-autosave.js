@@ -139,8 +139,11 @@ function projectPayload() {
     version: PROJECT_VERSION,
     active,
     recipes,
-    baseline: baseline ? { model: baseline.model, version: baseline.version } : null,
+    // The loaded baseline's record (with fingerprint), or the record the project was opened with
+    // when no folder has been loaded yet, so the expectation survives Save project.
+    baseline: baseline ? baselineRecord(baseline) : baselineExpected ? { ...baselineExpected } : null,
     teamHints: Array.isArray(teamHints) ? [...teamHints] : [],
+    teamPolicies: Array.isArray(teamPolicies) ? [...teamPolicies] : [],
     customSkuPresets: cloneCustomSkuPresets(customSkuPresets),
   };
 }
@@ -163,6 +166,7 @@ function collectDraft() {
     provenanceComments: !!($("optProvenance") && $("optProvenance").checked),
     defaultInterface: !!($("optDefaultInterface") && $("optDefaultInterface").checked),
     teamHintsDraft: $("teamHintsEditor") ? $("teamHintsEditor").value : "",
+    teamPoliciesDraft: $("teamPoliciesEditor") ? $("teamPoliciesEditor").value : "",
   };
 }
 function setAutosaveHint(kind) {
@@ -252,6 +256,8 @@ function restoreDraftFields(draft) {
   $("skuPreset").value = "";
   if ($("teamHintsEditor") && typeof draft.teamHintsDraft === "string")
     $("teamHintsEditor").value = draft.teamHintsDraft;
+  if ($("teamPoliciesEditor") && typeof draft.teamPoliciesDraft === "string")
+    $("teamPoliciesEditor").value = draft.teamPoliciesDraft;
   return true;
 }
 // Cleans a single-line input as you type (pasted zero-width / control characters) and
@@ -481,7 +487,7 @@ function parseWorkspaceFile(data) {
   if (draft !== null) {
     if (typeof draft !== "object" || Array.isArray(draft) || !p.recipes.some((r) => r.id === draft.recipeId))
       parkedReason = "it does not match any recipe in this workspace";
-    else if (["recipeName", "recipeModel", "firmwareRule", "template", "interfaces", "roleAccess", "roleTrunk", "roleUnused", "roleRouted", "mgmtInterface", "mgmtSources", "teamHintsDraft"]
+    else if (["recipeName", "recipeModel", "firmwareRule", "template", "interfaces", "roleAccess", "roleTrunk", "roleUnused", "roleRouted", "mgmtInterface", "mgmtSources", "teamHintsDraft", "teamPoliciesDraft"]
       .some((k) => draft[k] !== undefined && typeof draft[k] !== "string"))
       parkedReason = "it has a field that is not text";
     if (parkedReason) { parkedDraft = draft; draft = null; }
@@ -499,6 +505,9 @@ function commitRestoredWorkspace(result) {
   preservedAutosaveRaw = result.preservedAutosaveRaw || null;
   parkedDraft = result.parkedDraft != null ? result.parkedDraft : null;
   teamHints = Array.isArray(p.teamHints) ? [...p.teamHints] : [];
+  teamPolicies = Array.isArray(p.teamPolicies) ? [...p.teamPolicies] : [];
+  baselineExpected = p.baseline ? { ...p.baseline } : null;
+  fleet = null;
   customSkuPresets = Object.assign(
     Object.create(null),
     loadCustomSkuPresetsFromLocal(),
@@ -829,5 +838,7 @@ function ensureRoles(r) {
   // which leave their output unchanged: neither placeholder appears in an older template.
   if (!CONFIG.MGMT_INTERFACE_MODES.includes(r.mgmtInterface)) r.mgmtInterface = "svi";
   if (typeof r.mgmtSources !== "string") r.mgmtSources = CONFIG.MGMT_SOURCES_DEFAULT;
+  // Export history per hostname (v0.7.0): the last exported text, for the "changes since" view.
+  if (!r.exports || typeof r.exports !== "object" || Array.isArray(r.exports)) r.exports = {};
   return r;
 }

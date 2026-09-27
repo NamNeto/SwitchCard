@@ -12,6 +12,7 @@ function example(model, name) {
       "! EXAMPLE ONLY - replace with your tested configuration\n! Site: {{SITE}}\nhostname {{HOSTNAME}}\n!\n! Layer-2 VLANs (management + Access/Trunk port VLANs)\n{{VLANS}}\n! Layer-3 management interface: SVI or Loopback, chosen in the recipe editor\ninterface {{MGMT_INTERFACE}}\n description MANAGEMENT\n ip address {{MGMT_IP}} {{MGMT_MASK}}\n no shutdown\n!\nip default-gateway {{GATEWAY}}\n!\n! Management-plane sources (NTP, RADIUS, logging, SSH) follow the management interface\n{{MGMT_SOURCES}}\n!\n{{PORTS}}\nend\n",
     interfaces: [...EXAMPLE_IFACES],
     roles: { ...ROLES },
+    exports: {},
     values: {
       HOSTNAME: model + "-DEMO-01",
       MGMT_IP: "192.0.2.10",
@@ -59,6 +60,9 @@ let recipes = [
   editorPending = false,
   autosaveTimer = null,
   teamHints = [],
+  teamPolicies = [], // "require <regex>" / "forbid <regex>" lines; failing rules block export
+  baselineExpected = null, // { model, version, fingerprint? } recorded in the open project
+  fleet = null, // last "Check fleet" result for the current recipe
   customSkuPresets = Object.create(null);
 const current = () => recipes.find((r) => r.id === active);
 

@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.7.0 — 2026-09-27
+
+Tooling and workflow release. Existing recipes produce the same `editcontent.txt` as v0.6.0; the golden tests in `tests/golden/` prove it for the built-in examples. Project files are now schema **v5**: team policy rules can block export, so an older release must refuse a file whose rules it cannot enforce. v3 and v4 files open unchanged. Still not device-tested (see `docs/TESTED.md`).
+
+- **Team policy rules (new, blocking).** Under *Team security hints* in Manage: `require <regex>` / `forbid <regex>` lines, matched against the generated text without `!` comments and `no …` lines. A failing or invalid rule blocks Export SD-card ZIP, Save text only and fleet export; hints stay advisory.
+- **Fleet export (new).** Paste or load a CSV whose header holds placeholder names; empty cells inherit the Device details. *Check fleet* runs every check on every row and shows result, line count and SHA-256; export writes one card ZIP per switch plus a manifest, or one text-only ZIP with `HOSTNAME/editcontent.txt` per switch. Same gates as a single card, plus duplicate hostname and address detection.
+- **Changes since the last export (new).** Every export remembers its text per hostname inside the recipe (bounded, hash-checked on open, saved with the project). Rebuilding the same switch shows a line diff under the preview.
+- **Baseline fingerprints (new).** Loading a folder hashes every file (SHA-256, hashes only). Save project and team packages record the fingerprint; a folder loaded later is compared with the record and differences are listed, the export confirm repeats the verdict, and a team package whose files no longer match its manifest is refused.
+- **Fill from show ip interface brief (new).** Paste the switch output in the recipe editor; physical Ethernet ports become the interface list, while Vlan, Loopback, Port-channel, Tunnel, AppGigabitEthernet, subinterfaces and `GigabitEthernet0/0` are skipped and listed.
+- **Transliterate to ASCII (new).** When non-ASCII characters block export, one click converts values and port descriptions (ue/oe/ae/ss, accents, dashes, curly quotes, invisible characters) and loads a transliterated template into the recipe editor for review.
+- **Light theme (new).** Auto / Dark / Light picker in the header; Auto follows the operating system. Browser-local; removed by Clear browser autosave.
+- **Loopback gateway note** now recognises a transit SVI or other L3 interface typed literally into the template.
+- **Source tree, tests, CI and demo.** `src/` + `build.py` assemble the unchanged single file; pytest + Playwright tests with golden outputs run in GitHub Actions; GitHub Pages serves a demo; `docs/DEVELOPMENT.md`, `docs/TESTED.md` (device matrix, empty) and `examples/eem-applet-example.md` (reference apply-once applet, untested) were added.
+- An autosave written by v0.6.0 is offered for restore with the usual "saved by another version" confirmation.
+
 ## v0.6.0 — 2026-09-27
 
 Management-interface release. Existing recipes produce the same `editcontent.txt` as v0.5.14 unless they hit the corrected VLAN check below; the new placeholders act only when a template uses them. Project files are now schema **v4** (v3 files open unchanged; v0.5.x cannot open v4 files). Not device-tested: run the spare-switch checklist in `docs/EEM-CONTRACT.md` before production use.

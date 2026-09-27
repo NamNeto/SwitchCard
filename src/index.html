@@ -1,14 +1,15 @@
 <!doctype html>
 <!--
-  SwitchCard v0.6.0 - offline, single-file SD-card builder for Cisco IE switches
+  SwitchCard v0.7.0 - offline, single-file SD-card builder for Cisco IE switches
   (IE3100 / IE3x00 / IE9300) that use an on-switch EEM script to apply editcontent.txt.
 
   What it does: packs a firmware baseline folder + a configuration recipe into an SD-card ZIP
   whose root holds exactly one generated editcontent.txt. Everything runs in this browser tab:
   no server, no CDN, no network (CSP connect-src 'none'). Firmware bytes are never stored.
 
-  File layout: one style block (theme + layout), then the HTML (Build panel, then Maintain
-  panel), then one script block with all logic. See "CODE MAP" at the top of the script.
+  File layout: a two-line theme bootstrap, one style block (theme + layout), then the HTML
+  (Build panel, then Maintain panel), then one script block with all logic. See "CODE MAP" at
+  the top of the script. Source lives in src/ and is assembled by build.py (docs/DEVELOPMENT.md).
 
   Not affiliated with Cisco; does not replace Cisco Swap Drive (sync sdflash:). MIT licence.
 -->
@@ -21,6 +22,13 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; img-src data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
     />
+    <script>
+      // Theme bootstrap: apply a saved Light/Dark choice before first paint (Auto follows the OS).
+      try {
+        const t = localStorage.getItem("switchcard-theme");
+        if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
     <style>
 @@STYLES@@
     </style>
@@ -31,11 +39,18 @@
       <div class="brand">
         <span class="mark" aria-hidden="true"></span>
         <div>
-          <strong>SwitchCard <span id="releaseLabel">/ v0.6.0</span></strong>
+          <strong>SwitchCard <span id="releaseLabel">/ v0.7.0</span></strong>
           <div class="tag">Offline card builder</div>
         </div>
       </div>
       <div class="right">
+        <label class="theme-pick"
+          ><span>Theme</span
+          ><select id="themeSelect" aria-label="Colour theme">
+            <option value="auto">Auto</option>
+            <option value="dark">Dark</option>
+            <option value="light">Light</option></select
+        ></label>
         Files stay on this computer<span id="autosaveHint" class="autosave" hidden>Workspace saved locally</span>
       </div>
     </header>
@@ -158,6 +173,19 @@
                 ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
               </div>
               <p id="exportWhy" class="muted" style="margin-top: 8px"></p>
+              <div id="asciiFix" class="notice warning" hidden>
+                <strong class="notice-head">Non-ASCII characters block export.</strong>
+                <button type="button" id="fixAscii">Transliterate to ASCII</button>
+                <span class="notice-foot"
+                  >Replaces umlauts (ue, oe, ae, ss), accents, dashes, curly quotes and invisible
+                  characters in the values and port descriptions now, and loads a transliterated
+                  template into the recipe editor for you to review and Apply.</span
+                >
+              </div>
+              <details id="diffPanel" hidden>
+                <summary id="diffSummary">Changes since the last export</summary>
+                <pre id="diffOut" class="diff"></pre>
+              </details>
               <p>
                 <small
                   >Extract ZIP contents to the SD card <strong>root</strong> (so
@@ -175,6 +203,57 @@
                   Your team list from Manage (one tip per line). <strong>Never blocks export</strong>, never rewrites config.
                 </p>
                 <div id="securityHints"></div>
+              </details>
+            </div>
+            <div class="card">
+              <!-- Fleet: many switches from one recipe, values per switch from a CSV. -->
+              <details id="fleetPanel">
+                <summary class="hint-summary">
+                  Fleet export <span class="badge">optional</span>
+                </summary>
+                <p class="muted">
+                  Build many cards from this recipe at once. Paste CSV with a header row of
+                  placeholder names (HOSTNAME, MGMT_IP, …); an empty cell inherits the Device
+                  details above. Port roles, VLANs and descriptions are shared by every switch.
+                </p>
+                <textarea
+                  id="fleetCsv"
+                  rows="6"
+                  spellcheck="false"
+                  placeholder="HOSTNAME,MGMT_IP&#10;EXAMPLE-SW1,192.0.2.11&#10;EXAMPLE-SW2,192.0.2.12"
+                ></textarea>
+                <div class="actions">
+                  <label class="filebutton"
+                    >Load CSV file<input
+                      id="fleetCsvInput"
+                      type="file"
+                      accept=".csv,.txt,text/csv,text/plain"
+                      class="fileinput"
+                  /></label>
+                  <button type="button" id="checkFleet">Check fleet</button>
+                </div>
+                <div id="fleetSummary" hidden></div>
+                <div class="scroll">
+                  <table id="fleetTable" hidden>
+                    <thead id="fleetHead"></thead>
+                    <tbody id="fleetRows"></tbody>
+                  </table>
+                </div>
+                <div class="actions">
+                  <button type="button" id="exportFleet" class="primary" disabled>
+                    Export fleet cards</button
+                  ><button type="button" id="exportFleetText" disabled>Export fleet text only</button>
+                </div>
+                <p id="fleetWhy" class="muted" style="margin-top: 8px">Paste a CSV and click Check fleet.</p>
+                <p>
+                  <small
+                    >Fleet cards pass the same checks and gates as a single card (review box,
+                    baseline, example flag, team policies). Each card is its own ZIP download; the
+                    browser may ask once to allow multiple downloads. <em>Text only</em> writes one
+                    ZIP with <code>HOSTNAME/editcontent.txt</code> per switch plus a manifest, and
+                    a manifest with every SHA-256 is downloaded after a card export.</small
+                  >
+                </p>
               </details>
             </div>
             <div class="card">
@@ -325,6 +404,27 @@
                 <div class="actions">
                   <button id="applyTeamHints" type="button">Apply team hints</button>
                 </div>
+                <div class="field" style="margin-top: 14px">
+                  <label for="teamPoliciesEditor">Team policy rules (block export)</label>
+                  <textarea
+                    id="teamPoliciesEditor"
+                    rows="4"
+                    spellcheck="false"
+                    placeholder="require transport input ssh&#10;forbid snmp-server community&#10;require ^ip ssh version 2  # a note after two spaces and a hash"
+                  ></textarea>
+                </div>
+                <div class="actions">
+                  <button id="applyTeamPolicies" type="button">Apply team policies</button>
+                </div>
+                <p class="muted" style="margin-top: 10px">
+                  <small
+                    >One rule per line: <code>require &lt;pattern&gt;</code> or
+                    <code>forbid &lt;pattern&gt;</code>. Patterns are case-insensitive regular
+                    expressions matched line by line against the generated text without
+                    <code>!</code> comments and <code>no …</code> lines. A failing or invalid rule
+                    <strong>blocks export</strong> (single and fleet); hints never do.</small
+                  >
+                </p>
                 <p class="muted" style="margin-top: 10px">
                   <small
                     ><code>docs/SECURITY-HINTS.md</code> is reference; the live list is edited here
@@ -446,6 +546,22 @@
               <label for="interfaces">Available interface names (one per line)</label
               ><textarea id="interfaces" class="compact" spellcheck="false"></textarea>
             </div>
+            <details class="sku-notes">
+              <summary>Fill from show ip interface brief</summary>
+              <p>
+                <small
+                  >Paste <code>show ip interface brief</code> or <code>show interfaces status</code>
+                  output from the switch. Physical Ethernet ports are kept in device order; Vlan,
+                  Loopback, Port-channel, Tunnel, AppGigabitEthernet and the out-of-band
+                  <code>GigabitEthernet0/0</code> port are skipped. Then click Apply recipe
+                  changes.</small
+                >
+              </p>
+              <textarea id="ifaceBriefPaste" class="compact" spellcheck="false"></textarea>
+              <div class="actions">
+                <button type="button" id="useIfaceBrief">Use these interface names</button>
+              </div>
+            </details>
             <details>
               <summary>Edit port role commands</summary>
               <p>
@@ -502,7 +618,7 @@
       </section>
       <div id="status" role="status" hidden></div>
       <footer>
-        SwitchCard <strong>0.6.0</strong> · offline · CSP <code>connect-src 'none'</code> · not
+        SwitchCard <strong>0.7.0</strong> · offline · CSP <code>connect-src 'none'</code> · not
         affiliated with Cisco · Swap Drive (<code>sync sdflash:</code>) remains Cisco’s flash↔SD
         path · MIT.
       </footer>

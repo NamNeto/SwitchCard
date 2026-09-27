@@ -14,7 +14,11 @@
      7. Preview / Maintain editor / Apply     renderPreview, loadEditor, applyRecipe, New switch
      8. Persistence                           migrateRecipe, validateProject, open/save project
      9. Baseline + ZIP I/O                    folder import, store-only ZIP writer/reader
-    10. Event wiring + boot                   button handlers, export, autosave restore at load
+    10. Fleet, diff, policies, fingerprints  v0.7.0 helpers (src/js/09b-*.js): CSV fleet export,
+                                             export history + line diff, team policy rules,
+                                             baseline fingerprints, interface-brief parsing,
+                                             transliteration, theme
+    11. Event wiring + boot                   button handlers, export, autosave restore at load
 
    SAFETY INVARIANTS (keep these true when changing anything)
      - The preview text IS the ZIP's editcontent.txt (same string, same bytes, CRLF).
@@ -24,6 +28,7 @@
      - Stored data is never overwritten silently: a replaced autosave goes to the backup
        ring first, and autosave pauses when that backup cannot be written.
      - No network access of any kind (enforced by the CSP meta tag in <head>).
+     - Team policy rules can only ever BLOCK an export, never change generated text.
    ========================================================================================== */
 
 /* --- Interface-name builders for the SKU presets below ---
@@ -52,7 +57,7 @@ const freezeIfaces = (arr) => Object.freeze(arr.slice());
    The UI accent colour lives in CSS (--accent), not here.
    ======================================================================== */
 const CONFIG = Object.freeze({
-  RELEASE: "0.6.0",
+  RELEASE: "0.7.0",
   AUTOSAVE_KEY: "switchcard-autosave-v21",
   // Autosave key used before v0.5.10. Read once for import; never written or deleted.
   LEGACY_AUTOSAVE_KEYS: Object.freeze(["switchcard-autosave-v20"]),
@@ -66,7 +71,10 @@ const CONFIG = Object.freeze({
   STORAGE_PREFIX: "switchcard-",
   SHOW_MAINTAIN_TAB_KEY: "switchcard-show-maintain-tab",
   ONBOARD_KEY: "switchcard-onboarding-dismissed",
-  PROJECT_VERSION: 4, // v4 (0.6.0): adds mgmtInterface / mgmtSources; v3 files open unchanged
+  // v5 (0.7.0): teamPolicies (export-blocking rules), baseline fingerprints, per-recipe export
+  // history. v4 (0.6.0): mgmtInterface / mgmtSources. Older files open unchanged; older releases
+  // refuse newer files so a policy is never silently ignored.
+  PROJECT_VERSION: 5,
   PROJECT_FORMAT: "switchcard-project",
   AUTOSAVE_FORMAT: "switchcard-autosave",
   MODELS: Object.freeze(["IE3100", "IE3x00", "IE9300"]),
@@ -81,6 +89,16 @@ const CONFIG = Object.freeze({
   // Placeholders SwitchCard computes itself: never Build fields, never taken from typed values.
   DERIVED_KEYS: Object.freeze(["MGMT_INTERFACE", "MGMT_SOURCES"]),
   MAX_LOOPBACK_NUMBER: 2147483647, // IOS-XE: interface Loopback <0-2147483647>
+  // v0.7.0 additions
+  THEME_KEY: "switchcard-theme",
+  MAX_TEAM_POLICIES: 50,
+  MAX_TEAM_POLICY_CHARS: 300,
+  MAX_FLEET_ROWS: 500,
+  MAX_EXPORT_HISTORY: 50, // remembered exports per recipe (newest kept)
+  MAX_EXPORT_HISTORY_CHARS: 512 * 1024, // total remembered text per recipe
+  MAX_FINGERPRINT_FILES: 2000, // per-file hashes are saved in the project up to this count
+  MAX_DIFF_LINES: 6000, // larger comparisons fall back to hashes
+  MAX_DIFF_EDITS: 2000,
   // Default port-role command templates. {{INTERFACE}}, {{VLAN}}, {{DESCRIPTION}}, {{PORT_IP}}
   // and {{PORT_MASK}} are filled per port. Trunk is deliberately "mode trunk" only: its VLAN
   // field just creates VLANs via {{VLANS}}; add an allowed-VLAN line in your own template if needed.
