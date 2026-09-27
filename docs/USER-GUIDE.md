@@ -61,7 +61,7 @@ Team security hints are advisory. **Team policy rules** (Manage recipes & baseli
 - A `require` rule that finds no match, a `forbid` rule that finds one, or a rule that cannot be parsed **blocks** Export SD-card ZIP, Save text only and fleet export. Copy preview still works so the text can be inspected.
 - Rules apply to every recipe in the project and to every fleet row. They are saved with the project, the team package and the browser autosave.
 - Examples: `require transport input ssh  # VTY`, `forbid snmp-server community`, `require ^ip ssh version 2`.
-- Each line is trimmed, so a pattern cannot start or end with a literal space; write `\s` or `` instead.
+- Each line is trimmed, so a pattern cannot start or end with a literal space; write `\s` or `\b` instead.
 
 ## Fleet export
 
