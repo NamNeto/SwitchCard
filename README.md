@@ -1,6 +1,6 @@
 # SwitchCard
 
-`v0.7.1` · offline · single HTML file · CSP `connect-src 'none'` · MIT · [online demo](https://namneto.github.io/SwitchCard/)
+`v0.7.2` · offline · single HTML file · CSP `connect-src 'none'` · MIT · [online demo](https://namneto.github.io/SwitchCard/)
 
 **SwitchCard** builds SD-card media for Cisco Industrial Ethernet switches (IE3100, IE3x00, IE9300) in environments that use an **on-switch EEM script** to apply a root `editcontent.txt`. Load a firmware baseline folder once, keep configuration **recipes** (templates + port roles), fill in one switch's details and export a ZIP. Extract its contents to the card root and the card is ready.
 
@@ -53,7 +53,8 @@ Each recipe decides what `{{MGMT_INTERFACE}}` means:
 ## Fleets, policies and history
 
 - **Team policy rules** turn a hint into a gate: `require transport input ssh` or `forbid snmp-server community` lines block export until the generated text complies.
-- **Fleet export** builds one card per CSV row with the same checks as a single card, one ZIP per switch or one text-only ZIP, plus a manifest of every SHA-256. **Duplicate switch** writes the rows for you: copies of the page with the hostname number and the management IP counted up.
+- **Fleet export** builds one card per CSV row with the same checks as a single card, one ZIP per switch or one text-only ZIP, plus a manifest of every SHA-256. **Duplicate switch** writes the rows for you: copies of the page with the hostname number and the management IP counted up. Port columns such as `Gi1/3 description` give each switch its own port descriptions, roles, VLANs or routed addresses.
+- **Port CSV and bulk role:** fill or change the whole port table from a spreadsheet, or set one role on every checked port.
 - **Changes since the last export** shows a line diff when a switch is rebuilt, from the text remembered per hostname.
 - **Baseline fingerprints** record what was loaded, warn when a different folder is loaded under the same label, and refuse an altered team package.
 - **Fill from show ip interface brief** turns the switch's own port list into the recipe's interface list; **Transliterate to ASCII** fixes umlauts and typographic characters that block export; a **light theme** is one click away.

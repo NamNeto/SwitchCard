@@ -303,9 +303,11 @@ function parseCsv(text) {
   }
   const nonEmpty = rows.filter((r) => r.some((c) => c.trim() !== ""));
   if (!nonEmpty.length) return { header: [], rows: [], delimiter: delim };
-  const header = nonEmpty[0].map((h) => sanitizeSingleLine(h).text.trim().toUpperCase().replace(/[\s-]+/g, "_"));
+  const rawHeader = nonEmpty[0].map((h) => sanitizeSingleLine(h).text.trim());
+  const header = rawHeader.map((h) => h.toUpperCase().replace(/[\s-]+/g, "_"));
   return {
     header,
+    rawHeader,
     rows: nonEmpty.slice(1).map((r) => r.map((c) => sanitizeSingleLine(c).text.trim())),
     delimiter: delim,
   };
@@ -433,7 +435,126 @@ function renderFleetColumns() {
   line.append(
     ". The header row names the columns you set per switch; a column you leave out, or an empty cell, takes the value from Device details.",
   );
+  const r0 = current();
+  const firstPort = (r0.interfaces || [])[0];
+  if (firstPort && keys(r0.template || "").includes("PORTS")) {
+    line.append(" Port columns set one switch's ports: the interface plus description, role, vlan, ip or mask, for example ");
+    const code = document.createElement("code");
+    code.textContent = firstPort + " description";
+    line.append(code, ". An empty cell keeps the port table.");
+  }
   if (box.placeholder !== ex.text) box.placeholder = ex.text;
+}
+// --- Port values from CSV (v0.7.2): shared by the fleet CSV and the port CSV on the page ---
+const PORT_ATTRS = Object.freeze(["role", "vlan", "description", "ip", "mask"]);
+// "Gi1/3", "gi1/3" or "GigabitEthernet1/3" -> the recipe's own interface name; null when unknown
+// or ambiguous. A short family name must be the start of exactly one matching interface.
+function resolvePortName(token, interfaces) {
+  const t = String(token == null ? "" : token).trim();
+  if (!t) return null;
+  const list = interfaces || [];
+  const exact = list.find((n) => String(n).toLowerCase() === t.toLowerCase());
+  if (exact) return exact;
+  const m = /^([A-Za-z-]+?)(\d+(?:\/\d+)*)$/.exec(t);
+  if (!m) return null;
+  const fam = m[1].toLowerCase();
+  const hits = list.filter((n) => {
+    const mm = /^([A-Za-z-]+?)(\d+(?:\/\d+)*)$/.exec(String(n));
+    return mm && mm[2] === m[2] && mm[1].toLowerCase().startsWith(fam);
+  });
+  return hits.length === 1 ? hits[0] : null;
+}
+// A fleet CSV header such as "Gi1/3 description" -> { iface, attr }; null for ordinary columns.
+function portColumnOf(raw) {
+  const m = /^([A-Za-z][A-Za-z-]*\d+(?:\/\d+)*)\s+(role|vlan|description|ip|mask)$/i.exec(String(raw || "").trim());
+  return m ? { iface: m[1], attr: m[2].toLowerCase() } : null;
+}
+// Applies [{ name, attr, value }] to a port list in place; role first, so a new role's address
+// fields can follow. A role other than Routed clears IP and mask, as the port table does.
+function applyPortCells(ports, cells) {
+  const errors = [];
+  const order = { role: 0, vlan: 1, description: 2, ip: 3, mask: 4 };
+  for (const c of [...cells].sort((a, b) => order[a.attr] - order[b.attr])) {
+    const p = ports.find((x) => x.name === c.name);
+    if (!p) {
+      errors.push(c.name + ": not in the port table.");
+      continue;
+    }
+    const v = String(c.value == null ? "" : c.value);
+    if (c.attr === "role") {
+      const role = v.toLowerCase();
+      if (!ROLE_NAMES.includes(role)) {
+        errors.push(c.name + ': role "' + v + '" must be one of ' + ROLE_NAMES.join(", ") + ".");
+        continue;
+      }
+      p.role = role;
+      if (role !== "routed") {
+        p.ip = "";
+        p.mask = "";
+      }
+    } else p[c.attr] = v;
+  }
+  return errors;
+}
+// The port table as CSV (matched ports only), for editing in a spreadsheet and applying back.
+function portTableCsv(r) {
+  const ifaceSet = new Set((r.interfaces || []).map((n) => String(n).toLowerCase()));
+  const ports = (r.ports || []).filter((p) => ifaceSet.has(String(p.name || "").toLowerCase()));
+  const cols = ["INTERFACE", "ROLE", "VLAN", "DESCRIPTION"].concat(ports.some((p) => p.role === "routed") ? ["IP", "MASK"] : []);
+  return toCsv(cols, ports.map((p) => ({ INTERFACE: p.name, ROLE: p.role, VLAN: p.vlan || "", DESCRIPTION: p.description || "", IP: p.ip || "", MASK: p.mask || "" })));
+}
+const PORT_CSV_COLUMNS = Object.freeze({
+  INTERFACE: "name", PORT: "name", NAME: "name", ROLE: "role", VLAN: "vlan", VLANS: "vlan",
+  DESCRIPTION: "description", IP: "ip", PORT_IP: "ip", MASK: "mask", PORT_MASK: "mask",
+});
+// Port CSV on the page: all or nothing. Returns { errors } or { errors: [], ports, changed, ... }
+// with a new port list; the caller assigns it.
+function applyPortCsv(r, text) {
+  const parsed = parseCsv(text);
+  if (!parsed.header.length) return { errors: ["Paste a CSV with a header row first."] };
+  const map = parsed.header.map((h) => PORT_CSV_COLUMNS[h] || null);
+  const nameIdx = map.indexOf("name");
+  if (nameIdx < 0) return { errors: ["The header needs an INTERFACE column."] };
+  const used = map.filter(Boolean);
+  if (new Set(used).size !== used.length) return { errors: ["Each column may appear only once."] };
+  if (!parsed.rows.length) return { errors: ["The CSV has a header but no port rows."] };
+  if (parsed.rows.length > MAX_PORTS) return { errors: ["At most " + MAX_PORTS + " port rows."] };
+  const ignored = parsed.header.filter((h, i) => !map[i]);
+  const ports = (r.ports || []).map((p) => ({ ...p }));
+  const seen = new Set(),
+    cells = [],
+    errors = [];
+  parsed.rows.forEach((row, idx) => {
+    const token = row[nameIdx] === undefined ? "" : row[nameIdx];
+    const name = resolvePortName(token, r.interfaces);
+    if (!name) {
+      errors.push("Row " + (idx + 1) + ': no interface "' + token + '" in this recipe.');
+      return;
+    }
+    if (seen.has(name)) {
+      errors.push("Row " + (idx + 1) + ": " + name + " appears twice.");
+      return;
+    }
+    seen.add(name);
+    map.forEach((a, i) => {
+      if (a && a !== "name" && row[i] !== undefined && row[i] !== "") cells.push({ name, attr: a, value: row[i] });
+    });
+  });
+  errors.push(...applyPortCells(ports, cells));
+  if (errors.length) return { errors };
+  const changed = { role: 0, vlan: 0, description: 0, ip: 0, mask: 0 };
+  let portsChanged = 0;
+  ports.forEach((p, i) => {
+    const o = (r.ports || [])[i] || {};
+    let any = false;
+    for (const k of PORT_ATTRS)
+      if (String(o[k] || "") !== String(p[k] || "")) {
+        changed[k]++;
+        any = true;
+      }
+    if (any) portsChanged++;
+  });
+  return { errors: [], ports, changed, portsChanged, rows: parsed.rows.length, ignored };
 }
 // Pure apart from reading teamPolicies: builds one recipe clone per CSV row and runs generate().
 function checkFleet(r, csvText) {
@@ -444,21 +565,41 @@ function checkFleet(r, csvText) {
     return result;
   }
   const dkeys = deviceKeys(r);
-  const bad = parsed.header.filter((h) => !/^[A-Z][A-Z0-9_]*$/.test(h));
-  if (bad.length) {
-    result.errors.push("Header names must be placeholder names such as HOSTNAME (got: " + bad.join(", ") + ").");
+  // Port columns ("Gi1/3 description") set one switch's port; every other column is a placeholder.
+  const portCols = [],
+    plainIdx = [],
+    badPorts = [];
+  (parsed.rawHeader || parsed.header).forEach((raw, i) => {
+    const pc = portColumnOf(raw);
+    if (!pc) return plainIdx.push(i);
+    const name = resolvePortName(pc.iface, r.interfaces);
+    if (name) portCols.push({ name, attr: pc.attr, i, label: name + " " + pc.attr });
+    else badPorts.push(raw);
+  });
+  if (badPorts.length) {
+    result.errors.push("Port columns name interfaces this recipe does not have: " + badPorts.join(", ") + ".");
     return result;
   }
-  if (new Set(parsed.header).size !== parsed.header.length) {
+  const plain = plainIdx.map((i) => parsed.header[i]);
+  const bad = plain.filter((h) => !/^[A-Z][A-Z0-9_]*$/.test(h));
+  if (bad.length) {
+    result.errors.push("Header names must be placeholder names such as HOSTNAME, or port columns such as Gi1/3 description (got: " + bad.join(", ") + ").");
+    return result;
+  }
+  const allNames = plain.concat(portCols.map((c) => c.label.toLowerCase()));
+  if (new Set(allNames).size !== allNames.length) {
     result.errors.push("Duplicate column names in the header.");
     return result;
   }
-  const reserved = parsed.header.filter((h) => CONFIG.RESERVED_VALUE_KEYS.includes(h) || CONFIG.DERIVED_KEYS.includes(h) || ["PORTS", "VLANS"].includes(h));
+  if (portCols.length && !keys(r.template || "").includes("PORTS"))
+    result.warnings.push("Port columns have no effect: this recipe's template has no {{PORTS}}.");
+  result.portCols = portCols.map((c) => c.label);
+  const reserved = plain.filter((h) => CONFIG.RESERVED_VALUE_KEYS.includes(h) || CONFIG.DERIVED_KEYS.includes(h) || ["PORTS", "VLANS"].includes(h));
   if (reserved.length) {
     result.errors.push("Columns " + reserved.join(", ") + " are filled by SwitchCard and cannot be set per switch.");
     return result;
   }
-  const unknown = parsed.header.filter((h) => !dkeys.includes(h));
+  const unknown = plain.filter((h) => !dkeys.includes(h));
   if (unknown.length) result.warnings.push("Columns not used by this recipe are ignored: " + unknown.join(", ") + ".");
   if (!parsed.rows.length) {
     result.errors.push("The CSV has a header but no switch rows.");
@@ -468,8 +609,8 @@ function checkFleet(r, csvText) {
     result.errors.push("At most " + CONFIG.MAX_FLEET_ROWS + " switches per fleet (got " + parsed.rows.length + ").");
     return result;
   }
-  const usedCols = parsed.header.map((h, i) => [h, i]).filter(([h]) => dkeys.includes(h));
-  if (!usedCols.length) {
+  const usedCols = plainIdx.map((i) => [parsed.header[i], i]).filter(([h]) => dkeys.includes(h));
+  if (!usedCols.length && !portCols.length) {
     result.errors.push("No column matches a field of this recipe (" + dkeys.join(", ") + ").");
     return result;
   }
@@ -493,8 +634,12 @@ function checkFleet(r, csvText) {
     for (const k of result.fields) values[k] = String(rr.values[k] || "");
     const inherited = result.fields.filter((k) => !fromCsv.includes(k)); // taken from Device details
     normalizePorts(rr);
+    const portCells = portCols
+      .filter((c) => cells[c.i] !== undefined && cells[c.i] !== "")
+      .map((c) => ({ name: c.name, attr: c.attr, value: cells[c.i] }));
+    const portErrors = applyPortCells(rr.ports, portCells);
     const g = generate(rr);
-    const errors = [...g.errors];
+    const errors = [...portErrors, ...g.errors];
     const host = String(rr.values.HOSTNAME || "").trim(),
       ip = String(rr.values.MGMT_IP || "").trim();
     if (dkeys.includes("HOSTNAME") && host) {
@@ -508,21 +653,24 @@ function checkFleet(r, csvText) {
     }
     const policy = errors.length ? [] : policyViolations(g.text, teamPolicies);
     result.rows.push({
-      n, values, inherited, host, ip, errors, policy, warnings: g.warnings, text: g.text,
+      n, values, inherited, portCells, host, ip, errors, policy, warnings: g.warnings, text: g.text,
       sha256: sha256Hex(g.text), lines: previewLineCount(g.text), bytes: previewByteLength(g.text), recipe: rr,
     });
   });
   // Routed port addresses live in the shared port table, so a multi-switch fleet repeats them.
   if (result.rows.length > 1 && keys(r.template || "").includes("PORTS")) {
     const ifaceSet = new Set((r.interfaces || []).map((x) => String(x).toLowerCase()));
+    const perSwitchIp = new Set(portCols.filter((c) => c.attr === "ip").map((c) => c.name));
     const routed = (r.ports || []).filter(
-      (p) => p.role === "routed" && ifaceSet.has(String(p.name || "").toLowerCase()) && String(p.ip || "").trim(),
+      (p) =>
+        p.role === "routed" && ifaceSet.has(String(p.name || "").toLowerCase()) && String(p.ip || "").trim() && !perSwitchIp.has(p.name),
     );
     if (routed.length)
       result.warnings.push(
         "Routed port addresses come from the shared port table, so every switch in this fleet gets the same ones (" +
           routed.map((p) => p.name + " " + String(p.ip).trim() + " " + String(p.mask || "").trim()).join(", ") +
-          "). Confirm that is intended, for example for identical cells behind NAT.",
+          "). Confirm that is intended, for example for identical cells behind NAT, or add a column such as " +
+          routed[0].name + " ip to set it per switch.",
       );
   }
   return result;
@@ -563,7 +711,8 @@ function renderFleet(result) {
   wrap.hidden = false;
   const columns = result.fields && result.fields.length ? result.fields : result.header;
   const tr = document.createElement("tr");
-  for (const t of ["#", ...columns, "Result", "Lines", "SHA-256"]) {
+  const hasPorts = !!(result.portCols && result.portCols.length);
+  for (const t of ["#", ...columns, ...(hasPorts ? ["Ports"] : []), "Result", "Lines", "SHA-256"]) {
     const th = document.createElement("th");
     th.textContent = t;
     tr.append(th);
@@ -582,6 +731,11 @@ function renderFleet(result) {
     for (const h of columns) {
       const inh = row.inherited.includes(h);
       add(row.values[h] || (inh ? "(empty)" : ""), inh ? "inherit" : "", inh ? "From Device details" : "From the CSV");
+    }
+    if (hasPorts) {
+      const pc = row.portCells || [];
+      add(pc.length ? pc.length + " set" : "shared", pc.length ? "" : "inherit",
+        pc.length ? pc.map((c) => c.name + " " + c.attr + " = " + c.value).join("\n") : "Every port from the port table");
     }
     const problems = [...row.errors, ...row.policy.map((p) => "Team policy: " + p)];
     if (problems.length) add(problems[0] + (problems.length > 1 ? " (+" + (problems.length - 1) + " more)" : ""), "bad", problems.join("\n"));

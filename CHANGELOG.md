@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## v0.7.2 — 2026-09-28
+
+Port editing release. Single-card output for the same port table is unchanged (golden tests); project files stay schema v5.
+
+- **Port columns in the fleet CSV (new).** A header such as `Gi1/3 description`, `GigabitEthernet1/3 role`, `vlan`, `ip` or `mask` sets that port for one switch; short interface names work and an empty cell keeps the shared port table. Each switch can now have its own port descriptions and its own routed-port addresses; the check table gains a Ports column, and the shared-routed-address note is skipped for ports that have a per-switch `ip` column. Unknown interfaces and roles are errors.
+- **Port CSV on the page (new).** Port assignments has a *Port CSV* panel: one row per port with INTERFACE plus any of ROLE, VLAN, DESCRIPTION, IP and MASK. *Copy table to CSV* writes the current table for a spreadsheet; *Apply to ports* changes the table only when every row is valid, and an empty cell keeps the current value.
+- **Set role on checked (new).** The bulk bar sets one role on every checked port (a role other than Routed clears its IP and mask, as the table does). Checked ports stay checked after a role or VLAN change, so both can be applied to one selection.
 
 - **Repository:** `CONTRIBUTING.md` (feature requests and bug reports welcome as issues; outside pull requests are proposals and changes come from the maintainer), `CODEOWNERS`, and issue forms that ask for placeholder values only. Security problems now go through GitHub private vulnerability reporting (`SECURITY.md`). The README states that `SwitchCard.html` is the only file needed to use the tool. No change to `SwitchCard.html`.
 

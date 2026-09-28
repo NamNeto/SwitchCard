@@ -80,6 +80,7 @@ function renderFields() {
   $("portHelp").hidden = !hasPorts;
   const bulk = $("bulkPorts");
   if (bulk) bulk.hidden = !hasPorts;
+  if ($("portCsvPanel")) $("portCsvPanel").hidden = !hasPorts;
   $("ports").replaceChildren();
   if ($("portsHead")) $("portsHead").replaceChildren();
   if (!hasPorts) return;

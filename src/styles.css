@@ -930,6 +930,22 @@ textarea.compact-xs {
 .bulk button {
   margin: 0;
 }
+.bulk select {
+  width: auto;
+  margin: 0;
+}
+/* A value box and its button wrap together, never apart. */
+.bulk-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.port-csv {
+  margin: 0 0 12px;
+}
+.port-csv .actions {
+  margin-top: 10px;
+}
 .bulk small {
   flex: 1 1 160px;
   color: var(--faint);
