@@ -57,7 +57,7 @@ const freezeIfaces = (arr) => Object.freeze(arr.slice());
    The UI accent colour lives in CSS (--accent), not here.
    ======================================================================== */
 const CONFIG = Object.freeze({
-  RELEASE: "0.7.2",
+  RELEASE: "0.7.3",
   AUTOSAVE_KEY: "switchcard-autosave-v21",
   // Autosave key used before v0.5.10. Read once for import; never written or deleted.
   LEGACY_AUTOSAVE_KEYS: Object.freeze(["switchcard-autosave-v20"]),

@@ -556,6 +556,30 @@ function applyPortCsv(r, text) {
   });
   return { errors: [], ports, changed, portsChanged, rows: parsed.rows.length, ignored };
 }
+// Fleet CSV template for any recipe: its switch fields, then per-port columns, with row 1 filled from
+// the page (so checking it reproduces this switch). portMode: "description" (default), "all"
+// (role, vlan, description, plus ip and mask when a port is Routed) or "none".
+function fleetCsvTemplate(r, portMode) {
+  const columns = fleetColumns(r);
+  const values = r.values || {};
+  const row = {};
+  for (const k of columns) row[k] = String(values[k] || "").trim();
+  if (portMode !== "none" && keys(r.template || "").includes("PORTS")) {
+    const byName = new Map((r.ports || []).map((p) => [String(p.name || "").toLowerCase(), p]));
+    const ports = (r.interfaces || []).map((n) => byName.get(String(n).toLowerCase()) || { name: n, role: "", vlan: "", description: "", ip: "", mask: "" });
+    const attrs =
+      portMode === "all"
+        ? ["role", "vlan", "description"].concat(ports.some((p) => p.role === "routed") ? ["ip", "mask"] : [])
+        : ["description"];
+    for (const p of ports)
+      for (const a of attrs) {
+        const h = p.name + " " + a;
+        columns.push(h);
+        row[h] = String(p[a] || "");
+      }
+  }
+  return { columns, text: columns.length ? toCsv(columns, [row]) : "" };
+}
 // Pure apart from reading teamPolicies: builds one recipe clone per CSV row and runs generate().
 function checkFleet(r, csvText) {
   const result = { errors: [], warnings: [], rows: [], header: [] };

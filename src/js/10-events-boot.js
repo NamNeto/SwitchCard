@@ -183,6 +183,40 @@ $("fillCopies").onclick = () => {
       " " + runFleetCheck(),
   );
 };
+// CSV template for the current recipe: into the CSV box, or as a .csv download for a spreadsheet.
+function currentFleetTemplate() {
+  const r = current();
+  normalizePorts(r);
+  return fleetCsvTemplate(r, $("fleetTemplatePorts").value);
+}
+$("insertFleetTemplate").onclick = () => {
+  const t = currentFleetTemplate();
+  if (!t.text) {
+    message("This recipe has no per-switch fields or ports to put in a CSV.");
+    return;
+  }
+  const existing = $("fleetCsv").value.trim();
+  if (existing && existing !== t.text.trim() && !window.confirm("Replace the text in the fleet CSV box with a CSV template for this recipe?")) {
+    message("Kept the fleet CSV text.");
+    return;
+  }
+  $("fleetCsv").value = t.text;
+  refreshFleetButtons();
+  message(
+    "CSV template inserted: " + t.columns.length + " columns, row 1 is the switch on this page. Add one row per switch below it (or copy it into a spreadsheet), then click Check fleet.",
+  );
+};
+$("downloadFleetTemplate").onclick = () => {
+  const t = currentFleetTemplate();
+  if (!t.text) {
+    message("This recipe has no per-switch fields or ports to put in a CSV.");
+    return;
+  }
+  const safe = String(current().name || "recipe").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 60);
+  // A byte-order mark makes Excel read the file as UTF-8; SwitchCard ignores it when loading.
+  download(new Blob(["\uFEFF" + t.text.replace(/\n/g, "\r\n")], { type: "text/csv;charset=utf-8" }), "switchcard-fleet-template-" + safe + ".csv");
+  message("CSV template downloaded (" + t.columns.length + " columns, row 1 is this switch). Fill one row per switch, then Load CSV file and Check fleet.");
+};
 $("fleetCount").addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();

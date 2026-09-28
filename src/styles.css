@@ -792,6 +792,9 @@ pre.diff .del {
 .fleet-columns code {
   font-size: 12px;
 }
+.fleet-template {
+  margin: 0 0 10px;
+}
 #fleetScroll {
   margin-top: 12px;
 }
