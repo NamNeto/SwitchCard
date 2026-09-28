@@ -1,5 +1,9 @@
 # Changelog
 
+## v0.7.3 — 2026-09-28
+
+- **CSV template for any recipe (new).** Fleet export can write the exact CSV header a recipe needs: its switch fields (HOSTNAME, MGMT_IP, custom fields and so on) plus a column per port, with row 1 filled from the switch on the page. *Insert CSV template* puts it in the CSV box to copy; *Download .csv* saves a file that opens in Excel. A picker chooses the port columns: descriptions (default), all port settings (role, vlan, description, and ip and mask when a port is Routed), or none. Checking the template unchanged reproduces the switch on the page. Single-card output is unchanged; project files stay schema v5.
+
 ## v0.7.2 — 2026-09-28
 
 Port editing release. Single-card output for the same port table is unchanged (golden tests); project files stay schema v5.

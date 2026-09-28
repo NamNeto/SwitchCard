@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  SwitchCard v0.7.2 - offline, single-file SD-card builder for Cisco IE switches
+  SwitchCard v0.7.3 - offline, single-file SD-card builder for Cisco IE switches
   (IE3100 / IE3x00 / IE9300) that use an on-switch EEM script to apply editcontent.txt.
 
   What it does: packs a firmware baseline folder + a configuration recipe into an SD-card ZIP
@@ -824,6 +824,9 @@
       .fleet-columns code {
         font-size: 12px;
       }
+      .fleet-template {
+        margin: 0 0 10px;
+      }
       #fleetScroll {
         margin-top: 12px;
       }
@@ -1051,7 +1054,7 @@
       <div class="brand">
         <span class="mark" aria-hidden="true"></span>
         <div>
-          <strong>SwitchCard <span id="releaseLabel">/ v0.7.2</span></strong>
+          <strong>SwitchCard <span id="releaseLabel">/ v0.7.3</span></strong>
           <div class="tag">Offline card builder</div>
         </div>
       </div>
@@ -1282,6 +1285,15 @@
                 <div class="fleet-block">
                   <label for="fleetCsv">Fleet CSV, one row per switch</label>
                   <p id="fleetColumns" class="muted fleet-columns"></p>
+                  <div class="actions even fleet-template">
+                    <select id="fleetTemplatePorts" aria-label="Port columns in the CSV template">
+                      <option value="description">Template: fields + port descriptions</option>
+                      <option value="all">Template: fields + all port settings</option>
+                      <option value="none">Template: switch fields only</option>
+                    </select>
+                    <button type="button" id="insertFleetTemplate">Insert CSV template</button>
+                    <button type="button" id="downloadFleetTemplate">Download .csv</button>
+                  </div>
                   <textarea id="fleetCsv" rows="6" spellcheck="false"></textarea>
                   <div class="actions even">
                     <label class="filebutton"
@@ -1681,7 +1693,7 @@
       </section>
       <div id="status" role="status" hidden></div>
       <footer>
-        SwitchCard <strong>0.7.2</strong> · offline · CSP <code>connect-src 'none'</code> · not
+        SwitchCard <strong>0.7.3</strong> · offline · CSP <code>connect-src 'none'</code> · not
         affiliated with Cisco · Swap Drive (<code>sync sdflash:</code>) remains Cisco’s flash↔SD
         path · MIT.
       </footer>
@@ -1746,7 +1758,7 @@
          The UI accent colour lives in CSS (--accent), not here.
          ======================================================================== */
       const CONFIG = Object.freeze({
-        RELEASE: "0.7.2",
+        RELEASE: "0.7.3",
         AUTOSAVE_KEY: "switchcard-autosave-v21",
         // Autosave key used before v0.5.10. Read once for import; never written or deleted.
         LEGACY_AUTOSAVE_KEYS: Object.freeze(["switchcard-autosave-v20"]),
@@ -5542,6 +5554,30 @@
         });
         return { errors: [], ports, changed, portsChanged, rows: parsed.rows.length, ignored };
       }
+      // Fleet CSV template for any recipe: its switch fields, then per-port columns, with row 1 filled from
+      // the page (so checking it reproduces this switch). portMode: "description" (default), "all"
+      // (role, vlan, description, plus ip and mask when a port is Routed) or "none".
+      function fleetCsvTemplate(r, portMode) {
+        const columns = fleetColumns(r);
+        const values = r.values || {};
+        const row = {};
+        for (const k of columns) row[k] = String(values[k] || "").trim();
+        if (portMode !== "none" && keys(r.template || "").includes("PORTS")) {
+          const byName = new Map((r.ports || []).map((p) => [String(p.name || "").toLowerCase(), p]));
+          const ports = (r.interfaces || []).map((n) => byName.get(String(n).toLowerCase()) || { name: n, role: "", vlan: "", description: "", ip: "", mask: "" });
+          const attrs =
+            portMode === "all"
+              ? ["role", "vlan", "description"].concat(ports.some((p) => p.role === "routed") ? ["ip", "mask"] : [])
+              : ["description"];
+          for (const p of ports)
+            for (const a of attrs) {
+              const h = p.name + " " + a;
+              columns.push(h);
+              row[h] = String(p[a] || "");
+            }
+        }
+        return { columns, text: columns.length ? toCsv(columns, [row]) : "" };
+      }
       // Pure apart from reading teamPolicies: builds one recipe clone per CSV row and runs generate().
       function checkFleet(r, csvText) {
         const result = { errors: [], warnings: [], rows: [], header: [] };
@@ -6080,6 +6116,40 @@
             (others.length ? " " + others.join(", ") + " and the port table come from Device details for every switch." : "") +
             " " + runFleetCheck(),
         );
+      };
+      // CSV template for the current recipe: into the CSV box, or as a .csv download for a spreadsheet.
+      function currentFleetTemplate() {
+        const r = current();
+        normalizePorts(r);
+        return fleetCsvTemplate(r, $("fleetTemplatePorts").value);
+      }
+      $("insertFleetTemplate").onclick = () => {
+        const t = currentFleetTemplate();
+        if (!t.text) {
+          message("This recipe has no per-switch fields or ports to put in a CSV.");
+          return;
+        }
+        const existing = $("fleetCsv").value.trim();
+        if (existing && existing !== t.text.trim() && !window.confirm("Replace the text in the fleet CSV box with a CSV template for this recipe?")) {
+          message("Kept the fleet CSV text.");
+          return;
+        }
+        $("fleetCsv").value = t.text;
+        refreshFleetButtons();
+        message(
+          "CSV template inserted: " + t.columns.length + " columns, row 1 is the switch on this page. Add one row per switch below it (or copy it into a spreadsheet), then click Check fleet.",
+        );
+      };
+      $("downloadFleetTemplate").onclick = () => {
+        const t = currentFleetTemplate();
+        if (!t.text) {
+          message("This recipe has no per-switch fields or ports to put in a CSV.");
+          return;
+        }
+        const safe = String(current().name || "recipe").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 60);
+        // A byte-order mark makes Excel read the file as UTF-8; SwitchCard ignores it when loading.
+        download(new Blob(["\uFEFF" + t.text.replace(/\n/g, "\r\n")], { type: "text/csv;charset=utf-8" }), "switchcard-fleet-template-" + safe + ".csv");
+        message("CSV template downloaded (" + t.columns.length + " columns, row 1 is this switch). Fill one row per switch, then Load CSV file and Check fleet.");
       };
       $("fleetCount").addEventListener("keydown", (e) => {
         if (e.key === "Enter") {
