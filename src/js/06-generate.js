@@ -199,6 +199,9 @@ function generate(r) {
       if (!ROLE_NAMES.includes(p.role)) errors.push(p.name + ": unknown role.");
       const template = r.roles[p.role] || "";
       if (!template.trim()) errors.push(p.name + ": the selected role has no commands.");
+      // A description only reaches the card when the role template uses {{DESCRIPTION}}.
+      if (desc.trim() && !/{{\s*DESCRIPTION\s*}}/.test(template))
+        warnings.push(p.name + ": its description is not used, because the " + p.role + " role template has no {{DESCRIPTION}} line.");
       const portValues = {
         ...values,
         INTERFACE: p.name,

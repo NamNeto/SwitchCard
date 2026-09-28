@@ -104,7 +104,7 @@ def test_controls_sharing_a_row_line_up(page):
         const sel = 'button, .filebutton, select, input:not([type=checkbox]):not([type=file])';
         const check = () => {
             const bad = [];
-            for (const row of document.querySelectorAll('.actions, .bulk')) {
+            for (const row of document.querySelectorAll('.actions, .bulk, .bulk-group')) {
                 if (!row.getClientRects().length) continue;
                 const boxes = [...row.children].filter((c) => c.matches(sel) && c.getClientRects().length)
                     .map((c) => ({ id: c.id || c.textContent.trim().slice(0, 24), b: c.getBoundingClientRect() }));

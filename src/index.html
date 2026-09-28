@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  SwitchCard v0.7.1 - offline, single-file SD-card builder for Cisco IE switches
+  SwitchCard v0.7.2 - offline, single-file SD-card builder for Cisco IE switches
   (IE3100 / IE3x00 / IE9300) that use an on-switch EEM script to apply editcontent.txt.
 
   What it does: packs a firmware baseline folder + a configuration recipe into an SD-card ZIP
@@ -39,7 +39,7 @@
       <div class="brand">
         <span class="mark" aria-hidden="true"></span>
         <div>
-          <strong>SwitchCard <span id="releaseLabel">/ v0.7.1</span></strong>
+          <strong>SwitchCard <span id="releaseLabel">/ v0.7.2</span></strong>
           <div class="tag">Offline card builder</div>
         </div>
       </div>
@@ -131,19 +131,57 @@
                   ><input type="checkbox" id="selectAllPorts" /><span>Select
                   all</span></label
                 >
-                <input
+                <span class="bulk-group"
+                  ><input
                   type="text"
                   id="bulkVlan"
                   placeholder="VLAN or list"
                   aria-label="Bulk VLAN value"
                   autocomplete="off"
                 />
-                <button type="button" id="applyBulkVlan">Apply VLAN to checked</button>
+                <button type="button" id="applyBulkVlan">Apply VLAN to checked</button></span
+                ><span class="bulk-group"
+                  ><select id="bulkRole" aria-label="Role for checked ports">
+                  <option value="">Role…</option>
+                  <option value="access">Access</option>
+                  <option value="trunk">Trunk</option>
+                  <option value="unused">Unused</option>
+                  <option value="routed">Routed</option>
+                </select>
+                <button type="button" id="applyBulkRole">Set role on checked</button></span>
                 <small
-                  >Updates checked Access and Trunk ports only. Unused and Routed are
-                  skipped.</small
+                  >The VLAN goes to checked Access and Trunk ports; the role goes to every checked
+                  port. The selection stays ticked, so you can do both.</small
                 >
               </div>
+              <details id="portCsvPanel" class="port-csv" hidden>
+                <summary>Port CSV: set roles, VLANs and descriptions from a spreadsheet</summary>
+                <p class="muted">
+                  <small
+                    >One row per port. Columns: INTERFACE plus any of ROLE, VLAN, DESCRIPTION, IP
+                    and MASK; short names such as Gi1/3 work. An empty cell keeps the current value.
+                    Nothing changes unless every row is valid. Copy table to CSV gives you a
+                    starting file.</small
+                  >
+                </p>
+                <textarea
+                  id="portCsv"
+                  class="compact"
+                  spellcheck="false"
+                  placeholder="INTERFACE,ROLE,VLAN,DESCRIPTION&#10;GigabitEthernet1/1,trunk,,Uplink to core&#10;GigabitEthernet1/2,access,10,PLC-01"
+                ></textarea>
+                <div class="actions even">
+                  <button type="button" id="portCsvFromTable">Copy table to CSV</button>
+                  <label class="filebutton"
+                    >Load CSV file<input
+                      id="portCsvInput"
+                      type="file"
+                      accept=".csv,.txt,text/csv,text/plain"
+                      class="fileinput"
+                  /></label>
+                  <button type="button" id="applyPortCsv">Apply to ports</button>
+                </div>
+              </details>
               <div class="scroll">
                 <table>
                   <thead id="portsHead"></thead>
@@ -631,7 +669,7 @@
       </section>
       <div id="status" role="status" hidden></div>
       <footer>
-        SwitchCard <strong>0.7.1</strong> · offline · CSP <code>connect-src 'none'</code> · not
+        SwitchCard <strong>0.7.2</strong> · offline · CSP <code>connect-src 'none'</code> · not
         affiliated with Cisco · Swap Drive (<code>sync sdflash:</code>) remains Cisco’s flash↔SD
         path · MIT.
       </footer>

@@ -238,6 +238,7 @@ $("applyBulkVlan").onclick = () => {
   touch();
   renderFields();
   renderPreview();
+  recheckPorts(picks);
   message(
     n
       ? "Updated VLAN on " +
@@ -247,6 +248,91 @@ $("applyBulkVlan").onclick = () => {
           (skipped ? "; skipped " + skipped + " Unused/Routed." : "") +
           "."
       : "No Access/Trunk ports were checked.",
+  );
+};
+// Checked ports survive a re-render, so role and VLAN can be applied to the same selection.
+function recheckPorts(names) {
+  document.querySelectorAll("#ports input.portPick").forEach((c) => {
+    c.checked = names.includes(c.dataset.port);
+  });
+}
+$("applyBulkRole").onclick = () => {
+  const r = current();
+  const role = $("bulkRole").value;
+  if (!ROLE_NAMES.includes(role)) {
+    message("Choose a role first.");
+    return;
+  }
+  const picks = [...document.querySelectorAll("#ports input.portPick:checked")].map((c) => c.dataset.port);
+  if (!picks.length) {
+    message("Check one or more ports first.");
+    return;
+  }
+  let n = 0;
+  for (const p of r.ports) {
+    if (!picks.includes(p.name) || p.role === role) continue;
+    p.role = role;
+    if (role !== "routed") {
+      p.ip = "";
+      p.mask = "";
+    }
+    n++;
+  }
+  touch();
+  renderFields();
+  renderPreview();
+  recheckPorts(picks);
+  const label = role[0].toUpperCase() + role.slice(1);
+  message(
+    n
+      ? "Set " + n + " port" + (n === 1 ? "" : "s") + " to " + label + "." +
+          (role === "access" ? " Give them an Access VLAN; Apply VLAN to checked works on the same selection." : "") +
+          (role === "routed" ? " Fill in the IP and mask of each." : "")
+      : "The checked ports are already " + label + ".",
+  );
+};
+// Port CSV on the page: copy the table out, load a file, apply all rows or none.
+$("portCsvFromTable").onclick = () => {
+  const r = current();
+  normalizePorts(r);
+  const text = portTableCsv(r);
+  const existing = $("portCsv").value.trim();
+  if (existing && existing !== text.trim() && !window.confirm("Replace the text in the port CSV box with the current port table?")) {
+    message("Kept the port CSV text.");
+    return;
+  }
+  $("portCsv").value = text;
+  message("Port table copied into the CSV box. Edit it here or in a spreadsheet, then Apply to ports.");
+};
+$("portCsvInput").onchange = () =>
+  run(async () => {
+    const f = $("portCsvInput").files[0];
+    if (!f) return;
+    try {
+      if (f.size > 1024 * 1024) throw Error("CSV file is too large (max 1 MiB).");
+      $("portCsv").value = await f.text();
+      message("CSV loaded (" + f.name + "). Click Apply to ports.");
+    } finally {
+      $("portCsvInput").value = "";
+    }
+  });
+$("applyPortCsv").onclick = () => {
+  const r = current();
+  normalizePorts(r);
+  const res = applyPortCsv(r, $("portCsv").value);
+  if (res.errors.length) {
+    message("Port CSV not applied, nothing changed: " + res.errors.slice(0, 3).join(" ") + (res.errors.length > 3 ? " (+" + (res.errors.length - 3) + " more)" : ""));
+    return;
+  }
+  r.ports = res.ports;
+  touch();
+  renderFields();
+  renderPreview();
+  const parts = PORT_ATTRS.filter((k) => res.changed[k]).map((k) => res.changed[k] + " " + (k === "ip" || k === "mask" ? k.toUpperCase() : k) + (res.changed[k] === 1 ? "" : "s"));
+  message(
+    "Port CSV applied: " + res.rows + " row" + (res.rows === 1 ? "" : "s") + ", " +
+      (res.portsChanged ? res.portsChanged + " port" + (res.portsChanged === 1 ? "" : "s") + " changed (" + parts.join(", ") + ")." : "no changes.") +
+      (res.ignored.length ? " Ignored columns: " + res.ignored.join(", ") + "." : "") + " Review the preview before export.",
   );
 };
 
