@@ -332,3 +332,25 @@ def test_export_state(page):
         return { s1, s2: cur.state, at: !!cur.at, entry: cur.entry && cur.entry.host, s3, empty, s4 };
     }""")
     assert r == {"s1": "new", "s2": "current", "at": True, "entry": "IE3100-DEMO-01", "s3": "changed", "empty": "nohost", "s4": "nohost"}
+
+
+def test_switch_row_cache_invalidates_on_recipe_and_row_changes(page):
+    r = ev(page, r"""() => {
+        const r = structuredClone(recipes[0]); normalizePorts(r);
+        const rows = [{ id: 'sw-a', values: { HOSTNAME: 'A-01' }, ports: {} }];
+        const t0 = checkSwitchRows(r, rows).rows[0].text;
+        const p = structuredClone(r); delete p.roles.access;
+        const sr = switchRowRecipe(p, rows[0]); generate(sr.rr);
+        const rolesWritten = p.roles.access !== undefined || sr.rr.roles === p.roles;
+        r.provenanceComments = true; r.name = 'Name AAAA';
+        const t1 = checkSwitchRows(r, rows).rows[0].text;
+        r.name = 'Name BBBB';
+        const t2 = checkSwitchRows(r, rows).rows[0].text;
+        r.template = r.template.replace('description MANAGEMENT', 'description MGMT-NEW');
+        const t3 = checkSwitchRows(r, rows).rows[0].text;
+        rows[0].values.HOSTNAME = 'A-02';
+        const t4 = checkSwitchRows(r, rows).rows[0].text;
+        return { rolesWritten, d01: t0 !== t1, d12: t1 !== t2, b2: t2.includes('Name BBBB'),
+                 d23: t2 !== t3, n3: t3.includes('MGMT-NEW'), d34: t3 !== t4, h4: t4.includes('hostname A-02') };
+    }""")
+    assert r == {"rolesWritten": False, "d01": True, "d12": True, "b2": True, "d23": True, "n3": True, "d34": True, "h4": True}
