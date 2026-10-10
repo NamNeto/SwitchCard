@@ -23,7 +23,7 @@ Offline packaging does not make the **content** safe to share. Configurations ca
 - **Export history** keeps the last generated `editcontent.txt` per hostname inside each recipe (project file, team package, browser autosave). It has the same sensitivity as the template it came from, so the same storage rules apply.
 - **Baseline fingerprints** store file paths, sizes and SHA-256 hashes, never file contents.
 - **Team policy rules** are regular expressions evaluated locally; a pathological pattern can only slow down your own browser.
-- **Fleet CSV** text stays in the page and is not saved with the project. The manifest downloads list hostnames, addresses and hashes.
+- **Switch lists** (v0.8.0) are stored inside each recipe: per-switch values and port settings go into the project file, the team package and the browser autosave, with the same sensitivity as the Device details they extend. CSV text pasted into Import CSV is not kept. The manifest downloads list hostnames, addresses and hashes.
 - The **theme** choice is one browser-local key (`switchcard-theme`); Clear browser autosave removes it.
 - The **GitHub Pages demo** serves the same file from GitHub's servers. Once loaded the page still makes no requests, but for real work download `SwitchCard.html` from a release, check its SHA-256 and open it locally.
 

@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  SwitchCard v0.7.3 - offline, single-file SD-card builder for Cisco IE switches
+  SwitchCard v0.8.0 - offline, single-file SD-card builder for Cisco IE switches
   (IE3100 / IE3x00 / IE9300) that use an on-switch EEM script to apply editcontent.txt.
 
   What it does: packs a firmware baseline folder + a configuration recipe into an SD-card ZIP
@@ -1305,7 +1305,7 @@
       <div class="brand">
         <span class="mark" aria-hidden="true"></span>
         <div>
-          <strong>SwitchCard <span id="releaseLabel">/ v0.7.3</span></strong>
+          <strong>SwitchCard <span id="releaseLabel">/ v0.8.0</span></strong>
           <div class="tag">Offline card builder</div>
         </div>
       </div>
@@ -1676,7 +1676,7 @@
                     <code>forbid &lt;pattern&gt;</code>. Patterns are case-insensitive regular
                     expressions matched line by line against the generated text without
                     <code>!</code> comments and <code>no …</code> lines. A failing or invalid rule
-                    <strong>blocks export</strong> (single and fleet); hints never do.</small
+                    <strong>blocks export</strong> (single card and Cards); hints never do.</small
                   >
                 </p>
                 <p class="muted" style="margin-top: 10px">
@@ -1957,7 +1957,7 @@
       </section>
       <div id="status" role="status" hidden></div>
       <footer>
-        SwitchCard <strong>0.7.3</strong> · offline · CSP <code>connect-src 'none'</code> · not
+        SwitchCard <strong>0.8.0</strong> · offline · CSP <code>connect-src 'none'</code> · not
         affiliated with Cisco · Swap Drive (<code>sync sdflash:</code>) remains Cisco’s flash↔SD
         path · MIT.
       </footer>
@@ -1973,7 +1973,8 @@
            2. Example recipes + app state           fictional recipes; in-memory workspace
            3. Utilities + autosave                  message/touch, autosave payload, backup ring,
                                                     restore journal, restore/open unwrapping
-           4. Render                                Build panel fields, ports table, baseline view
+           4. Render                                Build panel fields, ports table, baseline view;
+                                                    in-page dialogs (src/js/04b-dialogs.js)
            5. Validation helpers                    VLAN parsing, invisible/non-ASCII detection,
                                                     IPv4 helpers, SHA-256
            6. generate() + blockers()               recipe -> editcontent.txt text + errors/warnings;
@@ -1984,9 +1985,11 @@
           10. Fleet, diff, policies, fingerprints  v0.7.0 helpers (src/js/09b-*.js): fleet CSV parsing
                                                    and templates, bulk card export, export history +
                                                    line diff, team policy rules, baseline fingerprints,
-                                                   interface-brief parsing, transliteration, theme
-          11. Event wiring + boot                   button handlers, export (src/js/10-*.js); boot and
-                                                    the awaited autosave restore (src/js/11-boot.js)
+                                                   interface-brief parsing, transliteration, theme;
+                                                   v0.8.0 switch list (src/js/09c-switches.js)
+          11. Event wiring + boot                   button handlers, export (src/js/10-*.js); left rail,
+                                                    Switches and Cards views (10b/10c); boot and the
+                                                    awaited autosave restore (src/js/11-boot.js)
 
          SAFETY INVARIANTS (keep these true when changing anything)
            - The preview text IS the ZIP's editcontent.txt (same string, same bytes, CRLF).
@@ -2025,7 +2028,7 @@
          The UI accent colour lives in CSS (--accent), not here.
          ======================================================================== */
       const CONFIG = Object.freeze({
-        RELEASE: "0.7.3",
+        RELEASE: "0.8.0",
         AUTOSAVE_KEY: "switchcard-autosave-v21",
         // Autosave key used before v0.5.10. Read once for import; never written or deleted.
         LEGACY_AUTOSAVE_KEYS: Object.freeze(["switchcard-autosave-v20"]),

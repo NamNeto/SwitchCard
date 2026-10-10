@@ -41,14 +41,14 @@ The **Advanced output options** (provenance comments and `default interface`) ar
 1. Fill the device fields with test values (for example `EXAMPLE-SPARE1`, `192.0.2.0/24`).
 2. Select the baseline that matches the spare's model and image.
 3. Resolve every error shown with the preview; read every warning.
-4. Tick the review box and export. In the confirmation, check the bound values, the line and byte counts and whether the advanced options are on. Note the SHA-256 of `editcontent.txt`.
+4. Click Export SD-card ZIP. In the export dialog, check the bound values, the line and byte counts and whether the advanced options are on. Note the SHA-256 of `editcontent.txt`.
 5. Prepare the card as your EEM workflow requires and apply it to the **spare** with the console connected.
 6. Complete §5, §6 and the relevant items of checklist C1–C9 before any production use.
 
 ## 5. Check that the card matches the preview
 
 1. Extract `editcontent.txt` from the ZIP.
-2. Compute its hash, for example `certutil -hashfile editcontent.txt SHA256` or `Get-FileHash editcontent.txt -Algorithm SHA256` in PowerShell. It must match the SHA-256 in the export confirmation, and the byte count must match the preview.
+2. Compute its hash, for example `certutil -hashfile editcontent.txt SHA256` or `Get-FileHash editcontent.txt -Algorithm SHA256` in PowerShell. It must match the SHA-256 in the export dialog, and the byte count must match the preview.
 3. If the provenance footer is enabled, its `sha256=` value covers every byte before the `! SWITCHCARD-END` line.
 4. Spot-check `hostname`, the management SVI address, the default gateway or route, the uplink interface names and the AAA / VTY / SSH lines.
 5. If anything differs, discard the card and fix the recipe; do not correct it on the switch.
@@ -139,7 +139,7 @@ Adjust the VLAN and EtherChannel checks to the recipe; for a loopback-managed sw
 
 1. After a successful spare test, keep that project file as the known-good version.
 2. For each switch, change only the per-device values (hostname, addresses, port roles). Keep template changes separate from a rollout.
-3. For every card: apply any recipe edits → review the preview → read the confirmation → export → check the hash (§5) → install → run §9.
+3. For every card: apply any recipe edits → review the preview → read the export dialog → export → check the hash (§5) → install → run §9.
 4. When finished, save the project to private storage, clear the browser autosave on shared PCs, and secure unused cards.
 
 ## 11. When to stop
@@ -148,7 +148,7 @@ Stop using SwitchCard-generated cards and return to your previous process if any
 
 - Opening a project changes template text without a migration note.
 - Port roles disappear after an interface-list change without a confirmation.
-- The values in the export confirmation differ from the preview.
+- The values in the export dialog differ from the preview.
 - The extracted `editcontent.txt` differs from the preview (hash or byte count).
 - The switch applies something other than the preview shows.
 - The spare loses its management path after the card is applied.

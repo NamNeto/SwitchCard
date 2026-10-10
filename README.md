@@ -1,6 +1,6 @@
 # SwitchCard
 
-`v0.7.3` · offline · single HTML file · CSP `connect-src 'none'` · MIT · [online demo](https://namneto.github.io/SwitchCard/)
+`v0.8.0` · offline · single HTML file · CSP `connect-src 'none'` · MIT · [online demo](https://namneto.github.io/SwitchCard/)
 
 **SwitchCard** builds SD-card media for Cisco Industrial Ethernet switches (IE3100, IE3x00, IE9300) in environments that use an **on-switch EEM script** to apply a root `editcontent.txt`. Load a firmware baseline folder once, keep configuration **recipes** (templates + port roles), fill in one switch's details and export a ZIP. Extract its contents to the card root and the card is ready.
 
@@ -11,7 +11,7 @@
 | File | Purpose |
 |------|---------|
 | `SwitchCard.html` | The whole app. Open it in Edge or Chrome; nothing to install. |
-| [docs/USER-GUIDE.md](docs/USER-GUIDE.md) | Step-by-step usage: management interface, team policy rules, fleet export, diffs, fingerprints |
+| [docs/USER-GUIDE.md](docs/USER-GUIDE.md) | Step-by-step usage: management interface, team policy rules, Switches and Cards, diffs, fingerprints |
 | [docs/ROLLOUT-CHECKLIST.md](docs/ROLLOUT-CHECKLIST.md) | Spare-switch test, card verification, reachability, rollback |
 | [docs/EEM-CONTRACT.md](docs/EEM-CONTRACT.md) | What SwitchCard assumes about the EEM flow + **spare-switch checklist C1–C9** |
 | [docs/SAFETY-EXPORT.md](docs/SAFETY-EXPORT.md) | Every export gate, input check and limit |
@@ -34,8 +34,9 @@ To use SwitchCard you need only `SwitchCard.html` from the [latest release](http
 1. Open `SwitchCard.html` locally in Edge or Chrome.
 2. Explore an **EXAMPLE ONLY** recipe (card export is blocked for examples). Four are built in, including one switch managed through a loopback.
 3. **Manage recipes & baseline** → select the sync-export folder → duplicate a recipe → paste a tested config as the template, with `{{HOSTNAME}}`, `{{MGMT_IP}}`, `{{MGMT_MASK}}`, `{{GATEWAY}}`, `{{MGMT_INTERFACE}}`, `{{MGMT_SOURCES}}`, `{{VLANS}}`, `{{PORTS}}` and so on where values change → choose **SVI** or **Loopback** as the management interface → **Apply recipe changes**.
-4. **Build**: fill device details and port roles → review the preview → tick the review box → **Export SD-card ZIP**.
-5. Use a wiped or fresh card and extract the ZIP **contents** to the card **root** (not the ZIP file, not a nested folder).
+4. **Build a card**: fill device details and port roles → review the preview → **Export SD-card ZIP** → tick the review box in the export dialog → **Download ZIP**.
+5. Many switches of one recipe: add them in **Switches** (counted up or from a CSV) and export them in **Cards**.
+6. Use a wiped or fresh card and extract the ZIP **contents** to the card **root** (not the ZIP file, not a nested folder).
 
 Before production use, run the spare-switch checklist (C1–C9) in [docs/EEM-CONTRACT.md](docs/EEM-CONTRACT.md) on your own image.
 
@@ -50,10 +51,12 @@ Each recipe decides what `{{MGMT_INTERFACE}}` means:
 
 `{{MGMT_SOURCES}}` expands to the recipe's editable list of management-plane source commands. By default that is `ntp source`, `ip radius source-interface`, `logging source-interface` and `ip ssh source-interface`, all pointing at `{{MGMT_INTERFACE}}`. Change the management VLAN on Build, or switch the recipe to a loopback, and every source line follows. A loopback design also needs `ip routing`, a Routed uplink or SVI towards the gateway and `ip route 0.0.0.0 0.0.0.0 {{GATEWAY}}`; SwitchCard adds review notes when those are missing. Details in [docs/USER-GUIDE.md](docs/USER-GUIDE.md).
 
-## Fleets, policies and history
+## Switches, cards, policies and history
 
 - **Team policy rules** turn a hint into a gate: `require transport input ssh` or `forbid snmp-server community` lines block export until the generated text complies.
-- **Fleet export** builds one card per CSV row with the same checks as a single card, one ZIP per switch or one text-only ZIP, plus a manifest of every SHA-256. **Duplicate switch** writes the rows for you: copies of the page with the hostname number and the management IP counted up. Port columns such as `Gi1/3 description` give each switch its own port descriptions, roles, VLANs or routed addresses, and **Download .csv** writes the exact header a recipe needs.
+- **Switches** keeps the switches of a recipe in a grid saved with the project: empty cells inherit Device details, **Add counted up** adds copies with the hostname number and the management IP counted up, and **Import CSV** / **Export CSV** move the list to and from a spreadsheet. Port columns such as `Gi1/3 description` (or the per-switch **Ports** dialog) give each switch its own port descriptions, roles, VLANs or routed addresses, and **CSV template** writes the exact header a recipe needs.
+- **Cards** shows each switch's export state (not exported, up to date, changed since) and exports one card ZIP, all card ZIPs, only the changed and new ones, or one text-only ZIP, with the same checks as a single card plus a manifest of every SHA-256.
+- **Clickable checks:** click an error or review note to jump to the field, port, template line or policy it is about. Every question is an in-page dialog.
 - **Port CSV and bulk role:** fill or change the whole port table from a spreadsheet, or set one role on every checked port.
 - **Changes since the last export** shows a line diff when a switch is rebuilt, from the text remembered per hostname.
 - **Baseline fingerprints** record what was loaded, warn when a different folder is loaded under the same label, and refuse an altered team package.
@@ -63,7 +66,7 @@ Details for each are in [docs/USER-GUIDE.md](docs/USER-GUIDE.md); the exact gate
 
 ## Built-in safeguards
 
-- The preview text **is** the `editcontent.txt` in the ZIP (same bytes, CRLF). The export confirm shows its SHA-256 so the extracted file can be checked.
+- The preview text **is** the `editcontent.txt` in the ZIP (same bytes, CRLF). The export dialog shows its SHA-256 so the extracted file can be checked, and its download button stays disabled until you tick the review box.
 - The whole generated file must be plain printable ASCII; anything else (hidden characters, em dashes, umlauts) blocks export and names the line and column.
 - Export is blocked while there are input errors, while a team policy rule fails, while the recipe is an example, without a matching baseline, or while the recipe editor has unapplied changes.
 - Basic sanity checks: IPv4 shape, subnet/gateway fit, overlapping subnets, VLAN ranges, reserved VLANs, duplicate addresses, role lines with a missing port value, loopback number range, and loopback-mode review notes for routing and gateway reachability.
@@ -71,7 +74,7 @@ Details for each are in [docs/USER-GUIDE.md](docs/USER-GUIDE.md); the exact gate
 
 ## Saving work
 
-- **Save project**: recipes, values, team hints and policy rules, the baseline fingerprint and export history (no firmware) as a JSON file (schema v5). Files from v0.5.x and v0.6.0 (schema v3 and v4) open unchanged; older releases cannot open v5 files.
+- **Save project**: recipes, values, switch lists, team hints and policy rules, the baseline fingerprint and export history (no firmware) as a JSON file (schema v5). Files from v0.5.x and v0.6.0 (schema v3 and v4) open unchanged; releases before v0.7.0 cannot open v5 files, and v0.7.3 opens v0.8.0 files and keeps the switch list.
 - **Save team package**: recipes plus one baseline, for private sharing within a team.
 - **Browser autosave**: a convenience copy in this browser only, with up to three backups. Firmware is never autosaved.
 

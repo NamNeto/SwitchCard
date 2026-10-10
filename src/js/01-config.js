@@ -6,7 +6,8 @@
      2. Example recipes + app state           fictional recipes; in-memory workspace
      3. Utilities + autosave                  message/touch, autosave payload, backup ring,
                                               restore journal, restore/open unwrapping
-     4. Render                                Build panel fields, ports table, baseline view
+     4. Render                                Build panel fields, ports table, baseline view;
+                                              in-page dialogs (src/js/04b-dialogs.js)
      5. Validation helpers                    VLAN parsing, invisible/non-ASCII detection,
                                               IPv4 helpers, SHA-256
      6. generate() + blockers()               recipe -> editcontent.txt text + errors/warnings;
@@ -17,9 +18,11 @@
     10. Fleet, diff, policies, fingerprints  v0.7.0 helpers (src/js/09b-*.js): fleet CSV parsing
                                              and templates, bulk card export, export history +
                                              line diff, team policy rules, baseline fingerprints,
-                                             interface-brief parsing, transliteration, theme
-    11. Event wiring + boot                   button handlers, export (src/js/10-*.js); boot and
-                                              the awaited autosave restore (src/js/11-boot.js)
+                                             interface-brief parsing, transliteration, theme;
+                                             v0.8.0 switch list (src/js/09c-switches.js)
+    11. Event wiring + boot                   button handlers, export (src/js/10-*.js); left rail,
+                                              Switches and Cards views (10b/10c); boot and the
+                                              awaited autosave restore (src/js/11-boot.js)
 
    SAFETY INVARIANTS (keep these true when changing anything)
      - The preview text IS the ZIP's editcontent.txt (same string, same bytes, CRLF).
@@ -58,7 +61,7 @@ const freezeIfaces = (arr) => Object.freeze(arr.slice());
    The UI accent colour lives in CSS (--accent), not here.
    ======================================================================== */
 const CONFIG = Object.freeze({
-  RELEASE: "0.7.3",
+  RELEASE: "0.8.0",
   AUTOSAVE_KEY: "switchcard-autosave-v21",
   // Autosave key used before v0.5.10. Read once for import; never written or deleted.
   LEGACY_AUTOSAVE_KEYS: Object.freeze(["switchcard-autosave-v20"]),

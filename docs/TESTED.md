@@ -15,7 +15,7 @@ Copy the row template, fill in one row per model and image, and mark each checkl
 Row template:
 
 ```text
-| YYYY-MM-DD | IE3400 | IE-3400-8T2S | 17.x.y | CML / spare switch | 0.7.3 | pass | pass | n/a | n/a | pass | pass | pass | pass | pass | applet from examples/eem-applet-example.md |
+| YYYY-MM-DD | IE3400 | IE-3400-8T2S | 17.x.y | CML / spare switch | 0.8.0 | pass | pass | n/a | n/a | pass | pass | pass | pass | pass | applet from examples/eem-applet-example.md |
 ```
 
 ## What each item proves
@@ -29,7 +29,7 @@ Row template:
 | C5 | A2 | the last CRLF-terminated command is applied |
 | C6 | A9, A10 | reserved and large VLAN lists behave as documented |
 | C7 | — | the management path (SVI or Loopback) comes up and answers |
-| C8 | — | the extracted `editcontent.txt` hash equals the export confirm |
+| C8 | — | the extracted `editcontent.txt` hash equals the export dialog |
 | C9 | A11 | the applet applies a card at most once |
 
 For a loopback-managed recipe, C7 also covers `ip routing`, the Routed uplink and the default route.
