@@ -1,4 +1,4 @@
-// --- Event wiring (buttons, inputs) and boot sequence (end of file) ---
+// --- Event wiring (buttons, inputs); the boot sequence is in 11-boot.js ---
 $("buildTab").onclick = () => tab(false);
 $("maintainTab").onclick = () => tab(true);
 $("setup").onclick = () => tab(true);
@@ -459,9 +459,9 @@ for (const id of ["recipe", "editRecipe"])
     renderAll();
     loadEditor();
   };
-$("applyRecipe").onclick = () => {
+$("applyRecipe").onclick = async () => {
   try {
-    applyRecipe();
+    await applyRecipe();
   } catch (e) {
     message(e.message);
   }
@@ -790,7 +790,7 @@ $("projectInput").onchange = () =>
     if (!f) return;
     try {
       if (f.size > MAX_PROJECT_BYTES) throw Error("Project file is too large.");
-      if (!confirmReplaceUnsavedWork("project")) {
+      if (!(await confirmReplaceUnsavedWork("project"))) {
         message("Open project cancelled — current workspace kept.");
         return;
       }
@@ -803,7 +803,7 @@ $("projectInput").onchange = () =>
       }
       // Accept an autosave / autosave-backup download too (project inside a wrapper)
       const restoredFile = parseWorkspaceFile(parsed);
-      const notes = acceptProject(restoredFile.p, null, restoredFile);
+      const notes = await acceptProject(restoredFile.p, null, restoredFile);
       let msg =
         "Project opened. Reload its baseline folder or open a team package to include firmware.";
       if (restoredFile.draft) msg += " Unapplied Maintain draft restored into the editor; Apply or Discard before export.";
@@ -838,7 +838,7 @@ $("packageInput").onchange = () =>
     const f = $("packageInput").files[0];
     if (!f) return;
     try {
-      if (!confirmReplaceUnsavedWork("team package")) {
+      if (!(await confirmReplaceUnsavedWork("team package"))) {
         message("Open team package cancelled — current workspace kept.");
         return;
       }
@@ -867,7 +867,7 @@ $("packageInput").onchange = () =>
         throw Error(
           "The package's baseline files do not match the fingerprint in its manifest (" + p.baseline.fingerprint.fileCount + " files recorded, " + fingerprint.fileCount + " found). It was altered after Save team package; rebuild it from the original workspace.",
         );
-      const notes = acceptProject(p, { ...p.baseline, files: baseFiles, fingerprint });
+      const notes = await acceptProject(p, { ...p.baseline, files: baseFiles, fingerprint });
       let msg =
         "Team package opened. Baseline integrity checked (complete sync export). Select a recipe to prepare a card.";
       if (notes && notes.length) msg += " Migration notes: " + notes.join(" ");
@@ -942,27 +942,3 @@ function applyRestoredResult(restored, source) {
     message(msg);
   }
 }
-applyTheme(loadThemePref());
-customSkuPresets = loadCustomSkuPresetsFromLocal();
-const restored = restoreAutosave();
-showOnboarding();
-renderAll();
-loadEditor();
-if (restored && restored.status === "restored") {
-  applyRestoredResult(restored, "autosave");
-  // One-time legacy import: write the current key now so the old key is never needed again.
-  if (restored.key !== AUTOSAVE_KEY) autosave();
-} else if (restored) {
-  // Never silently discard: explain, keep a backup, and do not overwrite.
-  message(
-    "Browser autosave was NOT restored: " +
-      String(restored.reason).replace(/\.+$/, "") +
-      ". " +
-      (restored.backedUp
-        ? "A copy was kept as an autosave backup (Save your work → Browser autosave → Restore / Download autosave backup)."
-        : "The backup copy could not be written, so autosave is paused to avoid overwriting it — use Save project, or Clear browser autosave to resume.") +
-      " Showing the example recipes.",
-  );
-  if (autosavePaused) setAutosaveHint("paused");
-}
-refreshBackupButtons();

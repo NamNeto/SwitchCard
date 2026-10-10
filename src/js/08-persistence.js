@@ -333,12 +333,12 @@ function validateProject(p) {
   }
   return p;
 }
-function acceptProject(p, b, restoredFile = null) {
+async function acceptProject(p, b, restoredFile = null) {
   // Caller must validateProject first. Do not re-validate here — a second pass
   // would clear _migrationNotes after legacy CLI was already migrated.
   const notes = Array.isArray(p._migrationNotes) ? p._migrationNotes.slice() : [];
   // Never silently drop unmatched ports on open/package load.
-  if (!confirmAndDropUnmatchedPorts(p.recipes, "open"))
+  if (!(await confirmAndDropUnmatchedPorts(p.recipes, "open")))
     throw Error("Open cancelled — unmatched port assignments were not accepted.");
   recipes = p.recipes;
   active = recipes.some((r) => r.id === p.active) ? p.active : recipes[0].id;
@@ -362,14 +362,16 @@ function acceptProject(p, b, restoredFile = null) {
   scheduleAutosave();
   return notes;
 }
-function confirmReplaceUnsavedWork(kind) {
+async function confirmReplaceUnsavedWork(kind) {
   if (!(dirty || editorPending)) return true;
-  return window.confirm(
+  return confirmDialog(
+    "Replace the current workspace?",
     "You have unsaved changes" +
       (editorPending ? " (including an unapplied Maintain draft)" : "") +
       ". Opening this " +
       (kind || "file") +
       " will replace the current workspace. Continue?",
+    { ok: "Open and replace" },
   );
 }
 function assertProjectSaveSize(payload) {

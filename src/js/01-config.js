@@ -18,7 +18,8 @@
                                              export history + line diff, team policy rules,
                                              baseline fingerprints, interface-brief parsing,
                                              transliteration, theme
-    11. Event wiring + boot                   button handlers, export, autosave restore at load
+    11. Event wiring + boot                   button handlers, export (src/js/10-*.js); boot and
+                                              the awaited autosave restore (src/js/11-boot.js)
 
    SAFETY INVARIANTS (keep these true when changing anything)
      - The preview text IS the ZIP's editcontent.txt (same string, same bytes, CRLF).

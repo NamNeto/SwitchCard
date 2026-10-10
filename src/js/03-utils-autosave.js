@@ -401,7 +401,7 @@ function refreshBackupButtons() {
   }
 }
 // Returns null (nothing stored) or { status: "restored"|"declined"|"failed", ... }
-function restoreAutosave() {
+async function restoreAutosave() {
   let raw = null,
     key = AUTOSAVE_KEY;
   try {
@@ -424,7 +424,7 @@ function restoreAutosave() {
   if (!raw) return null;
   return restoreAutosaveRaw(raw, key, { fromBackup: false });
 }
-function restoreAutosaveRaw(raw, key, opts) {
+async function restoreAutosaveRaw(raw, key, opts) {
   const fromBackup = !!(opts && opts.fromBackup);
   const fail = (status, reason) => {
     const backedUp = fromBackup ? true : backupAutosave(raw, key, reason);
@@ -449,21 +449,22 @@ function restoreAutosaveRaw(raw, key, opts) {
     key,
   };
   if (meta.release !== RELEASE) {
-    const ok = window.confirm(
+    const ok = await confirmDialog(
+      "Restore an autosave from v" + meta.release + "?",
       "Found a browser autosave from SwitchCard v" +
         meta.release +
         (meta.savedAt ? ", saved " + formatSavedAt(meta.savedAt) : "") +
         (key !== AUTOSAVE_KEY ? " (older storage key " + key + ")" : "") +
         ".\nThis page is v" +
         RELEASE +
-        ".\n\nOK = restore it (fully validated and migrated).\n" +
-        (fromBackup ? "Cancel = keep the current workspace, autosave and backup unchanged." : "Cancel = keep a backup copy and start with the example recipes."),
+        ".",
+      { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples" },
     );
     if (!ok) return fail("declined", "you chose not to restore data saved by v" + meta.release);
   }
   // Ask before dropping port assignments whose interface no longer exists. Cancel keeps the
   // stored autosave intact (backed up; nothing is overwritten).
-  if (!confirmAndDropUnmatchedPorts(parsed.p.recipes, "autosave restore"))
+  if (!(await confirmAndDropUnmatchedPorts(parsed.p.recipes, "autosave restore")))
     return fail("declined", "unmatched port assignments were not accepted");
   const result = { status: "restored", ...parsed, meta, key, fromBackup,
     migrationNotes: parsed.p._migrationNotes.slice() };
@@ -525,7 +526,7 @@ function stripNestedPreserved(raw) {
   } catch (e) {}
   return raw;
 }
-function restoreSelectedBackup() {
+async function restoreSelectedBackup() {
   // Restores the selected backup and keeps the current workspace (with any unapplied draft) as
   // a backup in its place. Order matters: validate and confirm first, then write the backup
   // list, then the current autosave; memory changes only after both writes succeeded.
@@ -540,9 +541,9 @@ function restoreSelectedBackup() {
     entries = loadAutosaveBackups(true);
     const b = entries[slot];
     if (!b) throw Error("No autosave backup found.");
-    result = restoreAutosaveRaw(b.raw, b.from || "backup", { fromBackup: true, prepareOnly: true });
+    result = await restoreAutosaveRaw(b.raw, b.from || "backup", { fromBackup: true, prepareOnly: true });
     if (result.status !== "restored") throw Error(result.reason);
-    if (!confirmReplaceUnsavedWork("autosave backup")) throw Error("you cancelled");
+    if (!(await confirmReplaceUnsavedWork("autosave backup"))) throw Error("you cancelled");
     const stored = localStorage.getItem(AUTOSAVE_KEY);
     const live = autosavePayload();
     // If the stored autosave differs from what is on screen, keep its exact bytes too.
@@ -812,7 +813,7 @@ function collectRecipePortDropLines(recipeList) {
   return lines;
 }
 // Confirms before permanently dropping unmatched ports on load/restore. Returns false if cancelled.
-function confirmAndDropUnmatchedPorts(recipeList, actionLabel) {
+async function confirmAndDropUnmatchedPorts(recipeList, actionLabel) {
   const lines = collectRecipePortDropLines(recipeList);
   if (!lines.length) {
     for (const r of recipeList || []) normalizePorts(r, { allowDrop: true });
@@ -825,7 +826,8 @@ function confirmAndDropUnmatchedPorts(recipeList, actionLabel) {
     lines.join("\n") +
     "\n\nSurvivors keep roles by interface name; new interfaces get defaults. " +
     "Cancel keeps the previous workspace / skips restore.";
-  if (!window.confirm(msg)) return false;
+  if (!(await confirmDialog("Drop unmatched port assignments?", msg, { ok: "Drop and continue", danger: true })))
+    return false;
   for (const r of recipeList || []) normalizePorts(r, { allowDrop: true });
   return true;
 }

@@ -1037,6 +1037,10 @@ dialog.dlg h2 {
   max-height: 60vh;
   overflow: auto;
 }
+/* Plain-text bodies (confirmDialog / infoDialog) keep their line breaks, e.g. port lists. */
+.dialog-body > p {
+  white-space: pre-line;
+}
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
