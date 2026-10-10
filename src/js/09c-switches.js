@@ -37,6 +37,7 @@ function switchRowRecipe(r, row) {
     ...r,
     values: { ...(r.values || {}), ...own },
     ports: (r.ports || []).map((p) => ({ ...p })),
+    roles: { ...(r.roles || {}) }, // generate() fills missing roles in place (ensureRoles)
     exports: {},
     switches: undefined,
   };
@@ -54,10 +55,11 @@ function switchRowRecipe(r, row) {
   return { rr, portErrors, portFindings, portSettings: cells };
 }
 // Per-row generate() results for the current recipe state; cleared whenever the recipe changes.
+// The stamp is the full recipe JSON (not a hash), so a changed recipe can never reuse old text.
 let switchRowCache = { stamp: null, map: new Map() };
 function switchRecipeStamp(r) {
   const { exports: _history, switches: _list, ...rest } = r;
-  return quickHash(JSON.stringify(rest));
+  return JSON.stringify(rest);
 }
 // Checks every row: { rows: RowResult[], warnings }. Messages are v0.7.3 checkFleet's.
 // extraIpPorts (internal): port names whose ip a CSV column sets even when every cell is empty.
