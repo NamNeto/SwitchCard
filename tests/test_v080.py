@@ -955,3 +955,66 @@ def test_cards_empty_list_still_shows_gates(page):
     ev(page, "() => { current().switches = []; current().example = true; showView('cards'); }")
     assert "Example recipe" in page.inner_text("#cdGates")
     assert ev(page, "() => $('cdEmpty').hidden") is False
+
+
+# $('checks').textContent for example 0, captured from the v0.7.3-style build before Task 13.
+EXAMPLE0_CHECKS_TEXT = (
+    "Checks passed · 1 note to review No enable secret / username patterns found. Optional; "
+    "confirm local credentials exist in your tested recipe.  Cisco syntax and device behavior are not verified."
+)
+
+
+def _click_finding(page, scope, text):
+    page.locator(scope + " .finding-link", has_text=text).first.click()
+
+
+def test_clicking_checks_focuses_targets(page):
+    # Same visible text as before; only the items became buttons.
+    assert ev(page, "() => $('checks').textContent") == EXAMPLE0_CHECKS_TEXT
+    assert ev(page, "() => $('checks').querySelectorAll('li > button.finding-link[type=button]').length") == 1
+    # field -> Device details input (and it flashes, then the flash goes)
+    page.fill("#value_MGMT_IP", "192.0.2.0")
+    _click_finding(page, "#checks", "MGMT_IP")
+    assert ev(page, "() => document.activeElement.id") == "value_MGMT_IP"
+    assert ev(page, "() => $('value_MGMT_IP').classList.contains('flash')") is True
+    page.wait_for_function("() => !$('value_MGMT_IP').classList.contains('flash')", timeout=3000)
+    page.fill("#value_MGMT_IP", "192.0.2.10")
+    # port -> its cell in the port table; keyboard (Enter) works too
+    port = ev(page, """() => { const r = current(); normalizePorts(r); r.ports[1].role = 'access'; r.ports[1].vlan = '5000';
+        renderAll(); return r.ports[1].name; }""")
+    page.locator("#checks .finding-link", has_text="access VLAN").first.focus()
+    page.keyboard.press("Enter")
+    assert ev(page, "() => [document.activeElement.dataset.port, document.activeElement.dataset.attr]") == [port, "vlan"]
+    assert ev(page, "() => !!document.activeElement.closest('#ports')") is True
+    ev(page, "() => { current().ports[1].vlan = '10'; renderAll(); }")
+    # file line -> that line selected in the preview
+    exp = ev(page, r"""() => { const r = current(); r.template = '! café note\n' + r.template; renderAll();
+        const f = generate(r).findings.find((x) => x.where && x.where.kind === 'file' && x.where.line);
+        return generate(r).text.split(/\r?\n/)[f.where.line - 1]; }""")
+    assert "café" in exp
+    _click_finding(page, "#checks", "column")
+    assert ev(page, "() => document.activeElement.id") == "preview"
+    assert ev(page, "() => window.getSelection().toString()") == exp
+    ev(page, "() => { const r = current(); r.template = r.template.replace(/^! café note\\n/, ''); renderAll(); }")
+    assert ev(page, "() => $('checks').textContent") == EXAMPLE0_CHECKS_TEXT
+    # team rule -> Manage, the rules box (its section opened)
+    ev(page, "() => { teamPolicies = ['forbid ^hostname ']; renderPreview(); }")
+    _click_finding(page, "#checks", "forbidden pattern")
+    assert ev(page, "() => currentView") == "manage"
+    assert ev(page, "() => $('teamHintsPanel').open") is True
+    assert ev(page, "() => document.activeElement.id") == "teamPoliciesEditor"
+    ev(page, "() => { teamPolicies = []; showView('build'); }")
+    # Switches: a duplicate -> that row's HOSTNAME cell
+    ev(page, """() => { current().switches = [
+        { id: 'sw-a', values: { HOSTNAME: 'A-01', MGMT_IP: '192.0.2.71' }, ports: {} },
+        { id: 'sw-b', values: { HOSTNAME: 'A-01', MGMT_IP: '192.0.2.72' }, ports: {} }]; showView('switches'); }""")
+    page.click("#swRows tr[data-row='sw-b'] td.num")
+    _click_finding(page, "#swChecks", "duplicate HOSTNAME")
+    assert ev(page, "() => [document.activeElement.dataset.row, document.activeElement.dataset.key]") == ["sw-b", "HOSTNAME"]
+    # Switches: a port value the row sets -> the row's Ports dialog, that cell
+    ev(page, "(p) => { const r = current(); r.switches[1].values.HOSTNAME = 'A-02'; r.switches[1].ports = { [p]: { vlan: '5000' } }; renderSwitches(); }", port)
+    _click_finding(page, "#swChecks", port)
+    page.wait_for_selector("dialog[open]")
+    assert ev(page, "() => [document.activeElement.dataset.port, document.activeElement.dataset.attr, !!document.activeElement.closest('dialog')]") == [port, "vlan", True]
+    click_dialog(page, "Close")
+    assert page.problems == []
