@@ -1247,6 +1247,41 @@
       #swTable td input[data-key="HOSTNAME"] {
         min-width: 150px;
       }
+
+      /* --- v0.8.0: Cards view --- */
+      .cd-gates {
+        margin: 10px 0 0;
+        font-size: 13px;
+      }
+      .cd-gates.cd-ok,
+      #cdTable td.cd-last.cd-current,
+      #cdTable button.cd-status.cd-ok {
+        color: var(--ok);
+      }
+      .cd-gates.cd-bad,
+      #cdTable button.cd-status.cd-bad {
+        color: var(--err);
+      }
+      #cdTable td,
+      #cdTable th {
+        padding: 6px 5px;
+      }
+      #cdTable td.num {
+        color: var(--muted);
+        font-size: 12px;
+      }
+      #cdTable td.cd-last {
+        white-space: nowrap;
+        font-size: 12.5px;
+      }
+      #cdTable button.cd-status,
+      #cdTable button.cd-diff {
+        font-size: 12.5px;
+        white-space: nowrap;
+      }
+      #cdTable button.cd-diff {
+        color: var(--warn);
+      }
     </style>
   </head>
   <body>
@@ -1939,7 +1974,42 @@
           <div class="field">
             <label for="cdRecipe">Configuration recipe</label><select id="cdRecipe"></select>
           </div>
-          <p id="cardsEmpty" class="muted">Cards for this recipe will be listed here.</p>
+          <p id="cdGates" class="cd-gates" role="status"></p>
+          <!-- Bulk exports: every row, only new and changed rows, or one text-only ZIP -->
+          <div class="sw-toolbar">
+            <button type="button" id="cdAll" class="primary">All card ZIPs</button>
+            <button type="button" id="cdChanged">Changed and new only</button>
+            <button type="button" id="cdText">Text-only ZIP</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="scroll">
+            <table id="cdTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Hostname</th>
+                  <th>Management IP</th>
+                  <th>Status</th>
+                  <th>Last export</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="cdRows"></tbody>
+            </table>
+          </div>
+          <p id="cdEmpty" class="muted">No switches yet. Add them in Switches on the left.</p>
+          <p>
+            <small
+              >Every card passes the same checks and gates as a single card (baseline, example
+              flag, team policies), and each export asks you to review it first. Each card is its
+              own ZIP download; the browser may ask once to allow multiple downloads. A manifest
+              with every SHA-256 follows a bulk export. <em>Text-only ZIP</em> holds
+              <code>HOSTNAME/editcontent.txt</code> per switch plus <code>fleet-manifest.txt</code>.
+              Last export compares with the text remembered per hostname; Save project to keep
+              it.</small
+            >
+          </p>
         </div>
       </section>
       <div id="status" role="status" hidden></div>
@@ -6088,8 +6158,8 @@
             : "Use Duplicate switch, or paste a CSV and click Check fleet.";
         why.style.color = ok ? "var(--ok,#3dd68c)" : "var(--warn)";
       }
-      // Runs inside run(): re-checks everything from scratch, confirms, then exports one ZIP per switch
-      // (or one text-only ZIP) and records each switch in the recipe's export history.
+      // Old Fleet box on Build (removed in a later step): re-checks the CSV from scratch, then hands
+      // the rows to exportSwitchCards. Runs inside run().
       async function exportFleet(textOnly) {
         const r = current();
         if (editorPending) throw Error("Apply recipe changes or Discard unapplied draft first.");
@@ -6099,28 +6169,47 @@
         fleet = { ...res, recipeId: r.id, stamp: fleetStamp(r) };
         renderFleet(fleet);
         if (res.errors.length || res.rows.some((x) => x.errors.length || x.policy.length)) throw Error("The fleet has errors; nothing was exported.");
+        await exportSwitchCards(r, res.rows, { textOnly });
+      }
+      // Bulk export of checked switch rows (checkSwitchRows or checkFleet results): asks in the write
+      // dialog, then one ZIP per switch plus the manifest, or one text-only ZIP; records each row in the
+      // recipe's export history. Resolves false when cancelled. Runs inside run().
+      async function exportSwitchCards(r, results, opts) {
+        const textOnly = !!(opts && opts.textOnly);
+        if (editorPending) throw Error("Apply recipe changes or Discard unapplied draft first.");
+        const gates = blockers(r);
+        if (gates.length) throw Error(gates[0]);
+        if (!results.length) throw Error("No switches to export.");
+        const bad = results.filter((x) => x.errors.length || x.policy.length).map((x) => x.n);
+        if (bad.length) throw Error("Rows with errors: " + bad.join(", ") + "; nothing was exported.");
+        const n = results.length;
         const dkeys = deviceKeys(r);
         const lines = [
-          (textOnly ? "Export ONE text-only ZIP for " : "Export ") + res.rows.length + " switch" + (res.rows.length === 1 ? "" : "es") + (textOnly ? "?" : " as separate SD-card ZIPs?"),
+          (textOnly ? "Export ONE text-only ZIP for " : "Export ") + n + " switch" + (n === 1 ? "" : "es") + (textOnly ? "?" : " as separate SD-card ZIPs?"),
           "",
           "Recipe: " + r.name,
           "Baseline: " + (baseline ? baseline.model + " / " + baseline.version : "(none)"),
           "",
         ];
-        for (const row of res.rows.slice(0, 20))
+        for (const row of results.slice(0, 20))
           lines.push(row.n + ". " + (row.host || "(no hostname)") + "  " + (row.ip || "") + "  " + row.sha256.slice(0, 16) + "…  " + row.lines + " lines");
-        if (res.rows.length > 20) lines.push("… and " + (res.rows.length - 20) + " more (all listed in the manifest).");
-        lines.push("", "Every editcontent.txt is exactly what Check fleet generated for that row.", "", "Cancel = no download.");
-        if (!window.confirm(lines.join("\n"))) {
-          message("Fleet export cancelled.");
-          return;
+        if (n > 20) lines.push("… and " + (n - 20) + " more (all listed in the manifest).");
+        lines.push("", "Every editcontent.txt is exactly the text checked for that row.", "", "Cancel = no download.");
+        const ok = await writeDialog({
+          title: textOnly ? "Export text-only ZIP?" : "Export SD-card ZIPs?",
+          summary: lines.join("\n"),
+          primary: textOnly ? "Download ZIP" : "Download ZIPs",
+        });
+        if (!ok) {
+          message(textOnly ? "Text-only export cancelled." : "Card export cancelled.");
+          return false;
         }
         const when = new Date();
         const manifest = ["row\thostname\tmgmt_ip\tfile\teditcontent_sha256\tlines\tbytes"];
         const folderFor = (row) => (dkeys.includes("HOSTNAME") ? exportHostnameForFile(row.recipe) : "switch-" + row.n);
         if (textOnly) {
           const files = [];
-          for (const row of res.rows) {
+          for (const row of results) {
             const folder = folderFor(row);
             files.push({ path: folder + "/editcontent.txt", blob: new Blob([row.text], { type: "text/plain" }) });
             manifest.push([row.n, row.host, row.ip, folder + "/editcontent.txt", row.sha256, row.lines, row.bytes].join("\t"));
@@ -6128,23 +6217,24 @@
           files.push({ path: "fleet-manifest.txt", blob: new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }) });
           download(await zip(files, when), "switchcard-fleet-" + RELEASE + "-text.zip");
         } else {
-          for (let i = 0; i < res.rows.length; i++) {
-            const row = res.rows[i];
+          for (let i = 0; i < n; i++) {
+            const row = results[i];
             const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
-            message("Fleet card " + (i + 1) + " / " + res.rows.length + ": " + name);
+            message("Card " + (i + 1) + " / " + n + ": " + name);
             download(await zip(buildCardFiles({ text: row.text }), when), name);
             manifest.push([row.n, row.host, row.ip, name, row.sha256, row.lines, row.bytes].join("\t"));
             await new Promise((resolve) => setTimeout(resolve, 400));
           }
           download(new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }), "switchcard-fleet-" + RELEASE + "-manifest.txt");
         }
-        for (const row of res.rows) recordExport(r, row.host, row.text);
+        for (const row of results) recordExport(r, row.host, row.text);
         touch();
         message(
-          "Fleet export finished: " + res.rows.length + " switch" + (res.rows.length === 1 ? "" : "es") +
+          "Export finished: " + n + " switch" + (n === 1 ? "" : "es") +
             (textOnly ? " in one text-only ZIP (HOSTNAME/editcontent.txt + fleet-manifest.txt)." : " as separate card ZIPs plus a manifest with every SHA-256. If the browser blocked some downloads, allow multiple downloads for this page and export again.") +
             " Each hostname's text is remembered for the next comparison; Save project to keep that.",
         );
+        return true;
       }
 
       // --- "show ip interface brief" / "show interfaces status" -> interface names (pure) ---
@@ -7587,7 +7677,10 @@
       let railTimer = null;
       // Build's subtitle, restored when leaving a view that shows its own line.
       const BUILD_SUBTITLE = [...$("viewSubtitle").childNodes].map((n) => n.cloneNode(true));
-      const VIEW_SUBTITLES = { switches: "Empty cells use Device details from Build a card." };
+      const VIEW_SUBTITLES = {
+        switches: "Empty cells use Device details from Build a card.",
+        cards: "One SD-card ZIP per switch; Last export shows what changed since.",
+      };
       // Shows one view. Leaving the recipe editor is refused while it holds an unapplied draft.
       function showView(name) {
         if (!VIEW_SECTIONS[name]) return false;
@@ -7631,6 +7724,8 @@
         const up = res.rows.filter((x) => exportState(r, x.host, x.sha256).state === "current").length;
         $("chipCards").textContent = up + " of " + rows.length + " up to date";
         $("chipManage").textContent = baseline ? baseline.version : "no baseline";
+        // The open Cards view follows the same changes (recipe, switches, template, baseline, policies).
+        if (currentView === "cards" && typeof renderCards === "function") renderCards();
       }
 
       // --- Switches view: one row per switch (Device details are the defaults), CSV in and out,
@@ -8137,6 +8232,145 @@
       // The shared recipe picker re-renders the list (its onchange, set earlier, switches the recipe).
       $("swRecipe").addEventListener("change", () => {
         if (currentView === "switches") renderSwitches();
+      });
+      // --- Cards view: one line per switch with its export state; single and bulk exports. Rebuilt on
+      //     every render (showView, and updateRail while the view is open), so it follows the recipe,
+      //     its switches, its template, the baseline and the team policies without a reload. ---
+
+      // "YYYY-MM-DD HH:MM" in local time, for the Last export column.
+      function formatExportAt(iso) {
+        const d = new Date(iso);
+        if (typeof iso !== "string" || isNaN(d)) return "unknown time";
+        const p = (v) => String(v).padStart(2, "0");
+        return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+      }
+      // Team-policy hits block export, so a row with them counts as a row with errors (fail closed).
+      function cardRowBad(x) {
+        return x.errors.length > 0 || x.policy.length > 0;
+      }
+      // The checked rows plus their export states, for the current recipe.
+      function cardRows(r) {
+        const rows = r.switches || [];
+        const res = rows.length ? checkSwitchRows(r, rows) : { rows: [] };
+        return res.rows.map((x) => ({ x, st: exportState(r, x.host, x.sha256) }));
+      }
+      function renderCards() {
+        let r;
+        try {
+          r = current();
+        } catch (e) {
+          return;
+        }
+        const items = cardRows(r);
+        const gates = blockers(r);
+        const blocked = gates.length > 0 || busy;
+        const body = items.map(({ x, st }) => {
+          const status = switchStatus(x);
+          let last;
+          if (st.state === "current") last = el("td", { className: "cd-last cd-current" }, "up to date · " + formatExportAt(st.at));
+          else if (st.state === "changed")
+            last = el("td", { className: "cd-last" },
+              el("button", { type: "button", className: "cd-diff", title: "Show the changes since the last export" }, "changed since " + formatExportAt(st.at)));
+          else if (st.state === "new") last = el("td", { className: "cd-last" }, "not exported");
+          else last = el("td", { className: "cd-last muted", title: "The recipe does not use HOSTNAME, so exports are not remembered." }, "not tracked");
+          return el("tr", { dataRow: x.row.id },
+            el("td", { className: "num" }, String(x.n)),
+            el("td", {}, x.host || "(no hostname)"),
+            el("td", {}, x.ip),
+            el("td", {},
+              el("button", { type: "button", className: "cd-status " + (status.bad ? "cd-bad" : "cd-ok"), title: status.title || "Open this switch in Switches" }, status.text)),
+            last,
+            el("td", {},
+              el("button", {
+                type: "button", className: "cd-card", disabled: blocked || cardRowBad(x),
+                title: cardRowBad(x) ? "Fix this switch's errors first." : gates[0] || "Download the SD-card ZIP of this switch",
+              }, "Card ZIP")));
+        });
+        $("cdRows").replaceChildren(...body);
+        $("cdTable").hidden = !items.length;
+        $("cdEmpty").hidden = items.length > 0;
+        const badRows = items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x.n);
+        const policyRows = items.filter(({ x }) => x.policy.length).map(({ x }) => x.n);
+        const reasons = [...gates];
+        if (badRows.length)
+          reasons.push("Rows with errors: " + badRows.join(", ") + (policyRows.length ? " (team policy: " + policyRows.join(", ") + ")" : "") + ".");
+        const gl = $("cdGates");
+        if (!items.length) gl.textContent = "";
+        else if (reasons.length) gl.textContent = "Export blocked: " + reasons.join(" · ");
+        else gl.textContent = "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + ".";
+        gl.className = "cd-gates " + (reasons.length ? "cd-bad" : "cd-ok");
+        const changed = items.filter(({ st }) => st.state === "new" || st.state === "changed").length;
+        $("cdChanged").textContent = "Changed and new only (" + changed + ")";
+        $("cdAll").disabled = blocked || !items.length;
+        $("cdText").disabled = blocked || !items.length;
+        $("cdChanged").disabled = blocked || changed === 0;
+      }
+      // One switch's SD-card ZIP, with the same write dialog as Build's Export SD-card ZIP. Runs inside run().
+      async function exportOneCard(r, result) {
+        if (editorPending) throw Error("Apply recipe changes or Discard unapplied draft first.");
+        const gates = blockers(r);
+        if (gates.length) throw Error(gates[0]);
+        if (cardRowBad(result)) throw Error("Switch " + result.n + " has errors; nothing was exported.");
+        const g = { text: result.text };
+        if (!(await writeDialog({ title: "Export SD-card ZIP?", summary: exportConfirmSummary(result.recipe, g), primary: "Download ZIP" }))) {
+          message("SD-card ZIP export cancelled.");
+          return false;
+        }
+        const name = (deviceKeys(r).includes("HOSTNAME") ? exportHostnameForFile(result.recipe) : "switch-" + result.n) +
+          "-switchcard-" + RELEASE + "-sdcard.zip";
+        download(await zip(buildCardFiles(g), new Date()), name);
+        recordExport(r, result.host, result.text);
+        touch();
+        message("SD-card ZIP exported for switch " + result.n + " (" + previewSizeLabel(result.text) + ", editcontent.txt SHA-256 " +
+          result.sha256.slice(0, 16) + "…). Extract ZIP contents to the card ROOT.");
+        return true;
+      }
+      // Bulk: which = "all" | "changed" | "text". Rows are re-checked at click time; an included row with
+      // errors stops the export before any dialog and is named in the status line.
+      function exportCardsBulk(which) {
+        return run(async () => {
+          const r = current();
+          const items = cardRows(r).filter(({ st }) => which !== "changed" || st.state === "new" || st.state === "changed");
+          if (!items.length) {
+            message(which === "changed" ? "Every card is up to date." : "No switches to export yet.");
+            return;
+          }
+          const bad = items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x.n);
+          if (bad.length) {
+            message("Rows with errors: " + bad.join(", ") + ". Fix them in Switches; nothing was exported.");
+            return;
+          }
+          await exportSwitchCards(r, items.map(({ x }) => x), { textOnly: which === "text" });
+        });
+      }
+      // "Changed since" dialog: the diff of the remembered text against the current one.
+      function showCardDiff(r, x) {
+        const st = exportState(r, x.host, x.sha256);
+        if (!st.entry) return;
+        const summary = el("p", {});
+        const out = el("pre", { className: "diff" });
+        fillDiff(summary, out, st.entry, x.text);
+        infoDialog("Changes since the last export · switch " + x.n, el("div", {}, summary, out));
+      }
+
+      // --- Cards view wiring ---
+      $("cdRows").addEventListener("click", (e) => {
+        const tr = e.target.closest("tr[data-row]");
+        if (!tr) return;
+        const r = current();
+        const x = checkSwitchRows(r, r.switches || []).rows.find((y) => y.row.id === tr.dataset.row);
+        if (!x) return;
+        if (e.target.closest("button.cd-status")) {
+          if (showView("switches")) selectSwitch(x.row.id);
+        } else if (e.target.closest("button.cd-diff")) showCardDiff(r, x);
+        else if (e.target.closest("button.cd-card")) run(() => exportOneCard(r, x));
+      });
+      $("cdAll").onclick = () => exportCardsBulk("all");
+      $("cdChanged").onclick = () => exportCardsBulk("changed");
+      $("cdText").onclick = () => exportCardsBulk("text");
+      // The shared recipe picker re-renders the list (its onchange, set earlier, switches the recipe).
+      $("cdRecipe").addEventListener("change", () => {
+        if (currentView === "cards") renderCards();
       });
       // --- Boot sequence (sorts last: runs after all wiring) ---
       // The examples render first; the autosave restore then awaits its in-page dialogs.

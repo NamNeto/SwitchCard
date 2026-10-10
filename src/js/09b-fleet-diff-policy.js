@@ -708,8 +708,8 @@ function refreshFleetButtons() {
       : "Use Duplicate switch, or paste a CSV and click Check fleet.";
   why.style.color = ok ? "var(--ok,#3dd68c)" : "var(--warn)";
 }
-// Runs inside run(): re-checks everything from scratch, confirms, then exports one ZIP per switch
-// (or one text-only ZIP) and records each switch in the recipe's export history.
+// Old Fleet box on Build (removed in a later step): re-checks the CSV from scratch, then hands
+// the rows to exportSwitchCards. Runs inside run().
 async function exportFleet(textOnly) {
   const r = current();
   if (editorPending) throw Error("Apply recipe changes or Discard unapplied draft first.");
@@ -719,28 +719,47 @@ async function exportFleet(textOnly) {
   fleet = { ...res, recipeId: r.id, stamp: fleetStamp(r) };
   renderFleet(fleet);
   if (res.errors.length || res.rows.some((x) => x.errors.length || x.policy.length)) throw Error("The fleet has errors; nothing was exported.");
+  await exportSwitchCards(r, res.rows, { textOnly });
+}
+// Bulk export of checked switch rows (checkSwitchRows or checkFleet results): asks in the write
+// dialog, then one ZIP per switch plus the manifest, or one text-only ZIP; records each row in the
+// recipe's export history. Resolves false when cancelled. Runs inside run().
+async function exportSwitchCards(r, results, opts) {
+  const textOnly = !!(opts && opts.textOnly);
+  if (editorPending) throw Error("Apply recipe changes or Discard unapplied draft first.");
+  const gates = blockers(r);
+  if (gates.length) throw Error(gates[0]);
+  if (!results.length) throw Error("No switches to export.");
+  const bad = results.filter((x) => x.errors.length || x.policy.length).map((x) => x.n);
+  if (bad.length) throw Error("Rows with errors: " + bad.join(", ") + "; nothing was exported.");
+  const n = results.length;
   const dkeys = deviceKeys(r);
   const lines = [
-    (textOnly ? "Export ONE text-only ZIP for " : "Export ") + res.rows.length + " switch" + (res.rows.length === 1 ? "" : "es") + (textOnly ? "?" : " as separate SD-card ZIPs?"),
+    (textOnly ? "Export ONE text-only ZIP for " : "Export ") + n + " switch" + (n === 1 ? "" : "es") + (textOnly ? "?" : " as separate SD-card ZIPs?"),
     "",
     "Recipe: " + r.name,
     "Baseline: " + (baseline ? baseline.model + " / " + baseline.version : "(none)"),
     "",
   ];
-  for (const row of res.rows.slice(0, 20))
+  for (const row of results.slice(0, 20))
     lines.push(row.n + ". " + (row.host || "(no hostname)") + "  " + (row.ip || "") + "  " + row.sha256.slice(0, 16) + "…  " + row.lines + " lines");
-  if (res.rows.length > 20) lines.push("… and " + (res.rows.length - 20) + " more (all listed in the manifest).");
-  lines.push("", "Every editcontent.txt is exactly what Check fleet generated for that row.", "", "Cancel = no download.");
-  if (!window.confirm(lines.join("\n"))) {
-    message("Fleet export cancelled.");
-    return;
+  if (n > 20) lines.push("… and " + (n - 20) + " more (all listed in the manifest).");
+  lines.push("", "Every editcontent.txt is exactly the text checked for that row.", "", "Cancel = no download.");
+  const ok = await writeDialog({
+    title: textOnly ? "Export text-only ZIP?" : "Export SD-card ZIPs?",
+    summary: lines.join("\n"),
+    primary: textOnly ? "Download ZIP" : "Download ZIPs",
+  });
+  if (!ok) {
+    message(textOnly ? "Text-only export cancelled." : "Card export cancelled.");
+    return false;
   }
   const when = new Date();
   const manifest = ["row\thostname\tmgmt_ip\tfile\teditcontent_sha256\tlines\tbytes"];
   const folderFor = (row) => (dkeys.includes("HOSTNAME") ? exportHostnameForFile(row.recipe) : "switch-" + row.n);
   if (textOnly) {
     const files = [];
-    for (const row of res.rows) {
+    for (const row of results) {
       const folder = folderFor(row);
       files.push({ path: folder + "/editcontent.txt", blob: new Blob([row.text], { type: "text/plain" }) });
       manifest.push([row.n, row.host, row.ip, folder + "/editcontent.txt", row.sha256, row.lines, row.bytes].join("\t"));
@@ -748,23 +767,24 @@ async function exportFleet(textOnly) {
     files.push({ path: "fleet-manifest.txt", blob: new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }) });
     download(await zip(files, when), "switchcard-fleet-" + RELEASE + "-text.zip");
   } else {
-    for (let i = 0; i < res.rows.length; i++) {
-      const row = res.rows[i];
+    for (let i = 0; i < n; i++) {
+      const row = results[i];
       const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
-      message("Fleet card " + (i + 1) + " / " + res.rows.length + ": " + name);
+      message("Card " + (i + 1) + " / " + n + ": " + name);
       download(await zip(buildCardFiles({ text: row.text }), when), name);
       manifest.push([row.n, row.host, row.ip, name, row.sha256, row.lines, row.bytes].join("\t"));
       await new Promise((resolve) => setTimeout(resolve, 400));
     }
     download(new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }), "switchcard-fleet-" + RELEASE + "-manifest.txt");
   }
-  for (const row of res.rows) recordExport(r, row.host, row.text);
+  for (const row of results) recordExport(r, row.host, row.text);
   touch();
   message(
-    "Fleet export finished: " + res.rows.length + " switch" + (res.rows.length === 1 ? "" : "es") +
+    "Export finished: " + n + " switch" + (n === 1 ? "" : "es") +
       (textOnly ? " in one text-only ZIP (HOSTNAME/editcontent.txt + fleet-manifest.txt)." : " as separate card ZIPs plus a manifest with every SHA-256. If the browser blocked some downloads, allow multiple downloads for this page and export again.") +
       " Each hostname's text is remembered for the next comparison; Save project to keep that.",
   );
+  return true;
 }
 
 // --- "show ip interface brief" / "show interfaces status" -> interface names (pure) ---

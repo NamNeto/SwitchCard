@@ -773,3 +773,134 @@ def test_switches_minor_fixes_role_and_trim(page):
     assert "GigabitEthernet1/2" not in ev(page, "() => current().switches[0].ports")
     assert ev(page, "(s) => document.querySelector(s).classList.contains('inherit')", role) is True
     click_dialog(page, "Close")
+
+
+# --- Task 11: Cards view ---
+
+def _cards_setup(page, n=3):
+    """Synthetic baseline, example=false and n counted-up rows; opens the Cards view."""
+    ev(page, """(n) => { const r = current(); r.example = false;
+        baseline = {model: r.model, version: 'x', files: [{path: 'a.bin', blob: new Blob(['x'])}]};
+        r.switches = countedUpRows(r, [], n).rows; r.exports = {};
+        renderAll(); renderPreview(); showView('cards'); }""", n)
+    return ev(page, "() => current().switches.map((x) => x.id)")
+
+
+def _cd_row(row_id, sel=""):
+    return ("#cdRows tr[data-row='%s'] " % row_id) + sel
+
+
+def _zip_names(d):
+    return sorted(x["name"] for x in d)
+
+
+def test_cards_single_and_all_exports_record_history(page):
+    ids = _cards_setup(page)
+    assert ev(page, "() => $('cdRows').querySelectorAll('tr[data-row]').length") == 3
+    assert "Ready to export 3 cards." in page.inner_text("#cdGates")
+    assert page.inner_text(_cd_row(ids[1], "td.cd-last")) == "not exported"
+    assert page.inner_text("#cdChanged") == "Changed and new only (3)"
+    stub_downloads(page)
+    rel = ev(page, "() => RELEASE")
+    page.click(_cd_row(ids[1], "button.cd-card"))
+    page.wait_for_selector("dialog[open]")
+    assert "IE3100-DEMO-02" in page.inner_text("dialog[open]")
+    assert page.locator("dialog[open] .dialog-actions button", has_text="Download ZIP").is_disabled()
+    page.check("dialog[open] input[type=checkbox]")
+    click_dialog(page, "Download ZIP")
+    page.wait_for_function("() => (window.__dl || []).length === 1")
+    assert downloads(page)[0]["name"] == "IE3100-DEMO-02-switchcard-%s-sdcard.zip" % rel
+    page.wait_for_function("(s) => document.querySelector(s).textContent.startsWith('up to date')", arg=_cd_row(ids[1], "td.cd-last"))
+    assert ev(page, "() => Object.keys(current().exports)") == ["ie3100-demo-02"]
+    assert page.inner_text("#cdChanged") == "Changed and new only (2)"
+    # status button opens Switches with the row selected
+    page.click(_cd_row(ids[0], "button.cd-status"))
+    assert ev(page, "() => [currentView, swSelectedId]") == ["switches", ids[0]]
+    ev(page, "() => { showView('cards'); window.__dl = []; window.__dlPending = []; }")
+    page.click("#cdAll")
+    page.wait_for_selector("dialog[open]")
+    text = page.inner_text("dialog[open]")
+    assert "IE3100-DEMO-01" in text and "IE3100-DEMO-03" in text
+    page.check("dialog[open] input[type=checkbox]")
+    click_dialog(page, "Download ZIPs")
+    page.wait_for_function("() => (window.__dl || []).length === 4", timeout=10000)
+    assert _zip_names(downloads(page)) == sorted(
+        ["IE3100-DEMO-0%d-switchcard-%s-sdcard.zip" % (i, rel) for i in (1, 2, 3)] + ["switchcard-fleet-%s-manifest.txt" % rel])
+    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and new only (0)'")
+    assert page.is_disabled("#cdChanged")
+    assert page.problems == []
+
+
+def test_changed_only_after_template_edit(page):
+    ids = _cards_setup(page)
+    stub_downloads(page)
+    page.click("#cdAll")
+    page.check("dialog[open] input[type=checkbox]")
+    click_dialog(page, "Download ZIPs")
+    page.wait_for_function("() => (window.__dl || []).length === 4", timeout=10000)
+    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and new only (0)'")
+    # only row 3's SITE changes
+    ev(page, "() => { current().switches[2].values.SITE = 'Plant C'; touch(); renderPreview(); }")
+    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and new only (1)'")
+    assert page.is_enabled("#cdChanged")
+    assert page.inner_text(_cd_row(ids[2], "button.cd-diff")).startswith("changed since")
+    page.click(_cd_row(ids[2], "button.cd-diff"))
+    page.wait_for_selector("dialog[open]")
+    assert "Plant C" in page.inner_text("dialog[open]")
+    click_dialog(page, "Close")
+    ev(page, "() => { window.__dl = []; window.__dlPending = []; }")
+    page.click("#cdChanged")
+    page.wait_for_selector("dialog[open]")
+    text = page.inner_text("dialog[open]")
+    assert "IE3100-DEMO-03" in text and "IE3100-DEMO-01" not in text
+    page.check("dialog[open] input[type=checkbox]")
+    click_dialog(page, "Download ZIPs")
+    page.wait_for_function("() => (window.__dl || []).length === 2", timeout=10000)
+    names = _zip_names(downloads(page))
+    assert len(names) == 2 and names[0].startswith("IE3100-DEMO-03-") and "manifest" in names[1]
+    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and new only (0)'")
+    # a template edit applied in Manage marks every card changed
+    ev(page, r"""() => { showView('manage'); const el = document.getElementById('template');
+        el.value = el.value.replace('\nend\n', '\nntp server 192.0.2.250\nend\n');
+        el.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('applyRecipe').click(); }""")
+    page.wait_for_function("() => !editorPending")
+    assert ev(page, "() => current().template.includes('ntp server 192.0.2.250')") is True
+    ev(page, "() => showView('cards')")
+    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and new only (3)'")
+    lasts = ev(page, "() => [...document.querySelectorAll('#cdRows td.cd-last')].map((t) => t.textContent)")
+    assert all(s.startswith("changed since") for s in lasts), lasts
+
+
+def test_cards_gates_example_and_errors(page):
+    ids = _cards_setup(page)
+    ev(page, "() => { current().example = true; renderCards(); }")
+    assert page.is_disabled("#cdAll") and page.is_disabled("#cdText")
+    assert "Example recipe" in page.inner_text("#cdGates")
+    assert page.is_disabled(_cd_row(ids[0], "button.cd-card"))
+    ev(page, "() => { current().example = false; current().switches[1].values.MGMT_IP = '999.1.1.1'; renderCards(); }")
+    assert "Rows with errors: 2" in page.inner_text("#cdGates")
+    assert page.is_disabled(_cd_row(ids[1], "button.cd-card"))
+    assert page.is_enabled(_cd_row(ids[0], "button.cd-card"))
+    stub_downloads(page)
+    page.click("#cdAll")
+    page.wait_for_function("() => $('status').textContent.includes('2')")
+    assert "row" in ev(page, "() => $('status').textContent").lower()
+    assert ev(page, "() => !!document.querySelector('dialog[open]')") is False
+    assert downloads(page) == []
+
+
+def test_text_only_zip(page):
+    _cards_setup(page, 2)
+    stub_downloads(page)
+    page.click("#cdText")
+    page.wait_for_selector("dialog[open]")
+    assert "text-only" in page.inner_text("dialog[open]")
+    page.check("dialog[open] input[type=checkbox]")
+    click_dialog(page, "Download ZIP")
+    page.wait_for_function("() => (window.__dl || []).length === 1")
+    d = downloads(page)
+    names = ev(page, """async (b64) => { const bin = atob(b64); const u = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+        const files = await unzip(new Blob([u])); return files.map((f) => f.path); }""", d[0]["b64"])
+    assert names == ["IE3100-DEMO-01/editcontent.txt", "IE3100-DEMO-02/editcontent.txt", "fleet-manifest.txt"]
+    assert d[0]["name"].endswith("-text.zip")
+    assert sorted(ev(page, "() => Object.keys(current().exports)")) == ["ie3100-demo-01", "ie3100-demo-02"]
