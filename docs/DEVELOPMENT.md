@@ -6,9 +6,14 @@ SwitchCard ships as one file, `SwitchCard.html`, but it is edited as a small sou
 
 | Path | Contents |
 |------|----------|
-| `src/index.html` | HTML shell (header, Build panel, Maintain panel, footer). The lines `@@STYLES@@` and `@@SCRIPT@@` mark where the CSS and JS are inlined. |
+| `src/index.html` | HTML shell (header, left rail, Build panel, Maintain panel, Switches and Cards views, footer). The lines `@@STYLES@@` and `@@SCRIPT@@` mark where the CSS and JS are inlined. |
 | `src/styles.css` | The single `<style>` block. |
 | `src/js/NN-*.js` | The single `<script>` block, split at the code-map sections and concatenated in file-name order. All files share one scope, so nothing is exported or imported. |
+| `src/js/04b-dialogs.js` | Element builder `el()` and the in-page dialog kit (`showDialog`, `confirmDialog`, `infoDialog`, `writeDialog` with the review tick). No browser `confirm` / `alert` / `prompt` anywhere. |
+| `src/js/09c-switches.js` | Switch list engine, pure apart from reading the team policies: effective switch per row, row checks with a per-row cache, CSV in and out, counted-up rows, export states, switch-list validation, interface alignment. |
+| `src/js/10b-views.js` | Left rail and status chips, Switches view (grid, side panel, Import CSV and Ports dialogs), click-to-focus for checks. |
+| `src/js/10c-cards.js` | Cards view: export states, Card ZIP, bulk exports, diff dialog. |
+| `src/js/11-boot.js` | Boot sequence: first render, then the awaited autosave restore dialog. Kept last so every other file has run. |
 | `build.py` | Assembles `SwitchCard.html`; `--check` fails when the committed file differs from the build. |
 | `tests/` | pytest + Playwright browser tests against the built file, plus `tests/golden/` with the expected `editcontent.txt` of every built-in example. |
 | `.github/workflows/ci.yml` | Build drift check, browser tests, SHA-256 of the shipped file. |
@@ -30,7 +35,13 @@ python -m playwright install chromium
 python -m pytest -q
 ```
 
-The tests open the built file in headless Chromium and call the page's own functions (`generate`, `validateProject`, `zip`, ...) through `page.evaluate`, so they exercise exactly the shipped code. Every fresh browser context starts without an autosave, which is why the examples generate deterministically.
+To use an installed browser instead of downloading Chromium, set `SWITCHCARD_PW_CHANNEL` to a Playwright channel, for example Microsoft Edge:
+
+```bash
+SWITCHCARD_PW_CHANNEL=msedge python -m pytest -q
+```
+
+CI leaves it unset and uses the downloaded Chromium. The tests open the built file in headless Chromium and call the page's own functions (`generate`, `validateProject`, `zip`, ...) through `page.evaluate`, so they exercise exactly the shipped code. Every fresh browser context starts without an autosave, which is why the examples generate deterministically.
 
 Golden files: `tests/golden/example-N.txt` hold the exact CRLF bytes each built-in example produces. When an output change is intended, regenerate them and review the diff:
 
@@ -47,10 +58,10 @@ An unintended change to a golden file is the signal that a "no output change" cl
 3. Tag and publish the built file with its hash so users can verify a downloaded copy:
 
 ```bash
-git tag -a v0.7.0 -m "SwitchCard v0.7.0"
+git tag -a v0.8.0 -m "SwitchCard v0.8.0"
 git push origin main --tags
 sha256sum SwitchCard.html
-gh release create v0.7.0 SwitchCard.html --title "SwitchCard v0.7.0" --notes-file release-notes.md
+gh release create v0.8.0 SwitchCard.html --title "SwitchCard v0.8.0" --notes-file release-notes.md
 ```
 
 ## Ground rules for changes

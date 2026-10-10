@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  SwitchCard v0.7.3 - offline, single-file SD-card builder for Cisco IE switches
+  SwitchCard v0.8.0 - offline, single-file SD-card builder for Cisco IE switches
   (IE3100 / IE3x00 / IE9300) that use an on-switch EEM script to apply editcontent.txt.
 
   What it does: packs a firmware baseline folder + a configuration recipe into an SD-card ZIP
@@ -39,7 +39,7 @@
       <div class="brand">
         <span class="mark" aria-hidden="true"></span>
         <div>
-          <strong>SwitchCard <span id="releaseLabel">/ v0.7.3</span></strong>
+          <strong>SwitchCard <span id="releaseLabel">/ v0.8.0</span></strong>
           <div class="tag">Offline card builder</div>
         </div>
       </div>
@@ -410,7 +410,7 @@
                     <code>forbid &lt;pattern&gt;</code>. Patterns are case-insensitive regular
                     expressions matched line by line against the generated text without
                     <code>!</code> comments and <code>no …</code> lines. A failing or invalid rule
-                    <strong>blocks export</strong> (single and fleet); hints never do.</small
+                    <strong>blocks export</strong> (single card and Cards); hints never do.</small
                   >
                 </p>
                 <p class="muted" style="margin-top: 10px">
@@ -691,7 +691,7 @@
       </section>
       <div id="status" role="status" hidden></div>
       <footer>
-        SwitchCard <strong>0.7.3</strong> · offline · CSP <code>connect-src 'none'</code> · not
+        SwitchCard <strong>0.8.0</strong> · offline · CSP <code>connect-src 'none'</code> · not
         affiliated with Cisco · Swap Drive (<code>sync sdflash:</code>) remains Cisco’s flash↔SD
         path · MIT.
       </footer>

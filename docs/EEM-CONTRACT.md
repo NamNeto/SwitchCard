@@ -1,6 +1,6 @@
 # EEM contract — what SwitchCard assumes about your SD-card / EEM flow
 
-**Applies to:** SwitchCard v0.7.3. **Status:** assumptions, **not device-tested**. EXAMPLE values only.
+**Applies to:** SwitchCard v0.8.0. **Status:** assumptions, **not device-tested**. EXAMPLE values only.
 
 SwitchCard never talks to a switch. It writes one text file, root `editcontent.txt`, into a ZIP next to your baseline files. Something on the switch (your EEM applet / script / boot process, not SwitchCard) reads that file and applies it. This page lists what SwitchCard assumes about that "something", so you can check the assumptions against **your** image on a **spare** switch before production use.
 
@@ -31,16 +31,16 @@ Manage recipes & baseline → *Advanced output options*.
 ### 2a. Provenance header / end marker
 
 ```text
-! SWITCHCARD v0.7.3 host=EXAMPLE-SW1 recipe=EXAMPLE-LAB-ACCESS
+! SWITCHCARD v0.8.0 host=EXAMPLE-SW1 recipe=EXAMPLE-LAB-ACCESS
 ... generated configuration ...
 ! SWITCHCARD-END lines=123 sha256=<64 hex chars>
 ```
 
 - Every added line starts with `!` (comment, per A4).
 - `sha256` = SHA-256 of all bytes **before** the `! SWITCHCARD-END` line (UTF-8, CRLF line ends). `lines` = number of lines before the END line. A truncated or edited file no longer matches.
-- **No timestamp inside the file**, so the preview is byte-identical to the ZIP and re-exports of the same input are identical. The export time is recorded in the ZIP entry timestamps and in the export confirm/status.
+- **No timestamp inside the file**, so the preview is byte-identical to the ZIP and re-exports of the same input are identical. The export time is recorded in the ZIP entry timestamps and in the export dialog/status.
 - Host and recipe name are reduced to printable ASCII (middle dot, en dash and em dash map to `-`; `?` replaces other non-ASCII). Template comment lines must themselves be ASCII; they are not silently rewritten.
-- The export confirm always shows the SHA-256 of the whole `editcontent.txt`, header on or off.
+- The export dialog always shows the SHA-256 of the whole `editcontent.txt`, header on or off.
 
 **Why opt-in:** if your EEM applet counts lines, matches a first line, or does not treat `!` as a comment, the header could break the flow. Test first (checklist C3).
 
@@ -56,12 +56,12 @@ Use a spare switch, console cable connected, lab-only addresses (e.g. 192.0.2.0/
 
 - [ ] **C1 — Bare CR really is blocked in the UI.** Open a test project whose template contains a bare CR (create it with a text editor that keeps CR). SwitchCard must refuse it with `bare CR (U+000D) at line N, column M`. *Optional device check (lab only):* write an `editcontent.txt` by hand containing `description A<CR>shutdown` on an unused port and see whether the switch runs `shutdown` — this tells you how your parser treats bare CR.
 - [ ] **C2 — Empty description.** Leave a port description empty and export. Confirm the stanza has no `description` line and applies cleanly (`show running-config interface …`).
-- [ ] **C3 — Header / footer comments.** Enable the provenance option, export, apply. Confirm the flow still applies the whole file, the `!` lines are ignored, and `show running-config` has no trace of them. Verify the footer hash on a PC: remove the last line and run `certutil -hashfile` / `Get-FileHash` on the remainder (or use the SHA-256 shown in the confirm for the whole file).
+- [ ] **C3 — Header / footer comments.** Enable the provenance option, export, apply. Confirm the flow still applies the whole file, the `!` lines are ignored, and `show running-config` has no trace of them. Verify the footer hash on a PC: remove the last line and run `certutil -hashfile` / `Get-FileHash` on the remainder (or use the SHA-256 shown in the export dialog for the whole file).
 - [ ] **C4 — `default interface`.** Enable it with the uplink as a Trunk port. Apply with console connected. Confirm the uplink comes back up, management answers, and the ports have exactly the role config (`show running-config interface …`). Note any link flap duration.
 - [ ] **C5 — CRLF / final newline.** Confirm the last command in the file is applied (A2).
 - [ ] **C6 — Reserved and large VLAN lists.** Confirm `show vlan brief` matches the `{{VLANS}}` block and no errors appear for 1002–1005.
 - [ ] **C7 — Management path.** With the management VLAN on an Access port or a Trunk (see the soft warning), confirm SVI up, ping, SSH, default gateway ([ROLLOUT-CHECKLIST.md](ROLLOUT-CHECKLIST.md) §6).
-- [ ] **C8 — Preview ≡ card.** SHA-256 of the extracted `editcontent.txt` equals the export-confirm SHA-256.
+- [ ] **C8 — Preview ≡ card.** SHA-256 of the extracted `editcontent.txt` equals the SHA-256 in the export dialog.
 - [ ] **C9 — Apply once (A11).** After a successful apply, change one harmless setting by hand (e.g. an unused port description), then re-insert the same card and reboot / re-trigger the EEM flow. Confirm nothing re-applies (the manual change survives, the file was renamed/removed or marked). If it does re-apply, fix the EEM applet before production use and never leave cards in switches.
 
 Only after C1–C9 pass on your image should the advanced options be enabled for production recipes. Record the result next to the recipe (for example in its name or in your runbook).
