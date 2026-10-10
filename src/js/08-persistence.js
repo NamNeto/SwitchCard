@@ -197,6 +197,7 @@ function validateProject(p) {
     const textIssue = recipeTextIssue(r);
     if (textIssue) throw Error(rname + ": " + textIssue + " Fix the file and reload.");
     sanitizeRecipeFields(r, migrationNotes, rname);
+    validateSwitchRows(r, migrationNotes, rname); // switch list (v0.8.0): optional
     // Export history (v0.7.0): optional; every entry must be self-consistent or it is dropped.
     if (r.exports !== undefined) {
       if (!r.exports || typeof r.exports !== "object" || Array.isArray(r.exports)) {

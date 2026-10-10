@@ -292,3 +292,109 @@ function exportState(r, host, sha256) {
   if (!entry) return { state: "new" };
   return { state: entry.sha256 === sha256 ? "current" : "changed", at: entry.at, entry };
 }
+// Project open, team package and autosave restore (called from validateProject). Structural
+// problems refuse the file; text is cleaned, reserved keys, unknown port attributes and bad or
+// duplicate ids are fixed, each with a migration note. An unknown role stays (a row error later).
+function validateSwitchRows(r, notes, rname) {
+  if (r.switches === undefined) return;
+  const bad = () => Error("The project contains an invalid switch list.");
+  const isMap = (x) => !!x && typeof x === "object" && !Array.isArray(x);
+  const list = r.switches;
+  if (!Array.isArray(list) || list.length > CONFIG.MAX_FLEET_ROWS) throw bad();
+  for (const row of list) {
+    if (!isMap(row)) throw bad();
+    if (row.values === undefined) row.values = {};
+    if (row.ports === undefined) row.ports = {};
+    if (!isMap(row.values) || !Object.values(row.values).every((v) => typeof v === "string")) throw bad();
+    if (!isMap(row.ports)) throw bad();
+    for (const set of Object.values(row.ports))
+      if (!isMap(set) || !Object.values(set).every((v) => typeof v === "string")) throw bad();
+  }
+  const reserved = [...CONFIG.RESERVED_VALUE_KEYS, ...CONFIG.DERIVED_KEYS, "PORTS", "VLANS"];
+  const ids = new Set();
+  list.forEach((row, idx) => {
+    const who = rname + ": switch " + (idx + 1);
+    const fix = (label, v, trim) => {
+      let t = sanitizeSingleLine(v).text;
+      if (trim) t = t.trim();
+      if (t !== v) notes.push(who + ": removed invisible/control characters or surrounding spaces from " + label + ".");
+      return t;
+    };
+    if (typeof row.id !== "string" || !row.id || ids.has(row.id)) {
+      row.id = newSwitchId();
+      notes.push(who + ": missing or duplicate id replaced with a new id.");
+    }
+    ids.add(row.id);
+    for (const k of Object.keys(row.values)) {
+      if (reserved.includes(k)) {
+        notes.push(who + ": dropped reserved value key {{" + k + "}} (SwitchCard fills this placeholder itself).");
+        delete row.values[k];
+      } else row.values[k] = fix("value " + k, row.values[k], true);
+    }
+    for (const [iface, set] of Object.entries(row.ports)) {
+      for (const attr of Object.keys(set)) {
+        if (!PORT_ATTRS.includes(attr)) {
+          notes.push(who + ": dropped unknown port setting \"" + commentSafe(attr, 30) + "\" on " + commentSafe(iface, 40) + ".");
+          delete set[attr];
+          continue;
+        }
+        if (attr === "vlan" && hasVlanControlChars(set.vlan))
+          throw Error(
+            "Port " + iface + ": saved VLAN contains control characters (line breaks/tabs). Fix the file and reload.",
+          );
+        set[attr] = fix("port " + iface + " " + attr, set[attr], attr !== "description");
+      }
+    }
+  });
+}
+// The current interface name a port-setting key stands for (case-insensitive), or null.
+function switchOverrideIface(name, interfaces) {
+  const lower = String(name).toLowerCase();
+  const hit = (interfaces || []).find((n) => String(n).toLowerCase() === lower);
+  return hit === undefined ? null : hit;
+}
+// Per-switch port settings whose interface is not in `interfaces`: [{ n, host, name }].
+function probeSwitchOverrideDrops(r, interfaces) {
+  const out = [];
+  (r.switches || []).forEach((row, idx) => {
+    const ports = (row && row.ports) || {};
+    for (const name of Object.keys(ports))
+      if (switchOverrideIface(name, interfaces) === null)
+        out.push({ n: idx + 1, host: String((row.values && row.values.HOSTNAME) || (r.values && r.values.HOSTNAME) || "").trim(), name });
+  });
+  return out;
+}
+// Re-keys per-switch port settings to the current interface spelling; drops settings on unknown
+// interfaces only when opts.allowDrop (after a confirmed drop dialog), otherwise keeps them.
+function alignSwitchOverrides(r, opts) {
+  const allowDrop = !!(opts && opts.allowDrop);
+  const dropped = allowDrop ? probeSwitchOverrideDrops(r, r.interfaces) : [];
+  for (const row of r.switches || []) {
+    if (!row || !row.ports) continue;
+    const next = {};
+    for (const [name, set] of Object.entries(row.ports)) {
+      const iface = switchOverrideIface(name, r.interfaces);
+      if (iface === null) {
+        if (!allowDrop) next[name] = set;
+        continue;
+      }
+      // An exact-spelling key wins over a case-only duplicate.
+      next[iface] = name === iface || !next[iface] ? { ...(next[iface] || {}), ...set } : { ...set, ...next[iface] };
+    }
+    row.ports = next;
+  }
+  return { dropped };
+}
+// Drop-dialog text for probeSwitchOverrideDrops() results ("" when there are none).
+function formatSwitchOverrideDrops(drops) {
+  if (!drops.length) return "";
+  const switches = new Set(drops.map((d) => d.n)).size;
+  const names = [...new Set(drops.map((d) => d.name))];
+  const shown = names.slice(0, 10).join(", ") + (names.length > 10 ? " and " + (names.length - 10) + " more" : "");
+  return "Per-switch port settings would be dropped from " + switches + " switch" + (switches === 1 ? "" : "es") +
+    " (interfaces not in the list: " + shown + ").";
+}
+// Copies of a switch list with new ids (Duplicate recipe).
+function copySwitchRows(rows) {
+  return (rows || []).map((row) => ({ ...structuredClone(row), id: newSwitchId() }));
+}
