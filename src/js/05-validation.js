@@ -136,10 +136,15 @@ function normalizeTrunkVlanList(v) {
     .join(",");
 }
 function portVlanErrors(r) {
+  return portVlanFindings(r).map((f) => f.text);
+}
+// Same checks as portVlanErrors, each with the port cell it points at.
+function portVlanFindings(r) {
   // Validate Access/Trunk VLANs whenever the template consumes them
   // ({{VLANS}}, {{VLAN}} or {{PORTS}}) — not only when {{PORTS}} is present — so a bad
   // value blocks export instead of being silently dropped by collectLayer2Vlans.
   const errors = [];
+  const vw = (name) => ({ kind: "port", name, attr: "vlan" });
   const tk = keys(r.template || "");
   if (!(tk.includes("PORTS") || tk.includes("VLANS") || tk.includes("VLAN"))) return errors;
   const ifaceSet = new Set((r.interfaces || []).map((n) => String(n).toLowerCase()));
@@ -148,22 +153,16 @@ function portVlanErrors(r) {
     const v = typeof p.vlan === "string" ? p.vlan : "";
     if (p.role !== "access" && p.role !== "trunk") continue;
     if (hasVlanControlChars(v) || findInvisibleChar(v)) {
-      errors.push(
-        p.name + ": VLAN contains control characters (line breaks/tabs) — enter it on one line.",
-      );
+      errors.push({ text: p.name + ": VLAN contains control characters (line breaks/tabs) — enter it on one line.", where: vw(p.name) });
       continue;
     }
     // Surrounding spaces are accepted (trimmed); leading zeros are normalized on output.
     if (p.role === "access" && !vlan(v.trim()))
-      errors.push(p.name + ": access VLAN must be 1–4094 (got \"" + v + "\").");
+      errors.push({ text: p.name + ": access VLAN must be 1–4094 (got \"" + v + "\").", where: vw(p.name) });
     else if (p.role === "access" && isReservedVlan(v.trim()))
-      errors.push(
-        p.name + ": access VLAN " + +v.trim() + " is reserved (1002–1005 are FDDI/Token Ring defaults) — pick another VLAN.",
-      );
+      errors.push({ text: p.name + ": access VLAN " + +v.trim() + " is reserved (1002–1005 are FDDI/Token Ring defaults) — pick another VLAN.", where: vw(p.name) });
     if (p.role === "trunk" && v.trim() && !vlans(v))
-      errors.push(
-        p.name + ": optional Trunk VLAN list must look like 10,20,30-40 (got \"" + v + "\").",
-      );
+      errors.push({ text: p.name + ": optional Trunk VLAN list must look like 10,20,30-40 (got \"" + v + "\").", where: vw(p.name) });
   }
   return errors;
 }
