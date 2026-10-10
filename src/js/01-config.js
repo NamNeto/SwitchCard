@@ -14,10 +14,10 @@
      7. Preview / Maintain editor / Apply     renderPreview, loadEditor, applyRecipe, New switch
      8. Persistence                           migrateRecipe, validateProject, open/save project
      9. Baseline + ZIP I/O                    folder import, store-only ZIP writer/reader
-    10. Fleet, diff, policies, fingerprints  v0.7.0 helpers (src/js/09b-*.js): CSV fleet export,
-                                             export history + line diff, team policy rules,
-                                             baseline fingerprints, interface-brief parsing,
-                                             transliteration, theme
+    10. Fleet, diff, policies, fingerprints  v0.7.0 helpers (src/js/09b-*.js): fleet CSV parsing
+                                             and templates, bulk card export, export history +
+                                             line diff, team policy rules, baseline fingerprints,
+                                             interface-brief parsing, transliteration, theme
     11. Event wiring + boot                   button handlers, export (src/js/10-*.js); boot and
                                               the awaited autosave restore (src/js/11-boot.js)
 

@@ -129,72 +129,6 @@ $("useIfaceBrief").onclick = () => {
       ". Click Apply recipe changes to keep it.",
   );
 };
-// Fleet (Build). Check fleet and Duplicate switch share one check, which returns the summary.
-function runFleetCheck() {
-  const r = current();
-  const res = checkFleet(r, $("fleetCsv").value);
-  fleet = { ...res, recipeId: r.id, stamp: fleetStamp(r) };
-  renderFleet(fleet);
-  refreshFleetButtons();
-  const bad = res.rows.filter((x) => x.errors.length || x.policy.length).length;
-  return res.errors.length
-    ? "Fleet CSV cannot be used: " + res.errors[0]
-    : bad
-      ? "Fleet checked: " + bad + " of " + res.rows.length + " switches have errors (see the Result column)."
-      : "Fleet checked: " + res.rows.length + " switch" + (res.rows.length === 1 ? "" : "es") + " ready.";
-}
-$("checkFleet").onclick = () => message(runFleetCheck());
-// "Duplicate switch": writes HOSTNAME / MGMT_IP rows counted up from the page, then checks them.
-$("fillCopies").onclick = () => {
-  const r = current();
-  const res = fleetCopyRows(r, $("fleetCount").value);
-  if (res.error) {
-    message(res.error);
-    return;
-  }
-  const text = toCsv(res.columns, res.rows);
-  const existing = $("fleetCsv").value.trim();
-  if (
-    existing &&
-    existing !== text.trim() &&
-    !window.confirm("Replace the text in the fleet CSV box with " + res.rows.length + " copies of this switch?")
-  ) {
-    message("Duplicate cancelled — the fleet CSV text was kept.");
-    return;
-  }
-  $("fleetCsv").value = text;
-  const first = res.rows[0],
-    last = res.rows[res.rows.length - 1];
-  const others = fleetColumns(r).filter((c) => !res.columns.includes(c));
-  message(
-    "Filled " + res.rows.length + " switches: " + res.columns.map((c) => first[c] + " … " + last[c]).join(", ") + "." +
-      (others.length ? " " + others.join(", ") + " and the port table come from Device details for every switch." : "") +
-      " " + runFleetCheck(),
-  );
-};
-// CSV template for the current recipe: into the CSV box, or as a .csv download for a spreadsheet.
-function currentFleetTemplate() {
-  const r = current();
-  normalizePorts(r);
-  return fleetCsvTemplate(r, $("fleetTemplatePorts").value);
-}
-$("insertFleetTemplate").onclick = () => {
-  const t = currentFleetTemplate();
-  if (!t.text) {
-    message("This recipe has no per-switch fields or ports to put in a CSV.");
-    return;
-  }
-  const existing = $("fleetCsv").value.trim();
-  if (existing && existing !== t.text.trim() && !window.confirm("Replace the text in the fleet CSV box with a CSV template for this recipe?")) {
-    message("Kept the fleet CSV text.");
-    return;
-  }
-  $("fleetCsv").value = t.text;
-  refreshFleetButtons();
-  message(
-    "CSV template inserted: " + t.columns.length + " columns, row 1 is the switch on this page. Add one row per switch below it (or copy it into a spreadsheet), then click Check fleet.",
-  );
-};
 // File-name part for a recipe's CSV downloads.
 function csvFileStem(r) {
   return String(r.name || "recipe").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 60);
@@ -203,38 +137,6 @@ function csvFileStem(r) {
 function downloadCsv(text, name) {
   download(new Blob(["\uFEFF" + text.replace(/\n/g, "\r\n")], { type: "text/csv;charset=utf-8" }), name);
 }
-$("downloadFleetTemplate").onclick = () => {
-  const t = currentFleetTemplate();
-  if (!t.text) {
-    message("This recipe has no per-switch fields or ports to put in a CSV.");
-    return;
-  }
-  downloadCsv(t.text, "switchcard-fleet-template-" + csvFileStem(current()) + ".csv");
-  message("CSV template downloaded (" + t.columns.length + " columns, row 1 is this switch). Fill one row per switch, then Load CSV file and Check fleet.");
-};
-$("fleetCount").addEventListener("keydown", (e) => {
-  if (e.key === "Enter") {
-    e.preventDefault();
-    $("fillCopies").click();
-  }
-});
-$("fleetCsvInput").onchange = () =>
-  run(async () => {
-    const f = $("fleetCsvInput").files[0];
-    if (!f) return;
-    try {
-      if (f.size > 2 * 1024 * 1024) throw Error("CSV file is too large (max 2 MiB).");
-      $("fleetCsv").value = await f.text();
-      fleet = null;
-      renderFleet(null);
-      message("CSV loaded (" + f.name + "). Click Check fleet.");
-    } finally {
-      $("fleetCsvInput").value = "";
-    }
-  });
-$("fleetCsv").addEventListener("input", () => refreshFleetButtons());
-$("exportFleet").onclick = () => run(() => exportFleet(false));
-$("exportFleetText").onclick = () => run(() => exportFleet(true));
 $("newSwitch").onclick = () => newSwitch();
 $("applyBulkVlan").onclick = () => {
   const r = current();

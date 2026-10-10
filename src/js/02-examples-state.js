@@ -62,7 +62,6 @@ let recipes = [
   teamHints = [],
   teamPolicies = [], // "require <regex>" / "forbid <regex>" lines; failing rules block export
   baselineExpected = null, // { model, version, fingerprint? } recorded in the open project
-  fleet = null, // last "Check fleet" result for the current recipe
   customSkuPresets = Object.create(null);
 const current = () => recipes.find((r) => r.id === active);
 

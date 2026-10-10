@@ -25,6 +25,12 @@ def test_single_file_no_external_resources():
     assert html.endswith("\n") and "\r\n" not in html
 
 
+def test_no_browser_pop_ups_in_the_shipped_file():
+    # v0.8.0: every question is an in-page dialog (confirmDialog / showDialog), never a browser pop-up.
+    html = HTML.read_text(encoding="utf-8")
+    assert re.search(r"\b(confirm|alert|prompt)\(", html) is None
+
+
 def test_release_strings_agree():
     html = HTML.read_text(encoding="utf-8")
     release = re.search(r'RELEASE: "([0-9.]+)"', html).group(1)

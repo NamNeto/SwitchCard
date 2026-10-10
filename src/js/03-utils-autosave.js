@@ -507,7 +507,6 @@ function commitRestoredWorkspace(result) {
   teamHints = Array.isArray(p.teamHints) ? [...p.teamHints] : [];
   teamPolicies = Array.isArray(p.teamPolicies) ? [...p.teamPolicies] : [];
   baselineExpected = p.baseline ? { ...p.baseline } : null;
-  fleet = null;
   customSkuPresets = Object.assign(
     Object.create(null),
     loadCustomSkuPresetsFromLocal(),

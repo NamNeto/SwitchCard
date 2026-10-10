@@ -116,6 +116,7 @@
                   descriptions.</small
                 >
               </p>
+              <p><small>Many switches? Use <b>Switches</b> on the left.</small></p>
             </div>
             <div class="card">
               <!-- Step 3: ports + bulk VLAN -->
@@ -241,79 +242,6 @@
                   Your team list from Manage (one tip per line). <strong>Never blocks export</strong>, never rewrites config.
                 </p>
                 <div id="securityHints"></div>
-              </details>
-            </div>
-            <div class="card">
-              <!-- Fleet: many switches from one recipe. The per-switch values come from a CSV that is
-                   typed, loaded, or written by "Duplicate switch"; everything else is shared. -->
-              <details id="fleetPanel">
-                <summary class="hint-summary">
-                  Fleet export <span class="badge">optional</span>
-                </summary>
-                <p class="muted">
-                  Build many cards from this recipe at once. Each switch is one CSV row; port roles,
-                  VLANs and descriptions are shared by every switch.
-                </p>
-                <div class="fleet-block">
-                  <label for="fleetCount">Copies of this switch (number of switches, this one included)</label>
-                  <div class="actions even">
-                    <input id="fleetCount" type="number" min="2" max="500" step="1" value="5" />
-                    <button type="button" id="fillCopies">Duplicate switch</button>
-                  </div>
-                  <small class="template-help"
-                    >Row 1 is the switch filled in above. Each copy counts the number at the end of the
-                    hostname and the management IP up by one (…-01, …-02 and .10, .11); every other
-                    value comes from Device details. The rows land in the CSV box below and are checked
-                    straight away.</small
-                  >
-                </div>
-                <div class="fleet-block">
-                  <label for="fleetCsv">Fleet CSV, one row per switch</label>
-                  <p id="fleetColumns" class="muted fleet-columns"></p>
-                  <div class="actions even fleet-template">
-                    <select id="fleetTemplatePorts" aria-label="Port columns in the CSV template">
-                      <option value="description">Template: fields + port descriptions</option>
-                      <option value="all">Template: fields + all port settings</option>
-                      <option value="none">Template: switch fields only</option>
-                    </select>
-                    <button type="button" id="insertFleetTemplate">Insert CSV template</button>
-                    <button type="button" id="downloadFleetTemplate">Download .csv</button>
-                  </div>
-                  <textarea id="fleetCsv" rows="6" spellcheck="false"></textarea>
-                  <div class="actions even">
-                    <label class="filebutton"
-                      >Load CSV file<input
-                        id="fleetCsvInput"
-                        type="file"
-                        accept=".csv,.txt,text/csv,text/plain"
-                        class="fileinput"
-                    /></label>
-                    <button type="button" id="checkFleet">Check fleet</button>
-                  </div>
-                </div>
-                <div id="fleetSummary" hidden></div>
-                <div id="fleetScroll" class="scroll" hidden>
-                  <table id="fleetTable">
-                    <thead id="fleetHead"></thead>
-                    <tbody id="fleetRows"></tbody>
-                  </table>
-                </div>
-                <div class="actions even">
-                  <button type="button" id="exportFleet" class="primary" disabled>Export fleet cards</button>
-                  <button type="button" id="exportFleetText" disabled>Export fleet text only</button>
-                </div>
-                <p id="fleetWhy" class="muted" style="margin-top: 8px">
-                  Use Duplicate switch, or paste a CSV and click Check fleet.
-                </p>
-                <p>
-                  <small
-                    >Fleet cards pass the same checks and gates as a single card (review box,
-                    baseline, example flag, team policies). Each card is its own ZIP download; the
-                    browser may ask once to allow multiple downloads. <em>Text only</em> writes one
-                    ZIP with <code>HOSTNAME/editcontent.txt</code> per switch plus a manifest, and
-                    a manifest with every SHA-256 is downloaded after a card export.</small
-                  >
-                </p>
               </details>
             </div>
             <div class="card">

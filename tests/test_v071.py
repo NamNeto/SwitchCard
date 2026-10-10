@@ -47,9 +47,7 @@ def test_fleet_csv_example_and_column_hint(page):
         custom.template = custom.template.replace('hostname {{HOSTNAME}}', 'hostname {{HOSTNAME}}\nntp server {{NTP_SERVER}}');
         const blank = structuredClone(recipes[0]); blank.values.HOSTNAME = ''; blank.values.MGMT_IP = '';
         return { svi: fleetCsvExample(recipes[0]), loop: fleetCsvExample(recipes[3]).columns, custom: fleetCsvExample(custom),
-                 blank: fleetCsvExample(blank).text.split('\n')[1],
-                 line: $('fleetColumns').textContent, placeholder: $('fleetCsv').placeholder,
-                 frameHidden: $('fleetScroll').hidden };
+                 blank: fleetCsvExample(blank).text.split('\n')[1] };
     }""")
     assert r["svi"]["columns"] == ["HOSTNAME", "MGMT_IP", "MGMT_MASK", "MGMT_VLAN", "GATEWAY", "SITE"]
     assert r["svi"]["text"] == ("HOSTNAME,MGMT_IP,MGMT_MASK,MGMT_VLAN,GATEWAY,SITE\n"
@@ -58,32 +56,39 @@ def test_fleet_csv_example_and_column_hint(page):
     assert r["loop"] == ["HOSTNAME", "MGMT_IP", "MGMT_MASK", "MGMT_LOOPBACK", "GATEWAY", "SITE"]
     assert r["custom"]["columns"][-1] == "NTP_SERVER" and ",ntp-server\n" in r["custom"]["text"]
     assert r["blank"].startswith("EXAMPLE-SW-01,192.0.2.11,")
-    assert "Columns for this recipe: HOSTNAME, MGMT_IP, MGMT_MASK, MGMT_VLAN, GATEWAY, SITE." in r["line"]
-    assert r["placeholder"] == r["svi"]["text"]
-    assert r["frameHidden"]
+    # v0.8.0: the columns line and the grey example live in the Switches view's Import CSV dialog.
+    ev(page, "() => showView('switches')")
+    page.click("#swImport")
+    page.wait_for_selector("dialog[open]")
+    d = ev(page, """() => { const dlg = document.querySelector('dialog[open]');
+        return { line: dlg.querySelector('p.fleet-columns').textContent, placeholder: dlg.querySelector('textarea').placeholder }; }""")
+    assert "Columns for this recipe: HOSTNAME, MGMT_IP, MGMT_MASK, MGMT_VLAN, GATEWAY, SITE." in d["line"]
+    assert d["placeholder"] == r["svi"]["text"]
 
 
 def test_duplicate_button_fills_csv_and_checks(page):
-    r = ev(page, r"""() => {
-        $('fleetPanel').open = true;
-        $('fleetCount').value = '3';
-        $('fillCopies').click();
-        const first = { text: $('fleetCsv').value, rows: $('fleetRows').children.length, status: $('status').textContent,
-                        heads: [...$('fleetHead').querySelectorAll('th')].map((th) => th.textContent),
-                        cells: [...$('fleetRows').children[0].children].map((td) => td.className),
-                        frameHidden: $('fleetScroll').hidden };
-        $('fleetCount').value = '2';
-        $('fillCopies').click(); // replaces the CSV after a confirm (the test harness accepts dialogs)
-        return { first, second: $('fleetCsv').value, rows2: $('fleetRows').children.length };
-    }""")
-    f = r["first"]
-    assert f["text"] == "HOSTNAME,MGMT_IP\nIE3100-DEMO-01,192.0.2.10\nIE3100-DEMO-02,192.0.2.11\nIE3100-DEMO-03,192.0.2.12\n"
-    assert f["rows"] == 3 and not f["frameHidden"]
-    assert f["heads"] == ["#", "HOSTNAME", "MGMT_IP", "MGMT_MASK", "MGMT_VLAN", "GATEWAY", "SITE", "Result", "Lines", "SHA-256"]
-    assert f["cells"][1] == "" and f["cells"][2] == "" and f["cells"][3] == "inherit" and f["cells"][7] == "ok"
-    assert "Filled 3 switches: IE3100-DEMO-01 … IE3100-DEMO-03, 192.0.2.10 … 192.0.2.12." in f["status"]
-    assert "Fleet checked: 3 switches ready." in f["status"]
-    assert r["second"].count("\n") == 3 and r["rows2"] == 2
+    # v0.8.0: "Duplicate switch" is the Switches view's count + Add (counted-up copies, checked at once).
+    ev(page, "() => { current().switches = []; showView('switches'); }")
+    page.fill("#swCount", "3")
+    page.click("#swAdd")
+    r = ev(page, r"""() => ({
+        rows: current().switches.map((x) => [x.values.HOSTNAME, x.values.MGMT_IP]),
+        heads: [...$('swHead').querySelectorAll('th[data-key]')].map((th) => th.dataset.key),
+        status: [...$('swRows').querySelectorAll('td.status')].map((td) => [td.textContent.split(' ')[0], td.className]),
+        inherit: [...$('swRows').querySelector('tr[data-row]').querySelectorAll('input[data-key]')]
+            .map((i) => [i.dataset.key, i.classList.contains('inherit')]),
+        msg: $('status').textContent })""")
+    assert r["rows"] == [["IE3100-DEMO-01", "192.0.2.10"], ["IE3100-DEMO-02", "192.0.2.11"], ["IE3100-DEMO-03", "192.0.2.12"]]
+    assert r["heads"] == ["HOSTNAME", "MGMT_IP", "MGMT_MASK", "MGMT_VLAN", "GATEWAY", "SITE"]
+    # the example recipe carries one soft note (no enable secret), so each status reads "OK · 1 note"
+    assert r["status"] == [["OK", "status ok"]] * 3, r["status"]
+    assert r["inherit"] == [["HOSTNAME", False], ["MGMT_IP", False], ["MGMT_MASK", True], ["MGMT_VLAN", True],
+                            ["GATEWAY", True], ["SITE", True]]
+    assert "Added 3 switches." in r["msg"]
+    # a second Add appends, counting on from the last row
+    page.fill("#swCount", "2")
+    page.click("#swAdd")
+    assert ev(page, "() => current().switches.map((x) => x.values.HOSTNAME).slice(3)") == ["IE3100-DEMO-04", "IE3100-DEMO-05"]
 
 
 def test_fleet_warns_about_shared_routed_addresses(page):
@@ -122,18 +127,18 @@ def test_controls_sharing_a_row_line_up(page):
         const maintain = check();
         const sku = [$('customSkuName'), $('saveSkuPreset')].map((e) => e.getBoundingClientRect());
         tab(false);
-        const rect = (e) => e.getBoundingClientRect();
-        const load = document.querySelector('#fleetPanel .filebutton');
+        // v0.8.0: the Switches and Cards views (with a few switches, so their rows are filled)
+        current().switches = countedUpRows(current(), [], 3).rows;
+        showView('switches');
+        const switches = check();
+        showView('cards');
+        const cards = check();
+        showView('build');
         return {
-          build, maintain,
+          build, maintain, switches, cards,
           sku: [Math.round(sku[0].top - sku[1].top), Math.round(sku[0].height - sku[1].height)],
-          // stacked "even" rows in the fleet panel share their column edges
-          lefts: [$('fleetCount'), load, $('exportFleet')].map((e) => rect(e).left),
-          mids: [$('fillCopies'), $('checkFleet'), $('exportFleetText')].map((e) => rect(e).left),
-          rights: [$('fillCopies'), $('checkFleet'), $('exportFleetText')].map((e) => rect(e).right),
         };
     }""")
     assert r["build"] == [] and r["maintain"] == []
+    assert r["switches"] == [] and r["cards"] == []
     assert r["sku"] == [0, 0]
-    for group in (r["lefts"], r["mids"], r["rights"]):
-        assert max(group) - min(group) <= 1, group

@@ -199,17 +199,18 @@ def test_check_fleet_rows_inherit_and_detect_duplicates(page):
 
 
 def test_fleet_ui_gates(page):
+    # v0.8.0: the Fleet box is gone; the same CSV as a switch list goes through the Cards gates.
     r = ev(page, """(csv) => {
-        $('fleetCsv').value = csv;
-        $('checkFleet').click();
-        const afterCheck = { rows: $('fleetRows').children.length, why: $('fleetWhy').textContent, disabled: $('exportFleet').disabled };
+        current().switches = switchRowsFromCsv(current(), csv).rows;
         renderPreview();
-        const reviewed = { why: $('fleetWhy').textContent, disabled: $('exportFleet').disabled };
-        return { afterCheck, reviewed };
+        showView('cards');
+        return { rows: $('cdRows').querySelectorAll('tr[data-row]').length, why: $('cdGates').textContent, disabled: $('cdAll').disabled,
+                 box: !!$('fleetPanel'), hint: $('build').textContent.includes('Many switches? Use Switches on the left.') };
     }""", FLEET_CSV.replace("\\n", "\n"))
-    assert r["afterCheck"]["rows"] == 2 and r["afterCheck"]["disabled"]
+    assert r["rows"] == 2
     # the examples are still example recipes without a baseline, so the gates keep the button off
-    assert r["reviewed"]["disabled"] and "Example recipe" in r["reviewed"]["why"]
+    assert r["disabled"] and "Example recipe" in r["why"]
+    assert r["box"] is False and r["hint"]
 
 
 # ---------------------------------------------------------------- fingerprints
