@@ -9,6 +9,20 @@ function renderAll() {
   renderBaseline();
   renderPreview();
 }
+// Device details label for a placeholder (also the Switches grid's column headings).
+function fieldLabel(key) {
+  return (
+    {
+      HOSTNAME: "Hostname",
+      MGMT_IP: "Management IP",
+      MGMT_MASK: "Subnet mask",
+      MGMT_VLAN: "Management VLAN",
+      MGMT_LOOPBACK: "Management loopback number",
+      GATEWAY: "Default gateway",
+      SITE: "Site",
+    }[key] || key.replaceAll("_", " ")
+  );
+}
 function renderFields() {
   const r = current();
   ensureRoles(r);
@@ -36,16 +50,7 @@ function renderFields() {
     wrap.className = "field";
     const l = document.createElement("label");
     l.htmlFor = "value_" + key;
-    l.textContent =
-      {
-        HOSTNAME: "Hostname",
-        MGMT_IP: "Management IP",
-        MGMT_MASK: "Subnet mask",
-        MGMT_VLAN: "Management VLAN",
-        MGMT_LOOPBACK: "Management loopback number",
-        GATEWAY: "Default gateway",
-        SITE: "Site",
-      }[key] || key.replaceAll("_", " ");
+    l.textContent = fieldLabel(key);
     const input = document.createElement("input");
     input.id = l.htmlFor;
     input.value = r.values[key] || "";

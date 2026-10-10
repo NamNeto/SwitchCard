@@ -67,7 +67,7 @@
       <div class="top">
         <div>
           <h1 id="viewTitle">Prepare a switch card</h1>
-          <p class="muted">
+          <p class="muted" id="viewSubtitle">
             One baseline · many recipes · SD root with <code>editcontent.txt</code>
           </p>
         </div>
@@ -672,7 +672,50 @@
           <div class="field">
             <label for="swRecipe">Configuration recipe</label><select id="swRecipe"></select>
           </div>
-          <p id="switchesEmpty" class="muted">Switches for this recipe will be listed here.</p>
+          <!-- Toolbar: counted-up rows, CSV in/out, remove all -->
+          <div class="sw-toolbar">
+            <span class="sw-add"
+              ><input id="swCount" type="number" min="1" max="500" step="1" value="1" aria-label="Number of switches to add" /><button
+                type="button"
+                id="swAdd"
+              >Add counted up</button></span
+            >
+            <button type="button" id="swImport">Import CSV</button>
+            <button type="button" id="swExport">Export CSV</button>
+            <span class="sw-template"
+              ><select id="swTemplateMode" aria-label="Port columns in the CSV template">
+                <option value="description">Template: fields + port descriptions</option>
+                <option value="all">Template: fields + all port settings</option>
+                <option value="none">Template: switch fields only</option></select
+              ><button type="button" id="swTemplate">CSV template</button></span
+            >
+            <button type="button" id="swRemoveAll" class="danger">Remove all</button>
+          </div>
+          <p id="swNotes" class="muted" hidden></p>
+        </div>
+        <div class="sw-layout">
+          <div class="sw-main">
+            <div class="scroll">
+              <table id="swTable">
+                <thead id="swHead"></thead>
+                <tbody id="swRows"></tbody>
+              </table>
+            </div>
+            <p id="swEmpty" class="muted">
+              No switches yet. Add counted up starts with the switch on Build a card; Import CSV
+              reads a fleet CSV.
+            </p>
+          </div>
+          <!-- Side panel for the selected row -->
+          <aside id="swPanel" class="card">
+            <h2 id="swPanelTitle">Selected switch</h2>
+            <ul id="swChecks" class="sw-checks"></ul>
+            <pre id="swPreview" tabindex="0"></pre>
+            <details id="swDiffPanel" hidden>
+              <summary id="swDiffSummary">Changes since the last export</summary>
+              <pre id="swDiff" class="diff"></pre>
+            </details>
+          </aside>
         </div>
       </section>
       <section id="cards" hidden>
