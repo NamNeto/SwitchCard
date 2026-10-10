@@ -814,8 +814,19 @@ function collectRecipePortDropLines(recipeList) {
 // Confirms before permanently dropping unmatched ports on load/restore. Returns false if cancelled.
 async function confirmAndDropUnmatchedPorts(recipeList, actionLabel) {
   const lines = collectRecipePortDropLines(recipeList);
+  // Per-switch port settings (v0.8.0) on interfaces the recipe does not have are listed too.
+  for (const r of recipeList || []) {
+    const msg = formatSwitchOverrideDrops(probeSwitchOverrideDrops(r, r.interfaces));
+    if (msg) lines.push(((r && r.name) || "(unnamed recipe)") + ": " + msg);
+  }
+  const align = () => {
+    for (const r of recipeList || []) {
+      normalizePorts(r, { allowDrop: true });
+      alignSwitchOverrides(r, { allowDrop: true });
+    }
+  };
   if (!lines.length) {
-    for (const r of recipeList || []) normalizePorts(r, { allowDrop: true });
+    align();
     return true;
   }
   const msg =
@@ -827,7 +838,7 @@ async function confirmAndDropUnmatchedPorts(recipeList, actionLabel) {
     "Cancel keeps the previous workspace / skips restore.";
   if (!(await confirmDialog("Drop unmatched port assignments?", msg, { ok: "Drop and continue", danger: true })))
     return false;
-  for (const r of recipeList || []) normalizePorts(r, { allowDrop: true });
+  align();
   return true;
 }
 function ensureRoles(r) {

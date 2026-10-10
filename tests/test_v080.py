@@ -354,3 +354,173 @@ def test_switch_row_cache_invalidates_on_recipe_and_row_changes(page):
                  d23: t2 !== t3, n3: t3.includes('MGMT-NEW'), d34: t3 !== t4, h4: t4.includes('hostname A-02') };
     }""")
     assert r == {"rolesWritten": False, "d01": True, "d12": True, "b2": True, "d23": True, "n3": True, "d34": True, "h4": True}
+
+
+# --- Task 8: switch list in project files, recipe operations, interface changes ---
+
+_ROWS = r"""[{ id: 'sw-1', values: { HOSTNAME: 'A-01', MGMT_IP: '192.0.2.11' },
+    ports: { 'GigabitEthernet1/2': { role: 'access', vlan: '10' } } },
+  { id: 'sw-2', values: {}, ports: {} }]"""
+
+
+def test_switch_list_round_trips_and_is_optional(page):
+    native = []
+    page.on("dialog", lambda d: native.append(d.message))
+    r = ev(page, r"""async () => {
+        const p = JSON.parse(JSON.stringify(projectPayload()));
+        p.recipes[0].switches = """ + _ROWS + r""";
+        const want = JSON.stringify(p.recipes[0].switches);
+        const v = validateProject(JSON.parse(JSON.stringify(p)));
+        const notes = v._migrationNotes.slice();
+        await acceptProject(v, null);
+        const back = JSON.stringify(JSON.parse(assertProjectSaveSize(projectPayload())).recipes[0].switches);
+        const q = JSON.parse(JSON.stringify(p)); delete q.recipes[0].switches;
+        const v2 = validateProject(q);
+        const notes2 = v2._migrationNotes.slice();
+        await acceptProject(v2, null);
+        return { notes, notes2, same: back === want, absent: projectPayload().recipes[0].switches === undefined };
+    }""")
+    assert r["notes"] == [] and r["notes2"] == []
+    assert r["same"] is True and r["absent"] is True
+    assert native == []
+
+
+def test_switch_list_validation_notes(page):
+    r = ev(page, r"""() => {
+        const base = JSON.parse(JSON.stringify(projectPayload()));
+        const p = JSON.parse(JSON.stringify(base));
+        p.recipes[0].switches = [
+          { id: 'sw-1', values: { HOSTNAME: 'A​-01', INTERFACE: 'x', MGMT_SOURCES: '' },
+            ports: { 'GigabitEthernet1/2': { bogus: 'x', role: 'edge', description: 'up​link' } } },
+          { id: 'sw-1', values: {}, ports: {} },
+          { values: { HOSTNAME: 'C-01' }, ports: {} },
+        ];
+        const v = validateProject(p);
+        const sw = v.recipes[0].switches;
+        const refuse = (list) => { const q = JSON.parse(JSON.stringify(base)); q.recipes[0].switches = list;
+          try { validateProject(q); return null; } catch (e) { return e.message; } };
+        const big = Array.from({ length: CONFIG.MAX_FLEET_ROWS + 1 }, (_, i) => ({ id: 'sw-' + i, values: {}, ports: {} }));
+        return { notes: v._migrationNotes, sw,
+          r5: refuse(5), rNull: refuse(null), rEntry: refuse([7]), rVals: refuse([{ id: 'a', values: { HOSTNAME: 3 }, ports: {} }]),
+          rValsArr: refuse([{ id: 'a', values: ['x'], ports: {} }]),
+          rPorts: refuse([{ id: 'a', values: {}, ports: { 'GigabitEthernet1/2': 'access' } }]),
+          rAttr: refuse([{ id: 'a', values: {}, ports: { 'GigabitEthernet1/2': { vlan: 10 } } }]),
+          rBig: refuse(big),
+          rVlan: refuse([{ id: 'a', values: {}, ports: { 'GigabitEthernet1/2': { vlan: '10\n20' } } }]) };
+    }""")
+    sw = r["sw"]
+    assert sw[0]["values"] == {"HOSTNAME": "A-01"}
+    assert sw[0]["ports"] == {"GigabitEthernet1/2": {"role": "edge", "description": "uplink"}}
+    assert sw[0]["id"] == "sw-1" and sw[1]["id"] != "sw-1" and sw[1]["id"].startswith("sw-")
+    assert sw[2]["id"].startswith("sw-") and sw[2]["values"] == {"HOSTNAME": "C-01"}
+    notes = "\n".join(r["notes"])
+    assert "value HOSTNAME" in notes and "INTERFACE" in notes and "MGMT_SOURCES" in notes
+    assert "bogus" in notes and "new id" in notes and "description" in notes
+    assert all(n.startswith('Recipe "') for n in r["notes"])
+    for k in ["r5", "rNull", "rEntry", "rVals", "rValsArr", "rPorts", "rAttr", "rBig"]:
+        assert r[k] == "The project contains an invalid switch list.", (k, r[k])
+    assert r["rVlan"] and "control characters" in r["rVlan"] and "GigabitEthernet1/2" in r["rVlan"]
+
+
+def test_unused_value_kept_but_not_emitted(page):
+    r = ev(page, r"""async () => {
+        const r = current(); normalizePorts(r);
+        const unused = !deviceKeys(r).includes('NTP_SERVER');
+        r.switches = [{ id: 'sw-1', values: { HOSTNAME: 'A-01', NTP_SERVER: '10.0.0.5' }, ports: {} }];
+        const text = checkSwitchRows(r, r.switches).rows[0].text;
+        const v = validateProject(JSON.parse(JSON.stringify(projectPayload())));
+        await acceptProject(v, null);
+        const saved = JSON.parse(assertProjectSaveSize(projectPayload()));
+        const sr = saved.recipes.find((x) => x.id === active);
+        return { unused, emitted: text.includes('10.0.0.5'), notes: v._migrationNotes,
+          kept: sr.switches[0].values.NTP_SERVER, cols: switchRowsToCsv(current(), current().switches).columns };
+    }""")
+    assert r["unused"] is True and r["emitted"] is False and r["notes"] == []
+    assert r["kept"] == "10.0.0.5"
+    assert "NTP_SERVER" not in r["cols"] and "HOSTNAME" in r["cols"]
+
+
+def _apply_interfaces(page, value):
+    ev(page, """(v) => { const t = document.getElementById('interfaces'); t.value = v;
+        t.dispatchEvent(new Event('input', { bubbles: true }));
+        document.getElementById('applyRecipe').click(); }""", value)
+
+
+def test_interface_drop_removes_per_switch_settings_on_confirm(page):
+    native = []
+    page.on("dialog", lambda d: native.append(d.message))
+    ev(page, """() => { const r = current(); normalizePorts(r);
+        r.switches = [{ id: 'sw-1', values: { HOSTNAME: 'A-01' }, ports: { 'GigabitEthernet1/2': { description: 'x' } } },
+                      { id: 'sw-2', values: { HOSTNAME: 'A-02' }, ports: { 'gigabitethernet1/1': { vlan: '20' } } }];
+        loadEditor(); }""")
+    _apply_interfaces(page, "GigabitEthernet1/1")
+    text = click_dialog(page, "Cancel")
+    assert "1 switch" in text and "GigabitEthernet1/2" in text
+    page.wait_for_function("() => document.getElementById('status').textContent.includes('Apply cancelled')")
+    assert ev(page, "() => current().switches[0].ports") == {"GigabitEthernet1/2": {"description": "x"}}
+    _apply_interfaces(page, "GigabitEthernet1/1")
+    text = click_dialog(page, "Drop and apply")
+    assert "1 switch" in text and "GigabitEthernet1/2" in text
+    page.wait_for_function("() => current().interfaces.length === 1")
+    assert ev(page, "() => current().switches[0].ports") == {}
+    # A case-only match is re-keyed to the interface's current spelling.
+    assert ev(page, "() => current().switches[1].ports") == {"GigabitEthernet1/1": {"vlan": "20"}}
+    assert native == []
+
+
+def test_apply_lists_unknown_per_switch_settings_alone(page):
+    ev(page, """() => { const r = current(); normalizePorts(r);
+        r.switches = [{ id: 'sw-1', values: { HOSTNAME: 'A-01' }, ports: { 'Gi9/9': { description: 'x' } } }];
+        loadEditor(); }""")
+    names = ev(page, "() => current().interfaces.join('\\n')")
+    _apply_interfaces(page, names)
+    text = click_dialog(page, "Drop and apply")
+    assert "1 switch" in text and "Gi9/9" in text
+    page.wait_for_function("() => Object.keys(current().switches[0].ports).length === 0")
+
+
+def test_switch_override_probe_and_align(page):
+    r = ev(page, r"""() => {
+        const r = { interfaces: ['GigabitEthernet1/1', 'GigabitEthernet1/2'], values: { HOSTNAME: 'DEF' },
+          switches: [{ id: 'a', values: { HOSTNAME: 'A-01' }, ports: { 'gigabitethernet1/2': { vlan: '5' }, 'Gi9/9': { role: 'x' } } },
+                     { id: 'b', values: {}, ports: { 'GigabitEthernet1/3': { description: 'd' } } }] };
+        const probe = probeSwitchOverrideDrops(r, ['GigabitEthernet1/1', 'GigabitEthernet1/2']);
+        const keep = alignSwitchOverrides(r, { allowDrop: false });
+        const afterKeep = JSON.parse(JSON.stringify(r.switches.map((x) => x.ports)));
+        const drop = alignSwitchOverrides(r, { allowDrop: true });
+        return { probe, keep, afterKeep, drop, after: r.switches.map((x) => x.ports),
+          none: alignSwitchOverrides({ interfaces: [] }, { allowDrop: true }) };
+    }""")
+    assert r["probe"] == [{"n": 1, "host": "A-01", "name": "Gi9/9"}, {"n": 2, "host": "DEF", "name": "GigabitEthernet1/3"}]
+    assert r["keep"] == {"dropped": []}
+    assert r["afterKeep"][0] == {"GigabitEthernet1/2": {"vlan": "5"}, "Gi9/9": {"role": "x"}}
+    assert r["drop"]["dropped"] == r["probe"]
+    assert r["after"] == [{"GigabitEthernet1/2": {"vlan": "5"}}, {}]
+    assert r["none"] == {"dropped": []}
+
+
+def test_open_lists_unmatched_switch_settings(page):
+    payload = ev(page, """() => { const p = JSON.parse(JSON.stringify(projectPayload()));
+        p.recipes[0].switches = [{ id: 'sw-1', values: {}, ports: { 'Gi9/9': { description: 'x' } } }];
+        return JSON.stringify(p); }""")
+    f = {"name": "p.json", "mimeType": "application/json", "buffer": payload.encode()}
+    page.set_input_files("#projectInput", f)
+    text = click_dialog(page, "Drop and continue")
+    assert "1 switch" in text and "Gi9/9" in text
+    page.wait_for_function("() => recipes[0].switches && Object.keys(recipes[0].switches[0].ports).length === 0")
+
+
+def test_duplicate_recipe_copies_switches_with_new_ids(page):
+    r = ev(page, r"""() => {
+        const r = current(); r.switches = """ + _ROWS + r""";
+        const orig = JSON.parse(JSON.stringify(r.switches));
+        document.getElementById('duplicate').click();
+        const c = current();
+        return { differs: c.id !== r.id, orig, origNow: r.switches, copy: c.switches };
+    }""")
+    assert r["differs"] is True and r["origNow"] == r["orig"]
+    assert len(r["copy"]) == 2
+    for a, b in zip(r["orig"], r["copy"]):
+        assert a["values"] == b["values"] and a["ports"] == b["ports"]
+        assert a["id"] != b["id"] and b["id"].startswith("sw-")
+    assert len({x["id"] for x in r["copy"]}) == 2
