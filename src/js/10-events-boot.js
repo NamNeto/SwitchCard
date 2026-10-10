@@ -1,20 +1,9 @@
 // --- Event wiring (buttons, inputs); the boot sequence is in 11-boot.js ---
-$("buildTab").onclick = () => tab(false);
-$("maintainTab").onclick = () => tab(true);
-$("setup").onclick = () => tab(true);
-$("backBuild").onclick = () => tab(false);
-$("pinMaintainTab").onchange = () => {
-  try {
-    localStorage.setItem(SHOW_MAINTAIN_TAB_KEY, $("pinMaintainTab").checked ? "1" : "0");
-  } catch (e) {}
-  applyMaintainTabPin();
-  message(
-    $("pinMaintainTab").checked
-      ? "Setup tab pinned in the top bar."
-      : "Setup tab hidden from the top bar — use Manage recipes & baseline under the recipe picker.",
-  );
-};
-applyMaintainTabPin();
+$("setup").onclick = () => showView("manage");
+$("railBuild").onclick = () => showView("build");
+$("railSwitches").onclick = () => showView("switches");
+$("railCards").onclick = () => showView("cards");
+$("railManage").onclick = () => showView("manage");
 // Hints are bounded to MAX_TEAM_HINTS lines of MAX_TEAM_HINT_CHARS, without control characters.
 function boundedHints(text) {
   const all = lines(text).filter((h) => !singleLineBad(h));
@@ -447,7 +436,7 @@ $("deleteSkuPreset").onclick = async () => {
   updateDeleteSkuPresetButton();
   message('Deleted custom SKU preset "' + name + '".');
 };
-for (const id of ["recipe", "editRecipe"])
+for (const id of ["recipe", "editRecipe", "swRecipe", "cdRecipe"])
   $(id).onchange = () => {
     if (editorPending) {
       $(id).value = active;

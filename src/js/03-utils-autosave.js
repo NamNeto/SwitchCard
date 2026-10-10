@@ -623,33 +623,9 @@ function showOnboarding() {
     } catch (e2) {}
   }
 }
-function showMaintainTabPinned() {
-  try {
-    return localStorage.getItem(SHOW_MAINTAIN_TAB_KEY) === "1";
-  } catch (e) {
-    return false;
-  }
-}
-function applyMaintainTabPin() {
-  // "Show Maintain tab" preference (SHOW_MAINTAIN_TAB_KEY); hidden by default.
-  // With only one tab visible the tab bar is just noise, so it is shown only when pinned.
-  const pinned = showMaintainTabPinned();
-  const btn = $("maintainTab");
-  if (btn) btn.hidden = !pinned;
-  if ($("tabs")) $("tabs").hidden = !pinned;
-  const box = $("pinMaintainTab");
-  if (box) box.checked = pinned;
-}
+// Compatibility wrapper: tab(true) opens Manage, tab(false) the card builder.
 function tab(maintenance) {
-  if (!maintenance && editorPending) {
-    message("Apply your recipe changes before returning to the card builder.");
-    return;
-  }
-  $("build").hidden = maintenance;
-  $("maintain").hidden = !maintenance;
-  $("buildTab").classList.toggle("active", !maintenance);
-  $("maintainTab").classList.toggle("active", maintenance);
-  if (maintenance && !editorPending) loadEditor();
+  showView(maintenance ? "manage" : "build");
 }
 function option(v, t) {
   const o = document.createElement("option");

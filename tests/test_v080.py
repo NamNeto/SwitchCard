@@ -532,3 +532,26 @@ def test_duplicate_recipe_copies_switches_with_new_ids(page):
         assert a["values"] == b["values"] and a["ports"] == b["ports"]
         assert a["id"] != b["id"] and b["id"].startswith("sw-")
     assert len({x["id"] for x in r["copy"]}) == 2
+
+
+def test_rail_switches_views_and_locks_with_a_draft(page):
+    assert page.evaluate("() => document.querySelectorAll('#rail button').length") == 4
+    assert page.evaluate("() => document.getElementById('tabs')") is None
+    assert page.evaluate("() => document.querySelector('#rail [aria-current=page]').id") == "railBuild"
+    ev(page, "() => showView('switches')")
+    vis = ev(page, "() => ['build', 'switches', 'cards', 'maintain'].filter((i) => !$(i).hidden)")
+    assert vis == ["switches"]
+    assert ev(page, "() => document.querySelector('#rail [aria-current=page]').id") == "railSwitches"
+    # chips follow the switch list after typing stops
+    ev(page, "() => { current().switches = [{ id: 'a', values: { HOSTNAME: 'sw-a' }, ports: {} }, { id: 'b', values: { HOSTNAME: 'sw-a' }, ports: {} }]; renderPreview(); }")
+    page.wait_for_timeout(400)
+    assert ev(page, "() => $('chipSwitches').textContent") == "2 · 1 error"
+    assert ev(page, "() => $('chipCards').textContent").endswith("up to date")
+    assert ev(page, "() => $('chipManage').textContent") != ""
+    # pending draft locks the other views
+    ev(page, "() => { showView('manage'); editorPending = true; }")
+    assert ev(page, "() => showView('cards')") is False
+    assert "Apply" in ev(page, "() => $('status').textContent")
+    assert ev(page, "() => $('maintain').hidden") is False
+    ev(page, "() => { editorPending = false; }")
+    assert ev(page, "() => showView('build')") is True

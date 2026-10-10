@@ -70,7 +70,6 @@ const CONFIG = Object.freeze({
   MAX_AUTOSAVE_BACKUPS: 3,
   // "Clear browser autosave" removes every localStorage key that starts with this prefix.
   STORAGE_PREFIX: "switchcard-",
-  SHOW_MAINTAIN_TAB_KEY: "switchcard-show-maintain-tab",
   ONBOARD_KEY: "switchcard-onboarding-dismissed",
   // v5 (0.7.0): teamPolicies (export-blocking rules), baseline fingerprints, per-recipe export
   // history. v4 (0.6.0): mgmtInterface / mgmtSources. Older files open unchanged; older releases
@@ -299,7 +298,6 @@ const CONFIG = Object.freeze({
 const {
   RELEASE,
   AUTOSAVE_KEY,
-  SHOW_MAINTAIN_TAB_KEY,
   ONBOARD_KEY,
   PROJECT_VERSION,
   ROLE_NAMES,

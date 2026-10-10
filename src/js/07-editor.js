@@ -103,6 +103,7 @@ function renderPreview() {
   renderDiffPanel(r, g);
   refreshFleetButtons();
   renderFleetColumns();
+  scheduleRailUpdate();
 }
 // One status box: a bold heading, an optional list of items and an optional muted footer.
 function statusNotice(kind, heading, items, footer) {
