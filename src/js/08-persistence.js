@@ -354,7 +354,6 @@ async function acceptProject(p, b, restoredFile = null) {
   fleet = null;
   customSkuPresets = normalizeCustomSkuPresets(p.customSkuPresets);
   persistCustomSkuPresetsLocal();
-  $("reviewed").checked = false;
   renderAll();
   loadEditor();
   tab(false);

@@ -642,7 +642,6 @@ window.addEventListener("storage", (e) => {
     );
   if (e.key === CONFIG.AUTOSAVE_BACKUP_KEY || CONFIG.AUTOSAVE_BACKUP_KEYS.includes(e.key)) refreshBackupButtons();
 });
-$("reviewed").onchange = renderPreview;
 $("folderInput").onchange = () =>
   run(async () => {
     const model = $("baseModel").value,
@@ -708,8 +707,8 @@ function assertExportReady() {
   const b = blockers(r, g);
   if (editorPending)
     throw Error("Apply recipe changes or Discard unapplied draft first.");
-  if (g.errors.length || b.length || !$("reviewed").checked)
-    throw Error("Complete the checks and review first.");
+  if (g.errors.length || b.length)
+    throw Error("Complete the checks first.");
   return { r, g };
 }
 function buildCardFiles(g) {
@@ -722,7 +721,13 @@ function buildCardFiles(g) {
 $("downloadCard").onclick = () =>
   run(async () => {
     const { r, g } = assertExportReady();
-    if (!window.confirm(exportConfirmSummary(r, g))) {
+    if (
+      !(await writeDialog({
+        title: "Export SD-card ZIP?",
+        summary: exportConfirmSummary(r, g),
+        primary: "Download ZIP",
+      }))
+    ) {
       message("SD-card ZIP export cancelled.");
       return;
     }
@@ -913,7 +918,6 @@ function restorePendingDraft(draft) {
   editorPending = true;
   restoreDraftFields(draft);
   $("editRecipe").value = active;
-  $("reviewed").checked = false;
   tab(true);
   renderPreview();
 }
