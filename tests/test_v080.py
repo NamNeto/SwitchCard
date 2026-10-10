@@ -391,7 +391,7 @@ def test_switch_list_validation_notes(page):
         const p = JSON.parse(JSON.stringify(base));
         p.recipes[0].switches = [
           { id: 'sw-1', values: { HOSTNAME: 'A​-01', INTERFACE: 'x', MGMT_SOURCES: '' },
-            ports: { 'GigabitEthernet1/2': { bogus: 'x', role: 'edge', description: 'up​link' } } },
+            ports: { 'GigabitEthernet1/2': { bogus: 'x', role: 'edge', description: 'up\u200Blink' }, 'GigabitEthernet1/3': { bogus: 'y' } } },
           { id: 'sw-1', values: {}, ports: {} },
           { values: { HOSTNAME: 'C-01' }, ports: {} },
         ];
@@ -406,7 +406,8 @@ def test_switch_list_validation_notes(page):
           rPorts: refuse([{ id: 'a', values: {}, ports: { 'GigabitEthernet1/2': 'access' } }]),
           rAttr: refuse([{ id: 'a', values: {}, ports: { 'GigabitEthernet1/2': { vlan: 10 } } }]),
           rBig: refuse(big),
-          rVlan: refuse([{ id: 'a', values: {}, ports: { 'GigabitEthernet1/2': { vlan: '10\n20' } } }]) };
+          rVlan: refuse([{ id: 'a', values: {}, ports: { 'GigabitEthernet1/2': { vlan: '10\n20' } } }]),
+          rVlanName: refuse([{ id: 'a', values: {}, ports: { 'Gi1/2\u202E': { vlan: '1\t2' } } }]) };
     }""")
     sw = r["sw"]
     assert sw[0]["values"] == {"HOSTNAME": "A-01"}
@@ -420,6 +421,7 @@ def test_switch_list_validation_notes(page):
     for k in ["r5", "rNull", "rEntry", "rVals", "rValsArr", "rPorts", "rAttr", "rBig"]:
         assert r[k] == "The project contains an invalid switch list.", (k, r[k])
     assert r["rVlan"] and "control characters" in r["rVlan"] and "GigabitEthernet1/2" in r["rVlan"]
+    assert r["rVlanName"].startswith("Port Gi1/2?:")
 
 
 def test_unused_value_kept_but_not_emitted(page):
@@ -450,33 +452,34 @@ def test_interface_drop_removes_per_switch_settings_on_confirm(page):
     native = []
     page.on("dialog", lambda d: native.append(d.message))
     ev(page, """() => { const r = current(); normalizePorts(r);
-        r.switches = [{ id: 'sw-1', values: { HOSTNAME: 'A-01' }, ports: { 'GigabitEthernet1/2': { description: 'x' } } },
+        r.switches = [{ id: 'sw-1', values: { HOSTNAME: 'A-01' }, ports: { 'GigabitEthernet1/2': { description: 'x' }, 'Gi9/9': { vlan: '7' } } },
                       { id: 'sw-2', values: { HOSTNAME: 'A-02' }, ports: { 'gigabitethernet1/1': { vlan: '20' } } }];
         loadEditor(); }""")
     _apply_interfaces(page, "GigabitEthernet1/1")
     text = click_dialog(page, "Cancel")
-    assert "1 switch" in text and "GigabitEthernet1/2" in text
+    assert "1 switch" in text and "GigabitEthernet1/2" in text and "Gi9/9" not in text
     page.wait_for_function("() => document.getElementById('status').textContent.includes('Apply cancelled')")
-    assert ev(page, "() => current().switches[0].ports") == {"GigabitEthernet1/2": {"description": "x"}}
+    assert ev(page, "() => current().switches[0].ports") == {"GigabitEthernet1/2": {"description": "x"}, "Gi9/9": {"vlan": "7"}}
     _apply_interfaces(page, "GigabitEthernet1/1")
     text = click_dialog(page, "Drop and apply")
     assert "1 switch" in text and "GigabitEthernet1/2" in text
     page.wait_for_function("() => current().interfaces.length === 1")
-    assert ev(page, "() => current().switches[0].ports") == {}
+    # Only the settings on the dropped port go; the unknown Gi9/9 setting stays (a row error).
+    assert ev(page, "() => current().switches[0].ports") == {"Gi9/9": {"vlan": "7"}}
     # A case-only match is re-keyed to the interface's current spelling.
     assert ev(page, "() => current().switches[1].ports") == {"GigabitEthernet1/1": {"vlan": "20"}}
     assert native == []
 
 
-def test_apply_lists_unknown_per_switch_settings_alone(page):
+def test_apply_keeps_unknown_per_switch_settings(page):
     ev(page, """() => { const r = current(); normalizePorts(r);
         r.switches = [{ id: 'sw-1', values: { HOSTNAME: 'A-01' }, ports: { 'Gi9/9': { description: 'x' } } }];
         loadEditor(); }""")
     names = ev(page, "() => current().interfaces.join('\\n')")
     _apply_interfaces(page, names)
-    text = click_dialog(page, "Drop and apply")
-    assert "1 switch" in text and "Gi9/9" in text
-    page.wait_for_function("() => Object.keys(current().switches[0].ports).length === 0")
+    page.wait_for_function("() => document.getElementById('status').textContent.includes('Recipe applied')")
+    assert ev(page, "() => document.querySelectorAll('dialog').length") == 0
+    assert ev(page, "() => current().switches[0].ports") == {"Gi9/9": {"description": "x"}}
 
 
 def test_switch_override_probe_and_align(page):
@@ -487,13 +490,18 @@ def test_switch_override_probe_and_align(page):
         const probe = probeSwitchOverrideDrops(r, ['GigabitEthernet1/1', 'GigabitEthernet1/2']);
         const keep = alignSwitchOverrides(r, { allowDrop: false });
         const afterKeep = JSON.parse(JSON.stringify(r.switches.map((x) => x.ports)));
+        const listed = alignSwitchOverrides(r, { drop: [{ n: 2, name: 'GigabitEthernet1/3' }] });
+        const afterListed = JSON.parse(JSON.stringify(r.switches.map((x) => x.ports)));
+        r.switches[1].ports = { 'GigabitEthernet1/3': { description: 'd' } };
         const drop = alignSwitchOverrides(r, { allowDrop: true });
-        return { probe, keep, afterKeep, drop, after: r.switches.map((x) => x.ports),
+        return { probe, keep, afterKeep, listed, afterListed, drop, after: r.switches.map((x) => x.ports),
           none: alignSwitchOverrides({ interfaces: [] }, { allowDrop: true }) };
     }""")
     assert r["probe"] == [{"n": 1, "host": "A-01", "name": "Gi9/9"}, {"n": 2, "host": "DEF", "name": "GigabitEthernet1/3"}]
     assert r["keep"] == {"dropped": []}
     assert r["afterKeep"][0] == {"GigabitEthernet1/2": {"vlan": "5"}, "Gi9/9": {"role": "x"}}
+    assert r["listed"]["dropped"] == [{"n": 2, "host": "DEF", "name": "GigabitEthernet1/3"}]
+    assert r["afterListed"] == [{"GigabitEthernet1/2": {"vlan": "5"}, "Gi9/9": {"role": "x"}}, {}]
     assert r["drop"]["dropped"] == r["probe"]
     assert r["after"] == [{"GigabitEthernet1/2": {"vlan": "5"}}, {}]
     assert r["none"] == {"dropped": []}
