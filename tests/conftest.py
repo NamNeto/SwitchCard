@@ -3,6 +3,8 @@
 Defined here (not in a test module) so every module shares a single session fixture; a second
 sync_playwright() in the same thread would fail with "Sync API inside the asyncio loop".
 """
+import os
+
 import pytest
 from playwright.sync_api import sync_playwright
 
@@ -17,7 +19,7 @@ def pytest_addoption(parser):
 @pytest.fixture(scope="session")
 def browser():
     with sync_playwright() as p:
-        b = p.chromium.launch()
+        b = p.chromium.launch(channel=os.environ.get("SWITCHCARD_PW_CHANNEL") or None)
         yield b
         b.close()
 
@@ -31,7 +33,9 @@ def page(browser):
     pg.on("console", lambda m: problems.append("console.%s: %s" % (m.type, m.text)) if m.type == "error" else None)
     pg.on("dialog", lambda d: d.accept())
     pg.goto(HTML.as_uri())
-    pg.wait_for_function("typeof generate === 'function' && typeof recipes !== 'undefined'")
+    pg.wait_for_function(
+        "typeof generate === 'function' && typeof recipes !== 'undefined' && (typeof bootDone === 'undefined' || bootDone === true)"
+    )
     pg.problems = problems
     yield pg
     ctx.close()
