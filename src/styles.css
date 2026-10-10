@@ -1014,3 +1014,51 @@ td.muted-cell {
     padding: 14px;
   }
 }
+
+/* In-page dialogs */
+dialog.dlg {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--line2);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 20px;
+  max-width: min(720px, 94vw);
+  width: 100%;
+}
+dialog.dlg::backdrop {
+  background: rgba(0, 0, 0, 0.55);
+}
+dialog.dlg h2 {
+  margin: 0 0 10px;
+  font-size: 1.1rem;
+}
+.dialog-body {
+  max-height: 60vh;
+  overflow: auto;
+}
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+}
+button.danger {
+  border-color: var(--err);
+  color: var(--err);
+}
+button.primary.danger {
+  background: var(--err);
+  color: #fff;
+  border-color: var(--err);
+  box-shadow: none;
+}
+.dlg-summary {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  white-space: pre-wrap;
+  font-size: 0.85rem;
+}
