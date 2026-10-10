@@ -165,11 +165,13 @@ function renderSwitchPanel(r, x) {
   $("swPanelTitle").textContent = "Switch " + x.n + (x.host ? " · " + x.host : "");
   const items = [
     ...x.findings.map((f) => ({ level: f.level, text: f.text, where: f.where })),
-    ...x.policy.map((p) => ({ level: "error", text: "Team policy: " + p, where: null })),
+    ...x.policy.map((p) => ({ level: "error", text: "Team policy: " + p, where: { kind: "policy" } })),
   ];
-  // Each check carries its location (data-where) for the clickable checks.
+  // Each check is a button that jumps to what it is about (this row's cell, its Ports dialog, ...).
+  const ctx = { view: "switches", rowId: x.row.id };
   for (const f of items)
-    checks.append(el("li", { className: f.level === "error" ? "bad" : "warn", dataWhere: f.where ? JSON.stringify(f.where) : null }, f.text));
+    checks.append(el("li", { className: f.level === "error" ? "bad" : "warn" },
+      el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, ctx) }, f.text)));
   if (!items.length) checks.append(el("li", { className: "ok" }, "No problems found."));
   $("swPreview").textContent = x.text || "No output: fix the errors above.";
   const key = exportHistoryKey(x.host);
@@ -454,6 +456,114 @@ function openPortsDialog(row, focus) {
   }).then(() => {
     if (currentView === "switches") renderSwitches();
   });
+}
+// --- Clickable checks: a check's location -> the control it is about ---
+// where: see generate() plus {kind:"policy"} and {kind:"row",key}. ctx: {view:"build"} or
+// {view:"switches", rowId}. Locations are resolved now, so a target that no longer exists
+// opens the template instead. Returns the focused element, or null when the view could not change.
+function focusFinding(where, ctx) {
+  const w = where || {};
+  const lower = (s) => String(s).toLowerCase();
+  const r = current();
+  const row = ctx && ctx.view === "switches" ? (r.switches || []).find((x) => x.id === ctx.rowId) : null;
+  const go = (view) => currentView === view || showView(view);
+  const swCell = (key) => {
+    if (!row || !go("switches")) return null;
+    return [...$("swRows").querySelectorAll("input[data-row][data-key]")]
+      .find((n) => n.dataset.row === row.id && n.dataset.key === key) || null;
+  };
+  const buildPort = (name, attr) => {
+    const cells = [...$("ports").querySelectorAll("[data-port][data-attr]")].filter((n) => lower(n.dataset.port) === lower(name));
+    // An address cell that is not shown (port not Routed) falls back to the port's role.
+    return cells.find((n) => n.dataset.attr === attr) || cells.find((n) => n.dataset.attr === "role") || null;
+  };
+  let target = null,
+    pre = null;
+  switch (w.kind) {
+    case "field":
+    case "row":
+      target = swCell(w.key);
+      if (!target && go("build")) target = $("value_" + w.key);
+      break;
+    case "port":
+      if (row && switchPortCells(r, row).some((c) => lower(c.name) === lower(w.name) && c.attr === w.attr)) {
+        // The row sets this value itself: open its Ports dialog on that cell.
+        if (!go("switches")) return null;
+        openPortsDialog(row, { name: w.name, attr: w.attr });
+        const t = document.activeElement;
+        if (t && t.closest("dialog") && t.dataset.port) {
+          t.scrollIntoView({ block: "center" });
+          return flashTarget(t);
+        }
+        return null; // the dialog is open, but has no such cell (an interface the recipe lacks)
+      }
+      if (go("build")) target = buildPort(w.name, w.attr);
+      break;
+    case "ports":
+      if (go("build")) target = $("ports").querySelector('select[data-attr="role"]');
+      break;
+    case "interfaces":
+    case "template":
+    case "sources":
+      if (go("manage")) target = $({ interfaces: "interfaces", template: "template", sources: "mgmtSources" }[w.kind]);
+      break;
+    case "policy":
+      if (go("manage")) {
+        $("teamHintsPanel").open = true;
+        target = $("teamPoliciesEditor");
+      }
+      break;
+    case "file":
+      pre = row ? $("swPreview") : $("preview");
+      if (go(row ? "switches" : "build")) target = pre;
+      break;
+  }
+  if (!target || target.closest("[hidden]")) {
+    if (!go("manage")) return null;
+    target = $("template");
+    pre = null;
+  }
+  // Open the collapsed sections around the target (Management sources, team rules, ...).
+  for (let d = target.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) d.open = true;
+  target.focus({ preventScroll: true });
+  target.scrollIntoView({ block: "center" });
+  if (pre && w.line) highlightPreviewLine(pre, w.line);
+  return flashTarget(target);
+}
+// Outlines an element for 1.2 s; a repeated click restarts the outline.
+const flashTimers = new WeakMap();
+function flashTarget(t) {
+  clearTimeout(flashTimers.get(t));
+  t.classList.remove("flash");
+  void t.offsetWidth; // restart the CSS animation
+  t.classList.add("flash");
+  flashTimers.set(t, setTimeout(() => t.classList.remove("flash"), 1200));
+  return t;
+}
+// Selects line `line` (1-based) of a preview <pre> and scrolls it to the middle of the box.
+function highlightPreviewLine(pre, line) {
+  const text = pre.textContent;
+  let start = 0;
+  for (let i = 1; i < line; i++) {
+    const nl = text.indexOf("\n", start);
+    if (nl < 0) return false;
+    start = nl + 1;
+  }
+  let end = text.indexOf("\n", start);
+  if (end < 0) end = text.length;
+  if (end > start && text[end - 1] === "\r") end--;
+  const node = pre.firstChild;
+  if (!node || node.nodeType !== Node.TEXT_NODE) return false;
+  const range = document.createRange();
+  range.setStart(node, start);
+  range.setEnd(node, end);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+  const box = pre.getBoundingClientRect(),
+    at = range.getBoundingClientRect();
+  pre.scrollTop += at.top - box.top - (pre.clientHeight - at.height) / 2;
+  return true;
 }
 // --- Switches view wiring ---
 $("swRows").addEventListener("input", (e) => {

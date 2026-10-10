@@ -28,18 +28,23 @@ function renderPreview() {
   // Status above the preview: at most one red box (errors) and one box for the result
   // (yellow with the notes to review, or green when there is nothing to review). Export
   // blockers are listed only under the Export button (#exportWhy), not repeated here.
+  // Each item carries its location (findings are errors/warnings with the same text and order),
+  // so it renders as a button that jumps to the field, port, template line or rule it is about.
   $("checks").replaceChildren();
-  const notices = (g.warnings || []).map((w) => {
-    const t = w.replace(/^Soft:\s*/, "");
-    return t.charAt(0).toUpperCase() + t.slice(1);
+  const found = (level) => (g.findings || []).filter((f) => f.level === level);
+  const notices = found("warning").map((f) => {
+    const t = f.text.replace(/^Soft:\s*/, "");
+    return { text: t.charAt(0).toUpperCase() + t.slice(1), where: f.where };
   });
   if (g.errors.length)
     $("checks").append(statusNotice("error",
-      g.errors.length === 1 ? "1 error blocks export" : g.errors.length + " errors block export", g.errors));
+      g.errors.length === 1 ? "1 error blocks export" : g.errors.length + " errors block export",
+      found("error").map((f) => ({ text: f.text, where: f.where }))));
   const policyHits = g.errors.length ? [] : policyViolations(g.text, teamPolicies);
   if (policyHits.length)
     $("checks").append(statusNotice("error",
-      policyHits.length === 1 ? "1 team policy rule blocks export" : policyHits.length + " team policy rules block export", policyHits,
+      policyHits.length === 1 ? "1 team policy rule blocks export" : policyHits.length + " team policy rules block export",
+      policyHits.map((t) => ({ text: t, where: { kind: "policy" } })),
       "Rules are edited under Team security hints in Manage recipes & baseline."));
   if (!g.errors.length || notices.length) {
     const count = notices.length === 1 ? "1 note to review" : notices.length + " notes to review";
@@ -104,7 +109,9 @@ function renderPreview() {
   scheduleRailUpdate();
 }
 // One status box: a bold heading, an optional list of items and an optional muted footer.
-function statusNotice(kind, heading, items, footer) {
+// An item is a string, or {text, where}: a button with the same text that runs
+// focusFinding(where, ctx) (ctx defaults to the Build page).
+function statusNotice(kind, heading, items, footer, ctx) {
   const el = document.createElement("div");
   el.className = "notice " + kind;
   const h = document.createElement("strong");
@@ -115,7 +122,15 @@ function statusNotice(kind, heading, items, footer) {
     const ul = document.createElement("ul");
     for (const t of items) {
       const li = document.createElement("li");
-      li.textContent = t;
+      if (typeof t === "string") li.textContent = t;
+      else {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "finding-link";
+        b.textContent = t.text;
+        b.addEventListener("click", () => focusFinding(t.where, ctx || { view: "build" }));
+        li.append(b);
+      }
       ul.append(li, document.createTextNode(" "));
     }
     el.append(" ", ul);

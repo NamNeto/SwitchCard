@@ -121,6 +121,7 @@ function renderFields() {
     const roleTd = document.createElement("td");
     const roleEl = document.createElement("select");
     roleEl.setAttribute("aria-label", p.name + " role");
+    portCell(roleEl, p.name, "role");
     roleEl.append(...ROLE_NAMES.map((v) => option(v, v[0].toUpperCase() + v.slice(1))));
     roleEl.value = p.role;
     roleEl.addEventListener("change", () => {
@@ -138,6 +139,7 @@ function renderFields() {
     const vlanTd = document.createElement("td");
     const vlanEl = document.createElement("input");
     vlanEl.setAttribute("aria-label", p.name + " vlan");
+    portCell(vlanEl, p.name, "vlan");
     vlanEl.value = p.vlan;
     vlanEl.disabled = p.role === "unused" || p.role === "routed";
     if (p.role === "trunk") {
@@ -162,6 +164,7 @@ function renderFields() {
         ipEl.placeholder = "IP";
         ipEl.value = p.ip || "";
         ipEl.setAttribute("aria-label", p.name + " IP");
+        portCell(ipEl, p.name, "ip");
         ipEl.addEventListener("input", () => {
           p.ip = cleanInput(ipEl, p.name + " IP", true);
           touch();
@@ -175,6 +178,7 @@ function renderFields() {
         maskEl.placeholder = "Mask";
         maskEl.value = p.mask || "";
         maskEl.setAttribute("aria-label", p.name + " mask");
+        portCell(maskEl, p.name, "mask");
         maskEl.addEventListener("input", () => {
           p.mask = cleanInput(maskEl, p.name + " mask", true);
           touch();
@@ -195,6 +199,7 @@ function renderFields() {
     const descTd = document.createElement("td");
     const descEl = document.createElement("input");
     descEl.setAttribute("aria-label", p.name + " description");
+    portCell(descEl, p.name, "description");
     descEl.value = p.description || "";
     descEl.addEventListener("input", () => {
       p.description = cleanInput(descEl, p.name + " description");
@@ -214,6 +219,11 @@ function renderFields() {
       });
     };
   }
+}
+// Marks a port table control with its port and attribute (the targets of clickable checks).
+function portCell(input, name, attr) {
+  input.dataset.port = name;
+  input.dataset.attr = attr;
 }
 function renderBaseline() {
   let description = baseline
