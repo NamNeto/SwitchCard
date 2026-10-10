@@ -883,8 +883,7 @@ def test_cards_gates_example_and_errors(page):
     assert page.is_enabled(_cd_row(ids[0], "button.cd-card"))
     stub_downloads(page)
     page.click("#cdAll")
-    page.wait_for_function("() => $('status').textContent.includes('2')")
-    assert "row" in ev(page, "() => $('status').textContent").lower()
+    page.wait_for_function("() => $('status').textContent.includes('Rows with errors: 2.')")
     assert ev(page, "() => !!document.querySelector('dialog[open]')") is False
     assert downloads(page) == []
 
@@ -904,3 +903,55 @@ def test_text_only_zip(page):
     assert names == ["IE3100-DEMO-01/editcontent.txt", "IE3100-DEMO-02/editcontent.txt", "fleet-manifest.txt"]
     assert d[0]["name"].endswith("-text.zip")
     assert sorted(ev(page, "() => Object.keys(current().exports)")) == ["ie3100-demo-01", "ie3100-demo-02"]
+
+
+# --- Task 11, fix round 1 ---
+
+def test_cards_keep_focus_across_refresh(page):
+    ids = _cards_setup(page)
+    btn = _cd_row(ids[1], "button.cd-card")
+    page.click(btn)
+    page.wait_for_selector("dialog[open]")
+    click_dialog(page, "Cancel")
+    page.wait_for_function("() => !document.querySelector('dialog[open]')")
+    ev(page, "() => { current().switches[0].values.SITE = 'Plant Z'; touch(); renderPreview(); }")  # forces a rebuild
+    page.wait_for_timeout(600)
+    assert ev(page, "() => { const a = document.activeElement; return [a.className, a.closest('tr') && a.closest('tr').dataset.row]; }") == ["cd-card", ids[1]]
+    page.focus(_cd_row(ids[0], "button.cd-status"))
+    ev(page, "() => renderCards()")
+    assert ev(page, "() => { const a = document.activeElement; return [a.className.split(' ')[0], a.closest('tr').dataset.row]; }") == ["cd-status", ids[0]]
+
+
+def test_cards_cancel_exports_nothing(page):
+    ids = _cards_setup(page)
+    stub_downloads(page)
+    page.click(_cd_row(ids[0], "button.cd-card"))
+    click_dialog(page, "Cancel")
+    page.wait_for_function("() => $('status').textContent.includes('cancelled')")
+    for b in ("#cdAll", "#cdText"):
+        page.wait_for_function("(s) => !document.querySelector(s).disabled", arg=b)
+        page.click(b)
+        click_dialog(page, "Cancel")
+        page.wait_for_function("() => !document.querySelector('dialog[open]') && !busy")
+    assert downloads(page) == []
+    assert ev(page, "() => current().exports") == {}
+
+
+def test_cards_team_policy_row_blocks(page):
+    ids = _cards_setup(page)
+    ev(page, "() => { teamPolicies = ['forbid ^hostname IE3100-DEMO-02$']; renderCards(); }")
+    assert page.is_disabled(_cd_row(ids[1], "button.cd-card"))
+    assert page.is_enabled(_cd_row(ids[0], "button.cd-card"))
+    assert "Rows with errors: 2 (team policy: 2)" in page.inner_text("#cdGates")
+    assert page.inner_text(_cd_row(ids[1], "button.cd-status")) == "1 error"
+    stub_downloads(page)
+    page.click("#cdAll")
+    page.wait_for_function("() => $('status').textContent.includes('Rows with errors: 2.')")
+    assert ev(page, "() => !!document.querySelector('dialog[open]')") is False
+    assert downloads(page) == []
+
+
+def test_cards_empty_list_still_shows_gates(page):
+    ev(page, "() => { current().switches = []; current().example = true; showView('cards'); }")
+    assert "Example recipe" in page.inner_text("#cdGates")
+    assert ev(page, "() => $('cdEmpty').hidden") is False

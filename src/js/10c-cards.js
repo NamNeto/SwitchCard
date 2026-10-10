@@ -19,6 +19,16 @@ function cardRows(r) {
   const res = rows.length ? checkSwitchRows(r, rows) : { rows: [] };
   return res.rows.map((x) => ({ x, st: exportState(r, x.host, x.sha256) }));
 }
+// The row button that last had focus ({ row, kind }), so a rebuild can put focus back. Kept while
+// focus sits on <body> (a closed dialog, or a button run() disabled), cleared when focus moves
+// elsewhere on the page.
+let cdFocus = null;
+const CD_BUTTONS = ["cd-status", "cd-diff", "cd-card"];
+function cardFocusOf(node) {
+  const tr = node && node.closest ? node.closest("#cdRows tr[data-row]") : null;
+  const kind = tr && node.matches("button") ? CD_BUTTONS.find((k) => node.classList.contains(k)) : null;
+  return kind ? { row: tr.dataset.row, kind } : null;
+}
 function renderCards() {
   let r;
   try {
@@ -51,7 +61,14 @@ function renderCards() {
           title: cardRowBad(x) ? "Fix this switch's errors first." : gates[0] || "Download the SD-card ZIP of this switch",
         }, "Card ZIP")));
   });
+  const a = document.activeElement;
+  const want = cardFocusOf(a) || (!a || a === document.body ? cdFocus : null);
   $("cdRows").replaceChildren(...body);
+  if (want) {
+    const tr = [...$("cdRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === want.row);
+    const b = tr && tr.querySelector("button." + want.kind);
+    if (b && !b.disabled) b.focus();
+  }
   $("cdTable").hidden = !items.length;
   $("cdEmpty").hidden = items.length > 0;
   const badRows = items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x.n);
@@ -60,8 +77,8 @@ function renderCards() {
   if (badRows.length)
     reasons.push("Rows with errors: " + badRows.join(", ") + (policyRows.length ? " (team policy: " + policyRows.join(", ") + ")" : "") + ".");
   const gl = $("cdGates");
-  if (!items.length) gl.textContent = "";
-  else if (reasons.length) gl.textContent = "Export blocked: " + reasons.join(" · ");
+  if (reasons.length) gl.textContent = "Export blocked: " + reasons.join(" · ");
+  else if (!items.length) gl.textContent = "";
   else gl.textContent = "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + ".";
   gl.className = "cd-gates " + (reasons.length ? "cd-bad" : "cd-ok");
   const changed = items.filter(({ st }) => st.state === "new" || st.state === "changed").length;
@@ -129,6 +146,10 @@ $("cdRows").addEventListener("click", (e) => {
     if (showView("switches")) selectSwitch(x.row.id);
   } else if (e.target.closest("button.cd-diff")) showCardDiff(r, x);
   else if (e.target.closest("button.cd-card")) run(() => exportOneCard(r, x));
+});
+document.addEventListener("focusin", (e) => {
+  if (e.target.closest && e.target.closest("dialog")) return;
+  cdFocus = cardFocusOf(e.target);
 });
 $("cdAll").onclick = () => exportCardsBulk("all");
 $("cdChanged").onclick = () => exportCardsBulk("changed");
