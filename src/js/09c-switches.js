@@ -340,10 +340,11 @@ function validateSwitchRows(r, notes, rname) {
         }
         if (attr === "vlan" && hasVlanControlChars(set.vlan))
           throw Error(
-            "Port " + iface + ": saved VLAN contains control characters (line breaks/tabs). Fix the file and reload.",
+            "Port " + commentSafe(iface, 40) + ": saved VLAN contains control characters (line breaks/tabs). Fix the file and reload.",
           );
-        set[attr] = fix("port " + iface + " " + attr, set[attr], attr !== "description");
+        set[attr] = fix("port " + commentSafe(iface, 40) + " " + attr, set[attr], attr !== "description");
       }
+      if (!Object.keys(set).length) delete row.ports[iface]; // nothing left after cleaning
     }
   });
 }
@@ -364,32 +365,36 @@ function probeSwitchOverrideDrops(r, interfaces) {
   });
   return out;
 }
-// Re-keys per-switch port settings to the current interface spelling; drops settings on unknown
-// interfaces only when opts.allowDrop (after a confirmed drop dialog), otherwise keeps them.
+// Re-keys per-switch port settings to the current interface spelling. Settings on unknown
+// interfaces are dropped only when opts.allowDrop (after a confirmed load dialog), or, with
+// opts.drop ([{ n, name }] from probeSwitchOverrideDrops), only the listed ones (Apply drops the
+// settings on the ports it removes); any other unknown setting stays and shows as a row error.
 function alignSwitchOverrides(r, opts) {
   const allowDrop = !!(opts && opts.allowDrop);
-  const dropped = allowDrop ? probeSwitchOverrideDrops(r, r.interfaces) : [];
-  for (const row of r.switches || []) {
-    if (!row || !row.ports) continue;
+  const listed = (opts && opts.drop) || [];
+  const unknown = probeSwitchOverrideDrops(r, r.interfaces);
+  const dropped = allowDrop ? unknown : unknown.filter((d) => listed.some((x) => x.n === d.n && x.name === d.name));
+  (r.switches || []).forEach((row, idx) => {
+    if (!row || !row.ports) return;
     const next = {};
     for (const [name, set] of Object.entries(row.ports)) {
       const iface = switchOverrideIface(name, r.interfaces);
       if (iface === null) {
-        if (!allowDrop) next[name] = set;
+        if (!dropped.some((d) => d.n === idx + 1 && d.name === name)) next[name] = set;
         continue;
       }
       // An exact-spelling key wins over a case-only duplicate.
       next[iface] = name === iface || !next[iface] ? { ...(next[iface] || {}), ...set } : { ...set, ...next[iface] };
     }
     row.ports = next;
-  }
+  });
   return { dropped };
 }
 // Drop-dialog text for probeSwitchOverrideDrops() results ("" when there are none).
 function formatSwitchOverrideDrops(drops) {
   if (!drops.length) return "";
   const switches = new Set(drops.map((d) => d.n)).size;
-  const names = [...new Set(drops.map((d) => d.name))];
+  const names = [...new Set(drops.map((d) => commentSafe(d.name, 40)))];
   const shown = names.slice(0, 10).join(", ") + (names.length > 10 ? " and " + (names.length - 10) + " more" : "");
   return "Per-switch port settings would be dropped from " + switches + " switch" + (switches === 1 ? "" : "es") +
     " (interfaces not in the list: " + shown + ").";

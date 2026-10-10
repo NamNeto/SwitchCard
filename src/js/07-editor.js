@@ -243,8 +243,10 @@ async function applyRecipe() {
     ports: Array.isArray(r.ports) ? r.ports.map((p) => ({ ...p })) : [],
   };
   const remapPreview = normalizePorts(probe, { allowDrop: true });
-  // Per-switch port settings (v0.8.0) on interfaces that leave the list go with them.
-  const switchDropMsg = formatSwitchOverrideDrops(probeSwitchOverrideDrops(r, names));
+  // Per-switch port settings (v0.8.0) on interfaces that leave the list go with them. Settings
+  // already on unknown interfaces are not this Apply's drop: they stay (row errors).
+  const switchDrops = probeSwitchOverrideDrops(r, names).filter((d) => switchOverrideIface(d.name, r.interfaces) !== null);
+  const switchDropMsg = formatSwitchOverrideDrops(switchDrops);
   const dropMsg = [formatPortRemapReport(remapPreview), switchDropMsg].filter(Boolean).join("\n\n");
   if (dropMsg) {
     if (
@@ -278,7 +280,7 @@ async function applyRecipe() {
   });
   // Keep port roles by interface name even if a later path skips renderFields.
   const remap = normalizePorts(r, { allowDrop: true });
-  alignSwitchOverrides(r, { allowDrop: true }); // listed in the dialog above; case-only renames re-key
+  alignSwitchOverrides(r, { drop: switchDrops }); // drops what the dialog listed; case-only renames re-key
   if (r.ports.length > MAX_PORTS)
     throw Error(
       "Port table exceeds " + MAX_PORTS + " entries after interface remap.",
