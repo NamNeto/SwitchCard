@@ -723,7 +723,42 @@
           <div class="field">
             <label for="cdRecipe">Configuration recipe</label><select id="cdRecipe"></select>
           </div>
-          <p id="cardsEmpty" class="muted">Cards for this recipe will be listed here.</p>
+          <p id="cdGates" class="cd-gates" role="status"></p>
+          <!-- Bulk exports: every row, only new and changed rows, or one text-only ZIP -->
+          <div class="sw-toolbar">
+            <button type="button" id="cdAll" class="primary">All card ZIPs</button>
+            <button type="button" id="cdChanged">Changed and new only</button>
+            <button type="button" id="cdText">Text-only ZIP</button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="scroll">
+            <table id="cdTable">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Hostname</th>
+                  <th>Management IP</th>
+                  <th>Status</th>
+                  <th>Last export</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="cdRows"></tbody>
+            </table>
+          </div>
+          <p id="cdEmpty" class="muted">No switches yet. Add them in Switches on the left.</p>
+          <p>
+            <small
+              >Every card passes the same checks and gates as a single card (baseline, example
+              flag, team policies), and each export asks you to review it first. Each card is its
+              own ZIP download; the browser may ask once to allow multiple downloads. A manifest
+              with every SHA-256 follows a bulk export. <em>Text-only ZIP</em> holds
+              <code>HOSTNAME/editcontent.txt</code> per switch plus <code>fleet-manifest.txt</code>.
+              Last export compares with the text remembered per hostname; Save project to keep
+              it.</small
+            >
+          </p>
         </div>
       </section>
       <div id="status" role="status" hidden></div>

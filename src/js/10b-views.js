@@ -11,7 +11,10 @@ const VIEW_RAIL = { build: "railBuild", switches: "railSwitches", cards: "railCa
 let railTimer = null;
 // Build's subtitle, restored when leaving a view that shows its own line.
 const BUILD_SUBTITLE = [...$("viewSubtitle").childNodes].map((n) => n.cloneNode(true));
-const VIEW_SUBTITLES = { switches: "Empty cells use Device details from Build a card." };
+const VIEW_SUBTITLES = {
+  switches: "Empty cells use Device details from Build a card.",
+  cards: "One SD-card ZIP per switch; Last export shows what changed since.",
+};
 // Shows one view. Leaving the recipe editor is refused while it holds an unapplied draft.
 function showView(name) {
   if (!VIEW_SECTIONS[name]) return false;
@@ -55,6 +58,8 @@ function updateRail() {
   const up = res.rows.filter((x) => exportState(r, x.host, x.sha256).state === "current").length;
   $("chipCards").textContent = up + " of " + rows.length + " up to date";
   $("chipManage").textContent = baseline ? baseline.version : "no baseline";
+  // The open Cards view follows the same changes (recipe, switches, template, baseline, policies).
+  if (currentView === "cards" && typeof renderCards === "function") renderCards();
 }
 
 // --- Switches view: one row per switch (Device details are the defaults), CSV in and out,

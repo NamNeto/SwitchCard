@@ -1215,3 +1215,38 @@ dialog.dlg textarea {
 #swTable td input[data-key="HOSTNAME"] {
   min-width: 150px;
 }
+
+/* --- v0.8.0: Cards view --- */
+.cd-gates {
+  margin: 10px 0 0;
+  font-size: 13px;
+}
+.cd-gates.cd-ok,
+#cdTable td.cd-last.cd-current,
+#cdTable button.cd-status.cd-ok {
+  color: var(--ok);
+}
+.cd-gates.cd-bad,
+#cdTable button.cd-status.cd-bad {
+  color: var(--err);
+}
+#cdTable td,
+#cdTable th {
+  padding: 6px 5px;
+}
+#cdTable td.num {
+  color: var(--muted);
+  font-size: 12px;
+}
+#cdTable td.cd-last {
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+#cdTable button.cd-status,
+#cdTable button.cd-diff {
+  font-size: 12.5px;
+  white-space: nowrap;
+}
+#cdTable button.cd-diff {
+  color: var(--warn);
+}
