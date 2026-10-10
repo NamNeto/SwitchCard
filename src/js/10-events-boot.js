@@ -326,12 +326,16 @@ $("applyBulkRole").onclick = () => {
   );
 };
 // Port CSV on the page: copy the table out, load a file, apply all rows or none.
-$("portCsvFromTable").onclick = () => {
+$("portCsvFromTable").onclick = async () => {
   const r = current();
   normalizePorts(r);
   const text = portTableCsv(r);
   const existing = $("portCsv").value.trim();
-  if (existing && existing !== text.trim() && !window.confirm("Replace the text in the port CSV box with the current port table?")) {
+  if (
+    existing &&
+    existing !== text.trim() &&
+    !(await confirmDialog("Replace the port CSV text?", "Replace the text in the port CSV box with the current port table?", { ok: "Replace" }))
+  ) {
     message("Kept the port CSV text.");
     return;
   }
@@ -430,12 +434,12 @@ $("saveSkuPreset").onclick = () => {
   updateDeleteSkuPresetButton();
   message('Saved custom SKU preset "' + name + '". Click Apply recipe changes to keep the list on this recipe.');
 };
-$("deleteSkuPreset").onclick = () => {
+$("deleteSkuPreset").onclick = async () => {
   const key = $("skuPreset").value;
   if (!key.startsWith("custom:")) return;
   const name = key.slice(7);
   if (!Object.hasOwn(customSkuPresets, name)) return;
-  if (!confirm('Delete custom SKU preset "' + name + '"?')) return;
+  if (!(await confirmDialog("Delete custom SKU preset?", 'Delete custom SKU preset "' + name + '"?', { ok: "Delete", danger: true }))) return;
   const next = cloneCustomSkuPresets(customSkuPresets);
   delete next[name];
   setCustomSkuPresets(next);
@@ -489,7 +493,7 @@ $("duplicate").onclick = () => {
       : "Duplicated as a custom recipe (export allowed once baseline + review are ready).",
   );
 };
-$("deleteRecipe").onclick = () => {
+$("deleteRecipe").onclick = async () => {
   if (editorPending) {
     message("Apply or discard your recipe changes before deleting.");
     return;
@@ -498,12 +502,17 @@ $("deleteRecipe").onclick = () => {
     message("Cannot delete the last recipe.");
     return;
   }
+  const nsw = (current().switches || []).length;
   if (
-    !window.confirm(
+    !(await confirmDialog(
+      "Delete this recipe?",
       'Delete recipe "' +
         current().name +
-        '"? This cannot be undone in the browser (Save project first if you need a backup).',
-    )
+        '"' +
+        (nsw ? " and its " + nsw + " switch" + (nsw === 1 ? "" : "es") : "") +
+        "? This cannot be undone in the browser (Save project first if you need a backup).",
+      { ok: "Delete recipe", danger: true },
+    ))
   )
     return;
   const deleted = active;
@@ -516,12 +525,12 @@ $("deleteRecipe").onclick = () => {
   updateDiscardButton();
   message("Recipe deleted.");
 };
-$("discardDraft").onclick = () => {
+$("discardDraft").onclick = async () => {
   if (!editorPending) {
     message("No unapplied draft to discard.");
     return;
   }
-  if (!window.confirm("Discard unapplied draft and reload the applied recipe?")) return;
+  if (!(await confirmDialog("Discard the draft?", "Discard unapplied draft and reload the applied recipe?", { ok: "Discard", danger: true }))) return;
   editorPending = false;
   loadEditor();
   autosave();
@@ -581,19 +590,21 @@ function clearAllSwitchcardStorage() {
   localStorage.setItem(CONFIG.LEGACY_AUTOSAVE_READ_KEY, "1");
   return ks;
 }
-$("clearAutosave").onclick = () => {
+$("clearAutosave").onclick = async () => {
   let ks = [];
   try {
     ks = switchcardStorageKeys();
   } catch (e) {}
   const nb = listAutosaveBackups().length;
   if (
-    !window.confirm(
+    !(await confirmDialog(
+      "Clear browser data?",
       "Clear ALL SwitchCard data stored in this browser?\n\n" +
         "Removes " + ks.length + " item(s): current and older autosaves, " + nb + " autosave backup(s), custom SKU presets, theme and tips/pin settings." +
         (nb ? "\n\nTip: Cancel and use Download autosave backup first if you may need a backup." : "") +
         "\n\nIn-memory work stays until you reload.",
-    )
+      { ok: "Clear", danger: true },
+    ))
   )
     return;
   clearTimeout(autosaveTimer);
@@ -735,13 +746,15 @@ $("downloadCard").onclick = () =>
         "…). Extract ZIP contents to the card ROOT (editcontent.txt beside the baseline files — not inside an extra folder).",
     );
   });
-$("saveProject").onclick = () => {
+$("saveProject").onclick = async () => {
   try {
     if (editorPending) {
       if (
-        !window.confirm(
+        !(await confirmDialog(
+          "Save without the draft?",
           "Unapplied Maintain draft is NOT included in Save project (applied recipes only). Continue download anyway?",
-        )
+          { ok: "Save without the draft" },
+        ))
       ) {
         message("Save project cancelled — Apply or Discard the draft first to include those edits.");
         return;
