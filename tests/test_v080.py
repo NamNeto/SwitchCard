@@ -217,3 +217,118 @@ def test_export_dialog_requires_review_tick(page):
     page.wait_for_function("() => document.getElementById('status').textContent.includes('SD-card ZIP exported')")
     d = downloads(page)
     assert len(d) == 1 and d[0]["name"].endswith(".zip")
+
+
+# --- Task 7: switch-list engine (09c-switches.js) ---
+
+def test_switch_rows_inherit_override_and_match_fleet_csv(page):
+    r = ev(page, r"""() => {
+        const r = structuredClone(recipes[0]); normalizePorts(r);
+        const csv = 'HOSTNAME,MGMT_IP,Gi1/2 role,Gi1/2 vlan\nA-01,192.0.2.11,access,10\nA-02,,,\n';
+        const parsed = switchRowsFromCsv(r, csv);
+        const res = checkSwitchRows(r, parsed.rows);
+        const old = checkFleet(r, csv);
+        return { errors: parsed.errors, n: parsed.rows.length, ids: parsed.rows.map((x) => /^sw-/.test(x.id)),
+          rows: parsed.rows.map((x) => ({ values: x.values, ports: x.ports })),
+          same: res.rows.map((x, i) => x.text === old.rows[i].text), oldN: old.rows.length,
+          inh2: res.rows[1].inherited, own1: res.rows[0].own, t1: res.rows[0].text,
+          errs: res.rows.map((x) => x.errors), fnd: res.rows.map((x) => x.findings.length),
+          host2: res.rows[1].host, ip2: res.rows[1].ip, decode: parsed.decodeProblems,
+          oldKeys: Object.keys(old.rows[0]).sort(), portCells: old.rows.map((x) => x.portCells.length) };
+    }""")
+    assert r["errors"] == [] and r["n"] == 2 and all(r["ids"])
+    assert r["rows"][0] == {"values": {"HOSTNAME": "A-01", "MGMT_IP": "192.0.2.11"},
+                            "ports": {"GigabitEthernet1/2": {"role": "access", "vlan": "10"}}}
+    assert r["rows"][1] == {"values": {"HOSTNAME": "A-02"}, "ports": {}}
+    assert r["oldN"] == 2 and r["same"] == [True, True]
+    assert "MGMT_IP" in r["inh2"] and "HOSTNAME" not in r["inh2"] and "HOSTNAME" in r["own1"]
+    assert " switchport access vlan 10" in r["t1"]
+    assert r["errs"] == [[], []] and r["host2"] == "A-02" and r["ip2"] == "192.0.2.10" and r["decode"] == 0
+    assert r["portCells"] == [2, 0]
+    for k in ["n", "values", "inherited", "portCells", "host", "ip", "errors", "policy", "warnings", "text", "sha256", "lines", "bytes", "recipe"]:
+        assert k in r["oldKeys"]
+
+
+def test_switch_rows_findings_locate_port_errors_and_duplicates(page):
+    r = ev(page, r"""() => {
+        const r = structuredClone(recipes[0]); normalizePorts(r);
+        const rows = [
+          { id: 'sw-a', values: { HOSTNAME: 'A-01' }, ports: { 'GigabitEthernet1/2': { role: 'edge' }, 'Gi9/9': { description: 'x' } } },
+          { id: 'sw-b', values: { HOSTNAME: 'a-01' }, ports: {} },
+        ];
+        const a = checkSwitchRows(r, rows);
+        const b = checkSwitchRows(r, rows);
+        return { e: a.rows.map((x) => x.errors), f: a.rows.map((x) => x.findings.filter((f) => f.level === 'error').map((f) => [f.text, f.where])),
+                 same: b.rows[0].text === a.rows[0].text && b.rows[1].errors.length === a.rows[1].errors.length,
+                 untouched: r.ports.find((p) => p.name === 'GigabitEthernet1/2').role, values: r.values.HOSTNAME };
+    }""")
+    assert 'GigabitEthernet1/2: role "edge" must be one of' in r["e"][0][0]
+    assert "Gi9/9: not in the port table." in r["e"][0]
+    ports = {t: w for t, w in r["f"][0]}
+    assert ports["Gi9/9: not in the port table."] == {"kind": "port", "name": "Gi9/9", "attr": "description"}
+    assert "duplicate HOSTNAME (also row 1)" in r["e"][1]
+    assert ["duplicate HOSTNAME (also row 1)", {"kind": "row", "key": "HOSTNAME"}] in r["f"][1]
+    assert r["same"] and r["untouched"] != "edge" and r["values"] == "IE3100-DEMO-01"
+
+
+def test_csv_round_trip(page):
+    r = ev(page, r"""() => {
+        const r = structuredClone(recipes[0]); normalizePorts(r);
+        const csv = 'MGMT_IP,HOSTNAME,Gi1/3 description,Gi1/2 role,Gi1/2 vlan,GATEWAY\n' +
+          '192.0.2.11,A-01,"HMI, line 1",access,10,\nA,A-02,,,,192.0.2.254\n,A-03,,,,\n';
+        const p1 = switchRowsFromCsv(r, csv);
+        const out = switchRowsToCsv(r, p1.rows);
+        const p2 = switchRowsFromCsv(r, out.text);
+        const strip = (rows) => rows.map((x) => ({ values: x.values, ports: x.ports }));
+        return { e: [p1.errors, p2.errors], a: strip(p1.rows), b: strip(p2.rows), columns: out.columns };
+    }""")
+    assert r["e"] == [[], []] and r["a"] == r["b"] and len(r["a"]) == 3
+    assert r["columns"][:2] == ["HOSTNAME", "MGMT_IP"]
+    assert r["columns"][-3:] == ["GigabitEthernet1/2 role", "GigabitEthernet1/2 vlan", "GigabitEthernet1/3 description"]
+    assert r["a"][0]["ports"]["GigabitEthernet1/3"] == {"description": "HMI, line 1"}
+
+
+def test_counted_up_rows(page):
+    r = ev(page, r"""() => {
+        const r = structuredClone(recipes[0]); normalizePorts(r);
+        const a = countedUpRows(r, [], 3);
+        const b = countedUpRows(r, a.rows, 2);
+        const edge = countedUpRows(r, [{ id: 'sw-x', values: { HOSTNAME: 'EDGE' }, ports: {} }], 1);
+        const many = Array.from({ length: 499 }, (_, i) => ({ id: 'sw-' + i, values: {}, ports: {} }));
+        const full = countedUpRows(r, many, 2);
+        const zero = countedUpRows(r, [], 0);
+        const one = countedUpRows(r, [], 1);
+        return { a: a.rows.map((x) => [x.values.HOSTNAME, x.values.MGMT_IP, Object.keys(x.values).length, /^sw-/.test(x.id)]),
+                 b: b.rows.map((x) => [x.values.HOSTNAME, x.values.MGMT_IP]), edge: edge.error, full: full.error, fullRows: full.rows,
+                 zero: zero.error, one: one.rows && one.rows.map((x) => x.values) };
+    }""")
+    assert r["a"] == [["IE3100-DEMO-01", "192.0.2.10", 2, True], ["IE3100-DEMO-02", "192.0.2.11", 2, True], ["IE3100-DEMO-03", "192.0.2.12", 2, True]]
+    assert r["b"] == [["IE3100-DEMO-04", "192.0.2.13"], ["IE3100-DEMO-05", "192.0.2.14"]]
+    assert "does not end in a number" in r["edge"]
+    assert r["full"] and r["fullRows"] is None
+    assert r["zero"]
+    assert r["one"] == [{"HOSTNAME": "IE3100-DEMO-01", "MGMT_IP": "192.0.2.10"}]
+
+
+def test_counted_up_rows_messages_name_the_last_row(page):
+    r = ev(page, r"""() => {
+        const r = structuredClone(recipes[0]); normalizePorts(r);
+        return countedUpRows(r, [{ id: 'sw-x', values: { MGMT_IP: 'bad' }, ports: {} }], 1).error;
+    }""")
+    assert "in the last row" in r and "Device details" not in r
+
+
+def test_export_state(page):
+    r = ev(page, r"""() => {
+        const r = structuredClone(recipes[0]); normalizePorts(r); r.exports = {};
+        const g = generate(r);
+        const s1 = exportState(r, 'IE3100-DEMO-01', sha256Hex(g.text)).state;
+        recordExport(r, 'IE3100-DEMO-01', g.text);
+        const cur = exportState(r, 'ie3100-demo-01', sha256Hex(g.text));
+        const s3 = exportState(r, 'IE3100-DEMO-01', sha256Hex(g.text + 'x')).state;
+        const empty = exportState(r, '', sha256Hex(g.text)).state;
+        const nh = structuredClone(r); nh.template = nh.template.replace('hostname {{HOSTNAME}}\n', '');
+        const s4 = exportState(nh, 'IE3100-DEMO-01', sha256Hex(g.text)).state;
+        return { s1, s2: cur.state, at: !!cur.at, entry: cur.entry && cur.entry.host, s3, empty, s4 };
+    }""")
+    assert r == {"s1": "new", "s2": "current", "at": True, "entry": "IE3100-DEMO-01", "s3": "changed", "empty": "nohost", "s4": "nohost"}
