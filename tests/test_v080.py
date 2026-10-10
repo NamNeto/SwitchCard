@@ -1018,3 +1018,38 @@ def test_clicking_checks_focuses_targets(page):
     assert ev(page, "() => [document.activeElement.dataset.port, document.activeElement.dataset.attr, !!document.activeElement.closest('dialog')]") == [port, "vlan", True]
     click_dialog(page, "Close")
     assert page.problems == []
+
+
+def test_500_rows_check_time(page):
+    # Thresholds are twice the spec's (1.5 s cold, 50 ms one-row change) for shared CI runners.
+    r = ev(page, r"""() => {
+        const r = current(); normalizePorts(r);
+        r.values.MGMT_MASK = '255.255.0.0'; r.values.MGMT_IP = '10.20.0.10'; r.values.GATEWAY = '10.20.0.1';
+        const res = countedUpRows(r, [], 500);
+        if (res.error) return { error: res.error };
+        r.switches = res.rows;
+        switchRowCache = { stamp: null, map: new Map() };
+        let t = performance.now();
+        const a = checkSwitchRows(r, r.switches);
+        const cold = performance.now() - t;
+        r.switches[250].values.HOSTNAME = 'CHANGED-250';
+        t = performance.now();
+        const b = checkSwitchRows(r, r.switches);
+        const warm = performance.now() - t;
+        return { n: a.rows.length, m: b.rows.length, cold, warm, cached: switchRowCache.map.size };
+    }""")
+    assert "error" not in r, r
+    print("500 rows: cold %.0f ms (spec 1500), one-row change %.1f ms (spec 50)" % (r["cold"], r["warm"]))
+    assert r["n"] == 500 and r["m"] == 500
+    assert r["cold"] < 3000
+    assert r["warm"] < 100
+    # Measurement only: render time of the two list views with 500 rows.
+    for view in ("switches", "cards"):
+        ms = ev(page, """(view) => new Promise((resolve) => {
+            const orig = updateRail;
+            const t = performance.now();
+            updateRail = function () { orig.apply(this, arguments); updateRail = orig; resolve(performance.now() - t); };
+            showView(view);
+        })""", view)
+        print("showView(%s) with 500 rows incl. rail refresh: %.0f ms" % (view, ms))
+    assert page.problems == []
