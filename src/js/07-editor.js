@@ -97,12 +97,10 @@ function renderPreview() {
       : "Fix validation errors first."
     : "Download preview as editcontent.txt";
   updateDiscardButton();
-  // v0.7.0 panels: transliteration offer, changes since the last export, fleet gates.
+  // v0.7.0 panels: transliteration offer, changes since the last export.
   const fix = $("asciiFix");
   if (fix) fix.hidden = !g.asciiIssue;
   renderDiffPanel(r, g);
-  refreshFleetButtons();
-  renderFleetColumns();
   scheduleRailUpdate();
 }
 // One status box: a bold heading, an optional list of items and an optional muted footer.

@@ -751,7 +751,7 @@ summary:hover {
 [hidden] {
   display: none !important;
 }
-/* --- v0.7.0: theme picker, diff view, fleet table, transliteration notice --- */
+/* --- v0.7.0: theme picker, diff view, transliteration notice --- */
 .theme-pick {
   display: inline-flex;
   align-items: center;
@@ -780,46 +780,13 @@ pre.diff .del {
 #asciiFix button {
   margin: 6px 8px 6px 0;
 }
-#fleetTable td.bad {
-  color: var(--err);
-}
-#fleetTable td.ok {
-  color: var(--ok);
-}
-#fleetTable td.inherit {
-  color: var(--muted);
-  font-style: italic;
-}
-#fleetTable td.mono {
-  font-family: var(--mono);
-  font-size: 12px;
-}
-/* --- v0.7.1: fleet panel blocks (copies, CSV) --- */
-.fleet-block {
-  margin-top: 14px;
-}
-.fleet-block + .fleet-block {
-  padding-top: 14px;
-  border-top: 1px solid var(--line);
-}
-.fleet-block > label + .actions {
-  margin-top: 0;
-}
-.fleet-block .template-help {
-  margin-top: 8px;
-}
+/* --- v0.7.1: the CSV columns line (Import CSV dialog on Switches) --- */
 .fleet-columns {
   margin: 0 0 8px;
   font-size: 12.5px;
 }
 .fleet-columns code {
   font-size: 12px;
-}
-.fleet-template {
-  margin: 0 0 10px;
-}
-#fleetScroll {
-  margin-top: 12px;
 }
 #status {
   position: sticky;

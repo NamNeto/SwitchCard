@@ -38,11 +38,13 @@ def test_fleet_template_round_trips_to_the_page_switch(page):
 
 
 def test_insert_template_button(page):
-    r = ev(page, r"""() => {
-        $('fleetPanel').open = true;
-        $('fleetTemplatePorts').value = 'description';
-        $('insertFleetTemplate').click();
-        return { head: $('fleetCsv').value.split('\n')[0], status: $('status').textContent };
-    }""")
-    assert r["head"].startswith("HOSTNAME,MGMT_IP,MGMT_MASK,MGMT_VLAN,GATEWAY,SITE,GigabitEthernet1/1 description,")
-    assert "CSV template inserted: 16 columns" in r["status"]
+    # v0.8.0: the template goes into the Import CSV dialog of the Switches view.
+    ev(page, "() => showView('switches')")
+    page.select_option("#swTemplateMode", "description")
+    page.click("#swImport")
+    page.wait_for_selector("dialog[open]")
+    page.click("dialog[open] button:text-is('Start from template')")
+    head = ev(page, "() => document.querySelector('dialog[open] textarea').value.split('\\n')[0]")
+    assert head.startswith("HOSTNAME,MGMT_IP,MGMT_MASK,MGMT_VLAN,GATEWAY,SITE,GigabitEthernet1/1 description,")
+    assert len(head.split(",")) == 16, head
+    assert "1 row found." in page.inner_text("dialog[open]")

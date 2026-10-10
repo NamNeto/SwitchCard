@@ -352,7 +352,6 @@ async function acceptProject(p, b, restoredFile = null) {
   teamPolicies = Array.isArray(p.teamPolicies) ? [...p.teamPolicies] : [];
   baselineExpected = p.baseline ? { ...p.baseline } : null;
   if (b && baselineExpected && baselineExpected.fingerprint && b.fingerprint) b.compare = compareFingerprints(baselineExpected.fingerprint, b.fingerprint);
-  fleet = null;
   customSkuPresets = normalizeCustomSkuPresets(p.customSkuPresets);
   persistCustomSkuPresetsLocal();
   renderAll();

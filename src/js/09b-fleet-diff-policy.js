@@ -400,7 +400,7 @@ function fleetCopyRows(r, count) {
   }
   return { columns, rows };
 }
-// Grey example for the empty fleet CSV box: the recipe's own columns, row 1 with the values on the
+// Grey example for the empty Import CSV box: the recipe's own columns, row 1 with the values on the
 // page, row 2 counted up with the other cells left empty (empty = same as Device details).
 function fleetCsvExample(r) {
   const columns = fleetColumns(r);
@@ -417,16 +417,8 @@ function fleetCsvExample(r) {
     row2.MGMT_IP = ipv4(row1.MGMT_IP) && ipToInt(row1.MGMT_IP) < 0xffffffff ? intToIp(ipToInt(row1.MGMT_IP) + 1) : row1.MGMT_IP;
   return { columns, text: toCsv(columns, Object.keys(row2).length ? [row1, row2] : [row1]) };
 }
-// DOM: the "Columns for this recipe" line above the fleet CSV box, and the box's grey example.
-function renderFleetColumns() {
-  const line = $("fleetColumns"),
-    box = $("fleetCsv");
-  if (!line || !box) return;
-  const ex = fillFleetColumnsLine(line, current());
-  if (box.placeholder !== ex.text) box.placeholder = ex.text;
-}
-// Writes the "Columns for this recipe: …" line into `line` (fleet box and the Import CSV dialog);
-// returns fleetCsvExample(r) for the box's grey example.
+// Writes the "Columns for this recipe: …" line into `line` (the Import CSV dialog on Switches);
+// returns fleetCsvExample(r) for the text box's grey example.
 function fillFleetColumnsLine(line, r) {
   const ex = fleetCsvExample(r);
   line.replaceChildren();
@@ -611,115 +603,6 @@ function checkFleet(r, csvText) {
   }));
   result.warnings.push(...checked.warnings);
   return result;
-}
-// Recognises when a checked fleet no longer matches the recipe, values, policies or CSV.
-function fleetStamp(r) {
-  const { exports: _history, ...rest } = r;
-  return quickHash(JSON.stringify([rest, teamPolicies, baseline ? baseline.version : null, $("fleetCsv") ? $("fleetCsv").value : ""]));
-}
-// DOM: the fleet table and summary on Build. Every bound field is a column; values that come from
-// Device details rather than the CSV are shown in italics.
-function renderFleet(result) {
-  const sum = $("fleetSummary"),
-    wrap = $("fleetScroll"),
-    head = $("fleetHead"),
-    body = $("fleetRows");
-  if (!sum || !wrap) return;
-  head.replaceChildren();
-  body.replaceChildren();
-  if (!result) {
-    sum.hidden = true;
-    wrap.hidden = true;
-    return;
-  }
-  sum.hidden = false;
-  const badRows = result.rows.filter((x) => x.errors.length || x.policy.length).length;
-  if (result.errors.length) sum.replaceChildren(statusNotice("error", "Fleet CSV cannot be used", [...result.errors, ...result.warnings]));
-  else if (badRows) sum.replaceChildren(statusNotice("error", badRows + " of " + result.rows.length + " switches have errors", result.warnings));
-  else
-    sum.replaceChildren(
-      statusNotice(result.warnings.length ? "warning" : "ok", result.rows.length + " switch" + (result.rows.length === 1 ? "" : "es") + " ready", result.warnings,
-        "Every row passed the same checks as a single card. Italic values come from Device details; review notes per row are in the Result column tooltip."),
-    );
-  if (!result.rows.length) {
-    wrap.hidden = true;
-    return;
-  }
-  wrap.hidden = false;
-  const columns = result.fields && result.fields.length ? result.fields : result.header;
-  const tr = document.createElement("tr");
-  const hasPorts = !!(result.portCols && result.portCols.length);
-  for (const t of ["#", ...columns, ...(hasPorts ? ["Ports"] : []), "Result", "Lines", "SHA-256"]) {
-    const th = document.createElement("th");
-    th.textContent = t;
-    tr.append(th);
-  }
-  head.append(tr);
-  for (const row of result.rows) {
-    const el = document.createElement("tr");
-    const add = (text, cls, title) => {
-      const td = document.createElement("td");
-      td.textContent = text;
-      if (cls) td.className = cls;
-      if (title) td.title = title;
-      el.append(td);
-    };
-    add(String(row.n));
-    for (const h of columns) {
-      const inh = row.inherited.includes(h);
-      add(row.values[h] || (inh ? "(empty)" : ""), inh ? "inherit" : "", inh ? "From Device details" : "From the CSV");
-    }
-    if (hasPorts) {
-      const pc = row.portCells || [];
-      add(pc.length ? pc.length + " set" : "shared", pc.length ? "" : "inherit",
-        pc.length ? pc.map((c) => c.name + " " + c.attr + " = " + c.value).join("\n") : "Every port from the port table");
-    }
-    const problems = [...row.errors, ...row.policy.map((p) => "Team policy: " + p)];
-    if (problems.length) add(problems[0] + (problems.length > 1 ? " (+" + (problems.length - 1) + " more)" : ""), "bad", problems.join("\n"));
-    else add("OK" + (row.warnings.length ? " · " + row.warnings.length + " note" + (row.warnings.length === 1 ? "" : "s") : ""), "ok", row.warnings.join("\n"));
-    add(String(row.lines));
-    add(row.sha256.slice(0, 16) + "…", "mono", row.sha256);
-    body.append(el);
-  }
-}
-// DOM: enable the fleet export buttons only when the checked fleet is current and every gate passes.
-function refreshFleetButtons() {
-  const btn = $("exportFleet"),
-    btnText = $("exportFleetText"),
-    why = $("fleetWhy");
-  if (!btn || !btnText || !why) return;
-  const r = current();
-  const reasons = [];
-  if (!fleet) reasons.push("Click Check fleet first.");
-  else {
-    if (fleet.recipeId !== r.id || fleet.stamp !== fleetStamp(r)) reasons.push("Recipe, values, policies or CSV changed since the last check — click Check fleet again.");
-    if (fleet.errors.length) reasons.push("Fix the fleet CSV.");
-    const badRows = fleet.rows.filter((x) => x.errors.length || x.policy.length).length;
-    if (badRows) reasons.push(badRows + " row" + (badRows === 1 ? " has" : "s have") + " errors.");
-  }
-  reasons.push(...blockers(r));
-  const ok = !reasons.length && !busy;
-  btn.disabled = !ok;
-  btnText.disabled = !ok;
-  why.textContent = ok
-    ? "Ready to export " + fleet.rows.length + " card" + (fleet.rows.length === 1 ? "" : "s") + "."
-    : fleet
-      ? "Fleet export blocked: " + reasons.join(" · ")
-      : "Use Duplicate switch, or paste a CSV and click Check fleet.";
-  why.style.color = ok ? "var(--ok,#3dd68c)" : "var(--warn)";
-}
-// Old Fleet box on Build (removed in a later step): re-checks the CSV from scratch, then hands
-// the rows to exportSwitchCards. Runs inside run().
-async function exportFleet(textOnly) {
-  const r = current();
-  if (editorPending) throw Error("Apply recipe changes or Discard unapplied draft first.");
-  const gates = blockers(r);
-  if (gates.length) throw Error(gates[0]);
-  const res = checkFleet(r, $("fleetCsv").value);
-  fleet = { ...res, recipeId: r.id, stamp: fleetStamp(r) };
-  renderFleet(fleet);
-  if (res.errors.length || res.rows.some((x) => x.errors.length || x.policy.length)) throw Error("The fleet has errors; nothing was exported.");
-  await exportSwitchCards(r, res.rows, { textOnly });
 }
 // Bulk export of checked switch rows (checkSwitchRows or checkFleet results): asks in the write
 // dialog, then one ZIP per switch plus the manifest, or one text-only ZIP; records each row in the
