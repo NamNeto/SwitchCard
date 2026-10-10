@@ -170,7 +170,9 @@ def test_boot_dialog_blocks_autosave_until_answered(page):
     raw = _seed_old_autosave(page)
     page.reload(wait_until="domcontentloaded")
     page.wait_for_selector("dialog[open]")
-    page.wait_for_timeout(900)  # longer than the autosave debounce
+    # An edit-triggered autosave request while the boot dialog is open must not write.
+    ev(page, "() => touch()")
+    page.wait_for_timeout(800)  # longer than CONFIG.AUTOSAVE_DEBOUNCE_MS (400)
     assert ev(page, "() => bootDone") is False
     assert ev(page, "() => localStorage.getItem(AUTOSAVE_KEY)") == raw
     click_dialog(page, "Restore it")
