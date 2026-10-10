@@ -741,3 +741,35 @@ def test_switches_follow_template_changes(page):
     set_template(orig)
     assert ev(page, "() => !!document.querySelector('#swHead th[data-key=NTP_SERVER]')") is False
     assert ev(page, "() => current().switches[0].values.NTP_SERVER") == "10.0.0.5"
+
+
+def test_switches_team_policy_hit_is_an_error(page):
+    ev(page, """() => { teamPolicies = ['forbid ^hostname A-01$']; current().switches = [
+        { id: 'sw-a', values: { HOSTNAME: 'A-01' }, ports: {} }, { id: 'sw-b', values: { HOSTNAME: 'A-02', MGMT_IP: '192.0.2.77' }, ports: {} }];
+        showView('switches'); }""")
+    status = "#swRows tr[data-row='sw-a'] td.status"
+    assert page.inner_text(status) == "1 error"
+    assert ev(page, "(s) => document.querySelector(s).classList.contains('bad')", status) is True
+    assert "Team policy: forbidden pattern present" in page.get_attribute(status, "title")
+    page.click("#swRows tr[data-row='sw-a'] td.num")
+    assert ev(page, "() => [...$('swChecks').querySelectorAll('li.bad')].some((li) => li.textContent.startsWith('Team policy'))") is True
+    page.wait_for_function("() => $('chipSwitches').textContent === '2 · 1 error'")
+
+
+def test_switches_minor_fixes_role_and_trim(page):
+    ev(page, "() => { current().switches = [{ id: 'sw-a', values: {}, ports: {} }]; showView('switches'); }")
+    page.fill(_sw_input("sw-a", "MGMT_IP"), " 192.0.2.50 ")
+    assert ev(page, "() => current().switches[0].values.MGMT_IP") == "192.0.2.50"
+    page.fill(_sw_input("sw-a", "SITE"), "Plant B ")
+    assert ev(page, "() => current().switches[0].values.SITE") == "Plant B "  # trimmed on change, not while typing
+    base = ev(page, "() => current().ports.find((p) => p.name === 'GigabitEthernet1/2').role")
+    other = "routed" if base != "routed" else "access"
+    ev(page, "() => { openPortsDialog(current().switches[0]); }")
+    page.wait_for_selector("dialog[open]")
+    role = "dialog[open] select[data-port='GigabitEthernet1/2'][data-attr='role']"
+    page.select_option(role, other)
+    assert ev(page, "() => current().switches[0].ports['GigabitEthernet1/2'].role") == other
+    page.select_option(role, base)
+    assert "GigabitEthernet1/2" not in ev(page, "() => current().switches[0].ports")
+    assert ev(page, "(s) => document.querySelector(s).classList.contains('inherit')", role) is True
+    click_dialog(page, "Close")

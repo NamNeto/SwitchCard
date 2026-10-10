@@ -49,7 +49,8 @@ function updateRail() {
   }
   const rows = r.switches || [];
   const res = rows.length ? checkSwitchRows(r, rows) : { rows: [] };
-  const bad = res.rows.filter((x) => x.errors.length).length;
+  // Team-policy hits block export, so they count as errors here too (fail closed).
+  const bad = res.rows.filter((x) => x.errors.length || x.policy.length).length;
   $("chipSwitches").textContent = rows.length + (bad ? " · " + bad + (bad === 1 ? " error" : " errors") : "");
   const up = res.rows.filter((x) => exportState(r, x.host, x.sha256).state === "current").length;
   $("chipCards").textContent = up + " of " + rows.length + " up to date";
@@ -99,12 +100,13 @@ function buildSwitchGrid(cols, rows) {
   $("swRows").replaceChildren(...body);
 }
 // Status text for one checked row: "OK", "OK · 2 notes" or "3 errors"; the title lists them all.
+// Team-policy hits block export, so they count as errors (fail closed).
 function switchStatus(x) {
-  const notes = x.warnings.length + x.policy.length;
-  const n = x.errors.length;
+  const notes = x.warnings.length;
+  const n = x.errors.length + x.policy.length;
   return {
     text: n ? n + (n === 1 ? " error" : " errors") : "OK" + (notes ? " · " + notes + (notes === 1 ? " note" : " notes") : ""),
-    title: [...x.errors, ...x.warnings, ...x.policy.map((p) => "Team policy: " + p)].join("\n"),
+    title: [...x.errors, ...x.policy.map((p) => "Team policy: " + p), ...x.warnings].join("\n"),
     bad: n > 0,
   };
 }
@@ -158,7 +160,7 @@ function renderSwitchPanel(r, x) {
   $("swPanelTitle").textContent = "Switch " + x.n + (x.host ? " · " + x.host : "");
   const items = [
     ...x.findings.map((f) => ({ level: f.level, text: f.text, where: f.where })),
-    ...x.policy.map((p) => ({ level: "warning", text: "Team policy: " + p, where: null })),
+    ...x.policy.map((p) => ({ level: "error", text: "Team policy: " + p, where: null })),
   ];
   // Each check carries its location (data-where) for the clickable checks.
   for (const f of items)
@@ -262,9 +264,10 @@ function openImportDialog() {
     }
     if (parsed && parsed.decodeProblems)
       p("bad", parsed.decodeProblems + (parsed.decodeProblems === 1 ? " cell" : " cells") + " could not be read as UTF-8 — save the CSV as UTF-8.");
+    const btn = (label) => buttons.find((b) => b.textContent === label);
     if (buttons.length) {
-      buttons[1].disabled = !ok || parsed.rows.length > room;
-      buttons[2].disabled = !ok;
+      btn("Add after").disabled = !ok || parsed.rows.length > room;
+      btn("Replace").disabled = !ok;
     }
   };
   file.addEventListener("change", async () => {
@@ -336,14 +339,15 @@ function openPortsDialog(row, focus) {
     const k = ownKey(name);
     return k === undefined ? {} : row.ports[k] || {};
   };
-  const setOwn = (name, attr, value) => {
+  // baseRole: the port table's role; ip/mask go when the resulting role is not Routed.
+  const setOwn = (name, attr, value, baseRole) => {
     if (!row.ports) row.ports = {};
     const found = ownKey(name);
     const k = found === undefined ? name : found;
     const set = { ...(row.ports[k] || {}) };
     if (value === "") delete set[attr];
     else set[attr] = value;
-    if (attr === "role" && value !== "routed") {
+    if (attr === "role" && (value || baseRole) !== "routed") {
       delete set.ip;
       delete set.mask;
     }
@@ -367,8 +371,10 @@ function openPortsDialog(row, focus) {
       if (own.role && !ROLE_NAMES.includes(own.role)) role.append(option(own.role, own.role + " (unknown)"));
       role.value = effRole;
       role.classList.toggle("inherit", !own.role);
+      const baseRole = (r.ports.find((p) => lower(p.name) === lower(name)) || { role: "unused" }).role;
       role.addEventListener("change", () => {
-        setOwn(name, "role", role.value);
+        // Choosing the table's own role follows the table again instead of pinning a copy.
+        setOwn(name, "role", role.value === baseRole ? "" : role.value, baseRole);
         draw({ name, attr: "role" });
         changed();
       });
@@ -447,7 +453,10 @@ function openPortsDialog(row, focus) {
 // --- Switches view wiring ---
 $("swRows").addEventListener("input", (e) => {
   const t = e.target;
-  if (t.matches("input[data-key]")) setSwitchCell(t, cleanInput(t, fieldLabel(t.dataset.key)));
+  if (!t.matches("input[data-key]")) return;
+  // Addresses and numbers are trimmed while typing, as on Build a card.
+  const k = t.dataset.key;
+  setSwitchCell(t, cleanInput(t, fieldLabel(k), /(?:^|_)(?:IP|MASK|VLAN|LOOPBACK)$|^GATEWAY$/.test(k)));
 });
 // Trim when the cell loses focus, not while typing.
 $("swRows").addEventListener("change", (e) => {
