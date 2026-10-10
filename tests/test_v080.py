@@ -1,5 +1,5 @@
 """Tests for v0.8.0: Switches and Cards views, in-page dialogs, clickable checks."""
-from helpers import ev
+from helpers import ev, click_dialog, stub_downloads, downloads
 
 
 def test_every_check_has_a_location_and_strings_are_unchanged(page):
@@ -64,3 +64,51 @@ def test_dialog_kit(page):
     click_dialog(page, "Download")
     assert page.evaluate("() => window.__p") is True
     assert page.evaluate("() => document.querySelectorAll('dialog').length") == 0
+
+
+def _make_draft(page):
+    ev(page, r"""() => { const t = document.getElementById('template');
+        t.value = t.value + '\n! draft'; t.dispatchEvent(new Event('input', { bubbles: true })); }""")
+    assert ev(page, "() => editorPending") is True
+
+
+def test_simple_pop_ups_are_in_page_dialogs(page):
+    native = []
+    page.on("dialog", lambda d: native.append(d.message))
+    # delete recipe: Cancel keeps, confirm deletes
+    n = ev(page, "() => recipes.length")
+    assert n >= 2
+    ev(page, "() => { document.getElementById('deleteRecipe').click(); }")
+    click_dialog(page, "Cancel")
+    page.wait_for_selector("dialog[open]", state="detached")
+    assert ev(page, "() => recipes.length") == n
+    ev(page, "() => { document.getElementById('deleteRecipe').click(); }")
+    click_dialog(page, "Delete recipe")
+    page.wait_for_function("(n) => recipes.length === n - 1", arg=n)
+    # discard draft
+    _make_draft(page)
+    ev(page, "() => { document.getElementById('discardDraft').click(); }")
+    click_dialog(page, "Discard")
+    page.wait_for_function("() => editorPending === false")
+    # save project with an unapplied draft
+    stub_downloads(page)
+    _make_draft(page)
+    ev(page, "() => { document.getElementById('saveProject').click(); }")
+    click_dialog(page, "Save without the draft")
+    page.wait_for_function("() => window.__dl.length === 1")
+    assert downloads(page)[0]["name"].startswith("switchcard-project-")
+    # port CSV replace
+    ev(page, "() => { document.getElementById('portCsv').value = 'something else'; document.getElementById('portCsvFromTable').click(); }")
+    click_dialog(page, "Replace")
+    page.wait_for_function("() => document.getElementById('portCsv').value !== 'something else'")
+    # delete custom SKU preset
+    ev(page, """() => { setCustomSkuPresets({ Mine: ['Gi1/0/1', 'Gi1/0/2'] });
+        const s = document.getElementById('skuPreset'); s.value = 'custom:Mine';
+        document.getElementById('deleteSkuPreset').click(); }""")
+    click_dialog(page, "Delete")
+    page.wait_for_function("() => !Object.hasOwn(customSkuPresets, 'Mine')")
+    # clear autosave
+    ev(page, "() => { autosave(); document.getElementById('clearAutosave').click(); }")
+    click_dialog(page, "Clear")
+    page.wait_for_function("() => Object.keys(localStorage).every((k) => !k.startsWith('switchcard-') || k === CONFIG.LEGACY_AUTOSAVE_READ_KEY)")
+    assert native == []

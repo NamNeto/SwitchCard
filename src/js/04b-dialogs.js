@@ -67,7 +67,7 @@ function infoDialog(title, textOrNode) {
 // Review-before-download gate: the primary action stays disabled until the box is ticked.
 function writeDialog({ title, summary, primary }) {
   const text = String(summary).replace(/\s*Cancel = no download\.\s*$/, "");
-  const check = el("input", { type: "checkbox", id: "dlgReviewed" });
+  const check = el("input", { type: "checkbox" });
   const copy = el("button", {
     type: "button",
     textContent: "Copy summary",
@@ -79,7 +79,7 @@ function writeDialog({ title, summary, primary }) {
   const body = el("div", {},
     el("pre", { className: "dlg-summary", textContent: text }),
     el("p", {}, copy),
-    el("label", { className: "row" }, check, " I reviewed this configuration and the baseline selection."));
+    el("label", {}, check, " I reviewed this configuration and the baseline selection."));
   return showDialog({
     title, body,
     actions: [{ label: "Cancel", value: false }, { label: primary, value: true, primary: true, disabled: true }],
