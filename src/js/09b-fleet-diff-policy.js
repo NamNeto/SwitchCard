@@ -159,17 +159,21 @@ function renderDiffPanel(r, g) {
     return;
   }
   panel.hidden = false;
-  const out = $("diffOut");
+  fillDiff($("diffSummary"), $("diffOut"), prev, g.text);
+}
+// Fills a summary line and a <pre> with the diff of one export-history entry against `text`
+// (Build's panel and the Switches side panel).
+function fillDiff(summary, out, prev, text) {
   out.replaceChildren();
   const when = " (" + formatSavedAt(prev.at) + ", v" + prev.release + ")";
-  if (prev.text === g.text) {
-    $("diffSummary").textContent = "Identical to the last export for " + prev.host + when;
+  if (prev.text === text) {
+    summary.textContent = "Identical to the last export for " + prev.host + when;
     out.textContent = "No differences.";
     return;
   }
-  const ops = lineDiff(prev.text, g.text);
+  const ops = lineDiff(prev.text, text);
   if (!ops) {
-    $("diffSummary").textContent = "Changed since the last export for " + prev.host + when;
+    summary.textContent = "Changed since the last export for " + prev.host + when;
     out.textContent = "Too large to diff here; compare the SHA-256 values instead (last export " + prev.sha256.slice(0, 16) + "…).";
     return;
   }
@@ -198,7 +202,7 @@ function renderDiffPanel(r, g) {
     last = i;
   });
   out.append(frag);
-  $("diffSummary").textContent = "Changes since the last export for " + prev.host + when + " · +" + added + " / -" + removed + " lines";
+  summary.textContent = "Changes since the last export for " + prev.host + when + " · +" + added + " / -" + removed + " lines";
 }
 
 // --- Baseline fingerprints: per-file SHA-256 plus one digest over the sorted list ---
@@ -418,12 +422,17 @@ function renderFleetColumns() {
   const line = $("fleetColumns"),
     box = $("fleetCsv");
   if (!line || !box) return;
-  const ex = fleetCsvExample(current());
+  const ex = fillFleetColumnsLine(line, current());
+  if (box.placeholder !== ex.text) box.placeholder = ex.text;
+}
+// Writes the "Columns for this recipe: …" line into `line` (fleet box and the Import CSV dialog);
+// returns fleetCsvExample(r) for the box's grey example.
+function fillFleetColumnsLine(line, r) {
+  const ex = fleetCsvExample(r);
   line.replaceChildren();
   if (!ex.columns.length) {
     line.textContent = "This recipe has no per-switch fields, so every card in a fleet would be the same.";
-    box.placeholder = "";
-    return;
+    return ex;
   }
   line.append("Columns for this recipe: ");
   ex.columns.forEach((c, i) => {
@@ -435,15 +444,14 @@ function renderFleetColumns() {
   line.append(
     ". The header row names the columns you set per switch; a column you leave out, or an empty cell, takes the value from Device details.",
   );
-  const r0 = current();
-  const firstPort = (r0.interfaces || [])[0];
-  if (firstPort && keys(r0.template || "").includes("PORTS")) {
+  const firstPort = (r.interfaces || [])[0];
+  if (firstPort && keys(r.template || "").includes("PORTS")) {
     line.append(" Port columns set one switch's ports: the interface plus description, role, vlan, ip or mask, for example ");
     const code = document.createElement("code");
     code.textContent = firstPort + " description";
     line.append(code, ". An empty cell keeps the port table.");
   }
-  if (box.placeholder !== ex.text) box.placeholder = ex.text;
+  return ex;
 }
 // --- Port values from CSV (v0.7.2): shared by the fleet CSV and the port CSV on the page ---
 const PORT_ATTRS = Object.freeze(["role", "vlan", "description", "ip", "mask"]);

@@ -471,7 +471,7 @@ button:disabled {
 }
 .row > * {
   flex: 1;
-  min-width: 110px;
+  min-width: 96px;
 }
 .row button,
 .row .filebutton {
@@ -1101,4 +1101,117 @@ button.primary.danger {
   border-radius: var(--radius-sm);
   white-space: pre-wrap;
   font-size: 0.85rem;
+}
+
+/* --- v0.8.0: Switches view (grid, side panel, Ports and Import dialogs) --- */
+.sw-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+.sw-add,
+.sw-template {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+#swCount {
+  width: 80px;
+}
+.sw-template select {
+  width: auto;
+}
+.sw-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  gap: calc(var(--space) * 2);
+  align-items: start;
+  margin-top: calc(var(--space) * 2);
+}
+#swTable td input {
+  min-width: 96px;
+}
+#swTable input.inherit::placeholder {
+  color: var(--faint);
+  font-style: italic;
+}
+#swTable tr.defaults td {
+  color: var(--muted);
+  background: var(--thead-bg);
+  font-size: 12.5px;
+  font-style: italic;
+}
+#swTable tr.selected {
+  background: var(--accent-glow);
+}
+#swTable td.num {
+  color: var(--muted);
+  font-size: 12px;
+}
+#swTable td.status {
+  white-space: nowrap;
+  font-size: 12.5px;
+}
+#swTable td.status.ok,
+.sw-checks li.ok {
+  color: var(--ok);
+}
+#swTable td.status.bad,
+.sw-checks li.bad,
+.sw-import-summary .bad {
+  color: var(--err);
+}
+.sw-checks li.warn,
+.sw-import-summary .warn {
+  color: var(--warn);
+}
+#swPanel {
+  position: sticky;
+  top: 12px;
+}
+.sw-checks {
+  margin: 0 0 10px;
+  padding-left: 18px;
+  font-size: 13px;
+}
+#swPreview {
+  max-height: 420px;
+  font-size: 12px;
+}
+.sw-import-summary p {
+  margin: 4px 0;
+  font-size: 13px;
+}
+dialog.dlg.dlg-wide {
+  max-width: min(1040px, 96vw);
+}
+dialog.dlg textarea {
+  width: 100%;
+}
+.sw-ports-table select.inherit,
+.sw-ports-table input.inherit::placeholder {
+  color: var(--faint);
+}
+.sw-unknown button {
+  margin-left: 6px;
+}
+@media (max-width: 1200px) {
+  .sw-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  #swPanel {
+    position: static;
+  }
+}
+#swTable td,
+#swTable th {
+  padding: 6px 5px;
+}
+.sw-ports-table select {
+  min-width: 108px;
+}
+#swTable td input[data-key="HOSTNAME"] {
+  min-width: 150px;
 }

@@ -195,15 +195,21 @@ $("insertFleetTemplate").onclick = () => {
     "CSV template inserted: " + t.columns.length + " columns, row 1 is the switch on this page. Add one row per switch below it (or copy it into a spreadsheet), then click Check fleet.",
   );
 };
+// File-name part for a recipe's CSV downloads.
+function csvFileStem(r) {
+  return String(r.name || "recipe").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 60);
+}
+// A byte-order mark makes Excel read the file as UTF-8; SwitchCard ignores it when loading.
+function downloadCsv(text, name) {
+  download(new Blob(["\uFEFF" + text.replace(/\n/g, "\r\n")], { type: "text/csv;charset=utf-8" }), name);
+}
 $("downloadFleetTemplate").onclick = () => {
   const t = currentFleetTemplate();
   if (!t.text) {
     message("This recipe has no per-switch fields or ports to put in a CSV.");
     return;
   }
-  const safe = String(current().name || "recipe").replace(/[^A-Za-z0-9_-]+/g, "_").slice(0, 60);
-  // A byte-order mark makes Excel read the file as UTF-8; SwitchCard ignores it when loading.
-  download(new Blob(["\uFEFF" + t.text.replace(/\n/g, "\r\n")], { type: "text/csv;charset=utf-8" }), "switchcard-fleet-template-" + safe + ".csv");
+  downloadCsv(t.text, "switchcard-fleet-template-" + csvFileStem(current()) + ".csv");
   message("CSV template downloaded (" + t.columns.length + " columns, row 1 is this switch). Fill one row per switch, then Load CSV file and Check fleet.");
 };
 $("fleetCount").addEventListener("keydown", (e) => {

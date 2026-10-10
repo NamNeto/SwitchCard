@@ -555,3 +555,189 @@ def test_rail_switches_views_and_locks_with_a_draft(page):
     assert ev(page, "() => $('maintain').hidden") is False
     ev(page, "() => { editorPending = false; }")
     assert ev(page, "() => showView('build')") is True
+
+
+def _sw_input(row_id, key):
+    return '#swRows input[data-row="%s"][data-key="%s"]' % (row_id, key)
+
+
+def test_switches_grid_add_edit_inherit_keeps_focus(page):
+    ev(page, "() => showView('switches')")
+    assert ev(page, "() => $('viewTitle').textContent") == "Switches"
+    assert "Device details" in ev(page, "() => $('viewSubtitle').textContent")
+    assert "Example site" in ev(page, "() => $('swRows').querySelector('tr.defaults').textContent")
+    page.fill("#swCount", "3")
+    page.click("#swAdd")
+    ids = ev(page, "() => current().switches.map((x) => x.id)")
+    assert len(ids) == 3
+    sel = _sw_input(ids[1], "SITE")
+    ev(page, """(s) => { document.querySelector(s).__mark = 1;
+        document.querySelectorAll('#swRows td.status').forEach((t) => { t.textContent = 'stale'; }); }""", sel)
+    page.click(sel)
+    page.keyboard.type("Plant B")
+    act = ev(page, "() => { const a = document.activeElement; return [a.__mark, a.dataset.row, a.dataset.key, a.value]; }")
+    assert act == [1, ids[1], "SITE", "Plant B"]
+    assert ev(page, "() => current().switches[1].values.SITE") == "Plant B"
+    st = ev(page, "() => [...document.querySelectorAll('#swRows td.status')].map((t) => t.textContent)")
+    assert len(st) == 3 and all(s.startswith("OK") for s in st), st
+    cells = ev(page, """(ids) => ids.map((id) => { const i = document.querySelector('#swRows input[data-row="' + id + '"][data-key="SITE"]');
+        return [i.placeholder, i.classList.contains('inherit'), i.value]; })""", ids)
+    assert cells[0] == ["Example site", True, ""] and cells[2] == ["Example site", True, ""]
+    assert cells[1][1] is False
+    assert ev(page, "() => swSelectedId") == ids[1]
+    assert "Site: Plant B" in ev(page, "() => $('swPreview').textContent")
+    # Arrow Down / Enter / Arrow Up move within the column
+    page.keyboard.press("ArrowDown")
+    assert ev(page, "() => [document.activeElement.dataset.row, document.activeElement.dataset.key]") == [ids[2], "SITE"]
+    page.keyboard.press("ArrowUp")
+    page.keyboard.press("ArrowUp")
+    assert ev(page, "() => document.activeElement.dataset.row") == ids[0]
+    page.keyboard.press("Enter")
+    assert ev(page, "() => document.activeElement.dataset.row") == ids[1]
+    # change trims; clearing a cell deletes the value
+    page.fill(sel, "  ")
+    page.keyboard.press("Tab")
+    assert "SITE" not in ev(page, "() => current().switches[1].values")
+    assert page.problems == []
+
+
+def test_switches_duplicate_flagged_and_cleared(page):
+    ev(page, "() => { current().switches = []; showView('switches'); }")
+    page.fill("#swCount", "2")
+    page.click("#swAdd")
+    ids = ev(page, "() => current().switches.map((x) => x.id)")
+    host1 = ev(page, "() => current().switches[0].values.HOSTNAME")
+    page.fill(_sw_input(ids[1], "HOSTNAME"), host1)
+    status = "#swRows tr[data-row='%s'] td.status" % ids[1]
+    assert "duplicate HOSTNAME" in page.get_attribute(status, "title")
+    assert page.inner_text(status) == "1 error"
+    page.fill(_sw_input(ids[1], "HOSTNAME"), "SW-OTHER-07")
+    # the example recipe carries one soft note (no enable secret), so OK shows "OK · 1 note"
+    assert page.inner_text(status) in ("OK", "OK · 1 note")
+    assert "duplicate" not in page.get_attribute(status, "title")
+    # Copy makes an exact copy (flagged), Remove asks first
+    page.click("#swRows tr[data-row='%s'] button.sw-copy" % ids[1])
+    rows = ev(page, "() => current().switches")
+    assert len(rows) == 3 and rows[2]["values"] == rows[1]["values"] and rows[2]["id"] not in ids
+    assert "duplicate HOSTNAME" in page.get_attribute("#swRows tr[data-row='%s'] td.status" % rows[2]["id"], "title")
+    page.click("#swRows tr[data-row='%s'] button.sw-remove" % rows[2]["id"])
+    click_dialog(page, "Cancel")
+    assert ev(page, "() => current().switches.length") == 3
+    page.click("#swRows tr[data-row='%s'] button.sw-remove" % rows[2]["id"])
+    click_dialog(page, "Remove")
+    page.wait_for_function("() => current().switches.length === 2")
+    page.click("#swRemoveAll")
+    click_dialog(page, "Remove all")
+    page.wait_for_function("() => current().switches.length === 0")
+    assert ev(page, "() => $('swEmpty').hidden") is False
+
+
+def test_switches_add_counted_up_error_adds_nothing(page):
+    ev(page, "() => { current().values.HOSTNAME = 'NO-NUMBER'; current().switches = []; showView('switches'); }")
+    page.fill("#swCount", "3")
+    page.click("#swAdd")
+    assert ev(page, "() => current().switches.length") == 0
+    assert "does not end in a number" in ev(page, "() => $('status').textContent")
+
+
+def test_import_dialog_replace_add_and_decode_warning(page):
+    ev(page, "() => showView('switches')")
+    page.click("#swImport")
+    page.wait_for_selector("dialog[open]")
+    assert "Columns for this recipe" in page.inner_text("dialog[open]")
+    assert "HOSTNAME" in ev(page, "() => document.querySelector('dialog[open] textarea').placeholder")
+    page.set_input_files("dialog[open] input[type=file]",
+                         {"name": "a.csv", "mimeType": "text/csv", "buffer": b"HOSTNAME,SITE\nA-01,M\xfcnchen\n"})
+    page.wait_for_function("() => document.querySelector('dialog[open]').textContent.includes('could not be read as UTF-8')")
+    assert "1 cell" in page.inner_text("dialog[open]")
+    # errors disable Replace / Add after
+    page.fill("dialog[open] textarea", "foo bar\n1\n")
+    assert ev(page, "() => [...document.querySelectorAll('dialog[open] .dialog-actions button')].filter((b) => b.disabled).length") == 2
+    page.fill("dialog[open] textarea", "HOSTNAME,SITE,NOPE,Gi1/3 description\nA-01,Plant,x,uplink\nA-02,,,\n")
+    text = page.inner_text("dialog[open]")
+    assert "2 rows" in text and "NOPE" in text and "GigabitEthernet1/3 description" in text
+    click_dialog(page, "Replace")
+    rows = ev(page, "() => current().switches")
+    assert [r["values"] for r in rows] == [{"HOSTNAME": "A-01", "SITE": "Plant"}, {"HOSTNAME": "A-02"}]
+    assert rows[0]["ports"] == {"GigabitEthernet1/3": {"description": "uplink"}} and rows[1]["ports"] == {}
+    assert ev(page, "() => document.querySelectorAll('#swRows tr[data-row]').length") == 2
+    page.click("#swImport")
+    page.wait_for_selector("dialog[open]")
+    page.click("dialog[open] button:text-is('Start from template')")
+    assert ev(page, "() => document.querySelector('dialog[open] textarea').value").startswith("HOSTNAME,")
+    page.fill("dialog[open] textarea", "HOSTNAME\nA-03\n")
+    click_dialog(page, "Add after")
+    assert ev(page, "() => current().switches.map((x) => x.values.HOSTNAME)") == ["A-01", "A-02", "A-03"]
+    # Export CSV and CSV template downloads (BOM + CRLF)
+    stub_downloads(page)
+    # Blob.text() drops a UTF-8 byte-order mark, so record the first bytes as well
+    ev(page, """() => { const inner = download; window.__bom = [];
+        download = (blob, name) => { window.__dlPending.push(blob.slice(0, 3).arrayBuffer().then((b) => window.__bom.push([...new Uint8Array(b)])));
+          inner(blob, name); }; }""")
+    page.click("#swExport")
+    page.select_option("#swTemplateMode", "none")
+    page.click("#swTemplate")
+    d = downloads(page)
+    assert ev(page, "() => window.__bom") == [[0xEF, 0xBB, 0xBF]] * 2
+    assert d[0]["name"].startswith("switchcard-switches-") and d[0]["name"].endswith(".csv")
+    assert d[0]["text"].startswith("HOSTNAME,") and "\r\nA-01," in d[0]["text"]
+    assert "GigabitEthernet1/3 description" in d[0]["text"].split("\r\n")[0]
+    assert d[1]["name"].startswith("switchcard-fleet-template-")
+    assert d[1]["text"].startswith("HOSTNAME,") and "description" not in d[1]["text"]
+
+
+def test_ports_dialog_overrides_and_use_table(page):
+    ev(page, """() => { current().switches = [{ id: 'sw-a', values: { HOSTNAME: 'A-01' }, ports: { 'Gi9/9': { description: 'x' } } }];
+        showView('switches'); }""")
+    page.click("#swRows tr[data-row='sw-a'] button.sw-ports")
+    page.wait_for_selector("dialog[open]")
+    dlg = "dialog[open] "
+    assert "Gi9/9" in page.inner_text("dialog[open]")
+    desc = dlg + "input[data-port='GigabitEthernet1/3'][data-attr='description']"
+    base = ev(page, "() => current().ports.find((p) => p.name === 'GigabitEthernet1/3')")
+    assert page.get_attribute(desc, "placeholder") == base["description"]
+    assert ev(page, "(s) => document.querySelector(s).classList.contains('inherit')", desc) is True
+    page.fill(desc, "own text")
+    assert ev(page, "() => current().switches[0].ports['GigabitEthernet1/3']") == {"description": "own text"}
+    role = dlg + "select[data-port='GigabitEthernet1/2'][data-attr='role']"
+    assert ev(page, "(s) => document.querySelector(s).classList.contains('inherit')", role) is True
+    page.select_option(role, "routed")
+    ip = dlg + "input[data-port='GigabitEthernet1/2'][data-attr='ip']"
+    mask = dlg + "input[data-port='GigabitEthernet1/2'][data-attr='mask']"
+    page.fill(ip, "10.9.9.1")
+    page.fill(mask, "255.255.255.252")
+    assert ev(page, "() => current().switches[0].ports['GigabitEthernet1/2']") == {"role": "routed", "ip": "10.9.9.1", "mask": "255.255.255.252"}
+    page.select_option(role, "access")
+    assert ev(page, "() => current().switches[0].ports['GigabitEthernet1/2']") == {"role": "access"}
+    assert ev(page, "(s) => document.querySelector(s).disabled", ip) is True
+    page.click(dlg + "button.use-table[data-port='GigabitEthernet1/2']")
+    assert "GigabitEthernet1/2" not in ev(page, "() => current().switches[0].ports")
+    page.click(dlg + "button.remove-unknown[data-port='Gi9/9']")
+    assert ev(page, "() => current().switches[0].ports") == {"GigabitEthernet1/3": {"description": "own text"}}
+    click_dialog(page, "Close")
+    assert page.inner_text("#swRows tr[data-row='sw-a'] button.sw-ports") == "1 set"
+    # focus option
+    ev(page, "() => { openPortsDialog(current().switches[0], { name: 'GigabitEthernet1/3', attr: 'vlan' }); }")
+    page.wait_for_selector("dialog[open]")
+    assert ev(page, "() => [document.activeElement.dataset.port, document.activeElement.dataset.attr]") == ["GigabitEthernet1/3", "vlan"]
+    click_dialog(page, "Close")
+
+
+def test_switches_follow_template_changes(page):
+    ev(page, """() => { current().switches = [{ id: 'sw-a', values: { HOSTNAME: 'A-01', NTP_SERVER: '10.0.0.5' }, ports: {} }];
+        showView('switches'); }""")
+    assert ev(page, "() => !!document.querySelector('#swHead th[data-key=NTP_SERVER]')") is False
+
+    def set_template(t):
+        ev(page, """(t) => { showView('manage'); const el = document.getElementById('template'); el.value = t;
+            el.dispatchEvent(new Event('input', { bubbles: true })); document.getElementById('applyRecipe').click(); }""", t)
+        page.wait_for_function("() => !editorPending")
+        ev(page, "() => showView('switches')")
+
+    orig = ev(page, "() => current().template")
+    set_template(orig.replace("\nend\n", "\nntp server {{NTP_SERVER}}\nend\n"))
+    assert ev(page, "() => document.querySelector('#swHead th[data-key=NTP_SERVER]').textContent") == "NTP SERVER"
+    assert page.input_value(_sw_input("sw-a", "NTP_SERVER")) == "10.0.0.5"
+    set_template(orig)
+    assert ev(page, "() => !!document.querySelector('#swHead th[data-key=NTP_SERVER]')") is False
+    assert ev(page, "() => current().switches[0].values.NTP_SERVER") == "10.0.0.5"
