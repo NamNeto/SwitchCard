@@ -1069,6 +1069,10 @@
         max-height: 60vh;
         overflow: auto;
       }
+      /* Plain-text bodies (confirmDialog / infoDialog) keep their line breaks, e.g. port lists. */
+      .dialog-body > p {
+        white-space: pre-line;
+      }
       .dialog-actions {
         display: flex;
         justify-content: flex-end;
@@ -1767,7 +1771,8 @@
                                                    export history + line diff, team policy rules,
                                                    baseline fingerprints, interface-brief parsing,
                                                    transliteration, theme
-          11. Event wiring + boot                   button handlers, export, autosave restore at load
+          11. Event wiring + boot                   button handlers, export (src/js/10-*.js); boot and
+                                                    the awaited autosave restore (src/js/11-boot.js)
 
          SAFETY INVARIANTS (keep these true when changing anything)
            - The preview text IS the ZIP's editcontent.txt (same string, same bytes, CRLF).
@@ -2548,7 +2553,7 @@
         }
       }
       // Returns null (nothing stored) or { status: "restored"|"declined"|"failed", ... }
-      function restoreAutosave() {
+      async function restoreAutosave() {
         let raw = null,
           key = AUTOSAVE_KEY;
         try {
@@ -2571,7 +2576,7 @@
         if (!raw) return null;
         return restoreAutosaveRaw(raw, key, { fromBackup: false });
       }
-      function restoreAutosaveRaw(raw, key, opts) {
+      async function restoreAutosaveRaw(raw, key, opts) {
         const fromBackup = !!(opts && opts.fromBackup);
         const fail = (status, reason) => {
           const backedUp = fromBackup ? true : backupAutosave(raw, key, reason);
@@ -2596,21 +2601,22 @@
           key,
         };
         if (meta.release !== RELEASE) {
-          const ok = window.confirm(
+          const ok = await confirmDialog(
+            "Restore an autosave from v" + meta.release + "?",
             "Found a browser autosave from SwitchCard v" +
               meta.release +
               (meta.savedAt ? ", saved " + formatSavedAt(meta.savedAt) : "") +
               (key !== AUTOSAVE_KEY ? " (older storage key " + key + ")" : "") +
               ".\nThis page is v" +
               RELEASE +
-              ".\n\nOK = restore it (fully validated and migrated).\n" +
-              (fromBackup ? "Cancel = keep the current workspace, autosave and backup unchanged." : "Cancel = keep a backup copy and start with the example recipes."),
+              ".",
+            { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples" },
           );
           if (!ok) return fail("declined", "you chose not to restore data saved by v" + meta.release);
         }
         // Ask before dropping port assignments whose interface no longer exists. Cancel keeps the
         // stored autosave intact (backed up; nothing is overwritten).
-        if (!confirmAndDropUnmatchedPorts(parsed.p.recipes, "autosave restore"))
+        if (!(await confirmAndDropUnmatchedPorts(parsed.p.recipes, "autosave restore")))
           return fail("declined", "unmatched port assignments were not accepted");
         const result = { status: "restored", ...parsed, meta, key, fromBackup,
           migrationNotes: parsed.p._migrationNotes.slice() };
@@ -2672,7 +2678,7 @@
         } catch (e) {}
         return raw;
       }
-      function restoreSelectedBackup() {
+      async function restoreSelectedBackup() {
         // Restores the selected backup and keeps the current workspace (with any unapplied draft) as
         // a backup in its place. Order matters: validate and confirm first, then write the backup
         // list, then the current autosave; memory changes only after both writes succeeded.
@@ -2687,9 +2693,9 @@
           entries = loadAutosaveBackups(true);
           const b = entries[slot];
           if (!b) throw Error("No autosave backup found.");
-          result = restoreAutosaveRaw(b.raw, b.from || "backup", { fromBackup: true, prepareOnly: true });
+          result = await restoreAutosaveRaw(b.raw, b.from || "backup", { fromBackup: true, prepareOnly: true });
           if (result.status !== "restored") throw Error(result.reason);
-          if (!confirmReplaceUnsavedWork("autosave backup")) throw Error("you cancelled");
+          if (!(await confirmReplaceUnsavedWork("autosave backup"))) throw Error("you cancelled");
           const stored = localStorage.getItem(AUTOSAVE_KEY);
           const live = autosavePayload();
           // If the stored autosave differs from what is on screen, keep its exact bytes too.
@@ -2959,7 +2965,7 @@
         return lines;
       }
       // Confirms before permanently dropping unmatched ports on load/restore. Returns false if cancelled.
-      function confirmAndDropUnmatchedPorts(recipeList, actionLabel) {
+      async function confirmAndDropUnmatchedPorts(recipeList, actionLabel) {
         const lines = collectRecipePortDropLines(recipeList);
         if (!lines.length) {
           for (const r of recipeList || []) normalizePorts(r, { allowDrop: true });
@@ -2972,7 +2978,8 @@
           lines.join("\n") +
           "\n\nSurvivors keep roles by interface name; new interfaces get defaults. " +
           "Cancel keeps the previous workspace / skips restore.";
-        if (!window.confirm(msg)) return false;
+        if (!(await confirmDialog("Drop unmatched port assignments?", msg, { ok: "Drop and continue", danger: true })))
+          return false;
         for (const r of recipeList || []) normalizePorts(r, { allowDrop: true });
         return true;
       }
@@ -4385,7 +4392,7 @@
           .map((x) => x.trim())
           .filter(Boolean);
       }
-      function applyRecipe() {
+      async function applyRecipe() {
         const r = current(),
           names = lines($("interfaces").value),
           template = $("template").value,
@@ -4466,10 +4473,12 @@
         const dropMsg = formatPortRemapReport(remapPreview);
         if (dropMsg) {
           if (
-            !window.confirm(
+            !(await confirmDialog(
+              "Drop unmatched port assignments?",
               dropMsg +
                 "\n\nContinue Apply? Surviving ports keep their roles by name; new ports get defaults (first=Trunk).",
-            )
+              { ok: "Drop and apply", danger: true },
+            ))
           )
             throw Error("Apply cancelled — interface list not changed.");
         }
@@ -4887,12 +4896,12 @@
         }
         return p;
       }
-      function acceptProject(p, b, restoredFile = null) {
+      async function acceptProject(p, b, restoredFile = null) {
         // Caller must validateProject first. Do not re-validate here — a second pass
         // would clear _migrationNotes after legacy CLI was already migrated.
         const notes = Array.isArray(p._migrationNotes) ? p._migrationNotes.slice() : [];
         // Never silently drop unmatched ports on open/package load.
-        if (!confirmAndDropUnmatchedPorts(p.recipes, "open"))
+        if (!(await confirmAndDropUnmatchedPorts(p.recipes, "open")))
           throw Error("Open cancelled — unmatched port assignments were not accepted.");
         recipes = p.recipes;
         active = recipes.some((r) => r.id === p.active) ? p.active : recipes[0].id;
@@ -4916,14 +4925,16 @@
         scheduleAutosave();
         return notes;
       }
-      function confirmReplaceUnsavedWork(kind) {
+      async function confirmReplaceUnsavedWork(kind) {
         if (!(dirty || editorPending)) return true;
-        return window.confirm(
+        return confirmDialog(
+          "Replace the current workspace?",
           "You have unsaved changes" +
             (editorPending ? " (including an unapplied Maintain draft)" : "") +
             ". Opening this " +
             (kind || "file") +
             " will replace the current workspace. Continue?",
+          { ok: "Open and replace" },
         );
       }
       function assertProjectSaveSize(payload) {
@@ -6110,7 +6121,7 @@
         }
         return out;
       }
-      // --- Event wiring (buttons, inputs) and boot sequence (end of file) ---
+      // --- Event wiring (buttons, inputs); the boot sequence is in 11-boot.js ---
       $("buildTab").onclick = () => tab(false);
       $("maintainTab").onclick = () => tab(true);
       $("setup").onclick = () => tab(true);
@@ -6571,9 +6582,9 @@
           renderAll();
           loadEditor();
         };
-      $("applyRecipe").onclick = () => {
+      $("applyRecipe").onclick = async () => {
         try {
-          applyRecipe();
+          await applyRecipe();
         } catch (e) {
           message(e.message);
         }
@@ -6902,7 +6913,7 @@
           if (!f) return;
           try {
             if (f.size > MAX_PROJECT_BYTES) throw Error("Project file is too large.");
-            if (!confirmReplaceUnsavedWork("project")) {
+            if (!(await confirmReplaceUnsavedWork("project"))) {
               message("Open project cancelled — current workspace kept.");
               return;
             }
@@ -6915,7 +6926,7 @@
             }
             // Accept an autosave / autosave-backup download too (project inside a wrapper)
             const restoredFile = parseWorkspaceFile(parsed);
-            const notes = acceptProject(restoredFile.p, null, restoredFile);
+            const notes = await acceptProject(restoredFile.p, null, restoredFile);
             let msg =
               "Project opened. Reload its baseline folder or open a team package to include firmware.";
             if (restoredFile.draft) msg += " Unapplied Maintain draft restored into the editor; Apply or Discard before export.";
@@ -6950,7 +6961,7 @@
           const f = $("packageInput").files[0];
           if (!f) return;
           try {
-            if (!confirmReplaceUnsavedWork("team package")) {
+            if (!(await confirmReplaceUnsavedWork("team package"))) {
               message("Open team package cancelled — current workspace kept.");
               return;
             }
@@ -6979,7 +6990,7 @@
               throw Error(
                 "The package's baseline files do not match the fingerprint in its manifest (" + p.baseline.fingerprint.fileCount + " files recorded, " + fingerprint.fileCount + " found). It was altered after Save team package; rebuild it from the original workspace.",
               );
-            const notes = acceptProject(p, { ...p.baseline, files: baseFiles, fingerprint });
+            const notes = await acceptProject(p, { ...p.baseline, files: baseFiles, fingerprint });
             let msg =
               "Team package opened. Baseline integrity checked (complete sync export). Select a recipe to prepare a card.";
             if (notes && notes.length) msg += " Migration notes: " + notes.join(" ");
@@ -7054,30 +7065,54 @@
           message(msg);
         }
       }
-      applyTheme(loadThemePref());
-      customSkuPresets = loadCustomSkuPresetsFromLocal();
-      const restored = restoreAutosave();
-      showOnboarding();
-      renderAll();
-      loadEditor();
-      if (restored && restored.status === "restored") {
-        applyRestoredResult(restored, "autosave");
-        // One-time legacy import: write the current key now so the old key is never needed again.
-        if (restored.key !== AUTOSAVE_KEY) autosave();
-      } else if (restored) {
-        // Never silently discard: explain, keep a backup, and do not overwrite.
-        message(
-          "Browser autosave was NOT restored: " +
-            String(restored.reason).replace(/\.+$/, "") +
-            ". " +
-            (restored.backedUp
-              ? "A copy was kept as an autosave backup (Save your work → Browser autosave → Restore / Download autosave backup)."
-              : "The backup copy could not be written, so autosave is paused to avoid overwriting it — use Save project, or Clear browser autosave to resume.") +
-            " Showing the example recipes.",
-        );
-        if (autosavePaused) setAutosaveHint("paused");
-      }
-      refreshBackupButtons();
+      // --- Boot sequence (sorts last: runs after all wiring) ---
+      // The examples render first; the autosave restore then awaits its in-page dialogs.
+      // Tests (and anything else) wait for bootDone before touching the page.
+      let bootDone = false;
+      (async () => {
+        try {
+          applyTheme(loadThemePref());
+          customSkuPresets = loadCustomSkuPresetsFromLocal();
+          showOnboarding();
+          renderAll();
+          loadEditor();
+          // No autosave write while a boot dialog is open: the stored autosave stays byte-for-byte
+          // as found until the user answers. Afterwards the previous state comes back, unless the
+          // restore paused autosave itself (declined/failed and the backup copy could not be written).
+          const pausedBeforeBoot = autosavePaused;
+          autosavePaused = true;
+          let restored = null;
+          try {
+            restored = await restoreAutosave();
+          } finally {
+            autosavePaused =
+              pausedBeforeBoot ||
+              !!(restored && restored.status !== "restored" && restored.fromBackup === false && !restored.backedUp);
+          }
+          renderAll();
+          loadEditor();
+          if (restored && restored.status === "restored") {
+            applyRestoredResult(restored, "autosave");
+            // One-time legacy import: write the current key now so the old key is never needed again.
+            if (restored.key !== AUTOSAVE_KEY) autosave();
+          } else if (restored) {
+            // Never silently discard: explain, keep a backup, and do not overwrite.
+            message(
+              "Browser autosave was NOT restored: " +
+                String(restored.reason).replace(/\.+$/, "") +
+                ". " +
+                (restored.backedUp
+                  ? "A copy was kept as an autosave backup (Save your work → Browser autosave → Restore / Download autosave backup)."
+                  : "The backup copy could not be written, so autosave is paused to avoid overwriting it — use Save project, or Clear browser autosave to resume.") +
+                " Showing the example recipes.",
+            );
+            if (autosavePaused) setAutosaveHint("paused");
+          }
+          refreshBackupButtons();
+        } finally {
+          bootDone = true;
+        }
+      })();
     </script>
   </body>
 </html>

@@ -112,3 +112,87 @@ def test_simple_pop_ups_are_in_page_dialogs(page):
     click_dialog(page, "Clear")
     page.wait_for_function("() => Object.keys(localStorage).every((k) => !k.startsWith('switchcard-') || k === CONFIG.LEGACY_AUTOSAVE_READ_KEY)")
     assert native == []
+
+
+def test_apply_drop_dialog_cancel_and_accept(page):
+    native = []
+    page.on("dialog", lambda d: native.append(d.message))
+    before = ev(page, "() => current().interfaces.slice()")
+    assert len(before) > 2
+    two = "\n".join(before[:2])
+
+    def edit_and_apply():
+        ev(page, """(v) => { const t = document.getElementById('interfaces'); t.value = v;
+            t.dispatchEvent(new Event('input', { bubbles: true }));
+            document.getElementById('applyRecipe').click(); }""", two)
+
+    edit_and_apply()
+    text = click_dialog(page, "Cancel")
+    assert "Continue Apply?" in text
+    page.wait_for_function("() => document.getElementById('status').textContent.includes('Apply cancelled')")
+    assert ev(page, "() => current().interfaces") == before
+    edit_and_apply()
+    click_dialog(page, "Drop and apply")
+    page.wait_for_function("() => current().ports.length === 2")
+    assert ev(page, "() => current().interfaces") == before[:2]
+    assert native == []
+
+
+def _seed_old_autosave(page, name="Seeded recipe"):
+    # RELEASE is still 0.7.3 on this branch, so an older release triggers the version dialog.
+    return ev(page, """(name) => { const p = JSON.parse(JSON.stringify(projectPayload()));
+        p.recipes[0].name = name;
+        const raw = JSON.stringify({ format: CONFIG.AUTOSAVE_FORMAT, release: '0.7.2',
+            savedAt: new Date().toISOString(), project: p, draft: null });
+        localStorage.setItem(AUTOSAVE_KEY, raw); return raw; }""", name)
+
+
+def test_boot_restore_dialog_for_other_version(page):
+    native = []
+    page.on("dialog", lambda d: native.append(d.message))
+    _seed_old_autosave(page)
+    page.reload(wait_until="domcontentloaded")
+    text = click_dialog(page, "Restore it")
+    assert text.startswith("Restore an autosave from v0.7.2?")
+    page.wait_for_function("bootDone === true")
+    assert ev(page, "() => recipes.some((r) => r.name === 'Seeded recipe')")
+    _seed_old_autosave(page, "Second seed")
+    page.reload(wait_until="domcontentloaded")
+    click_dialog(page, "Start with the examples")
+    page.wait_for_function("bootDone === true")
+    assert ev(page, "() => recipes.length") == 4
+    assert not ev(page, "() => recipes.some((r) => r.name === 'Second seed')")
+    assert ev(page, "() => listAutosaveBackups().length") >= 1
+    assert native == []
+
+
+def test_boot_dialog_blocks_autosave_until_answered(page):
+    raw = _seed_old_autosave(page)
+    page.reload(wait_until="domcontentloaded")
+    page.wait_for_selector("dialog[open]")
+    page.wait_for_timeout(900)  # longer than the autosave debounce
+    assert ev(page, "() => bootDone") is False
+    assert ev(page, "() => localStorage.getItem(AUTOSAVE_KEY)") == raw
+    click_dialog(page, "Restore it")
+    page.wait_for_function("bootDone === true")
+    assert ev(page, "() => autosavePaused") is False
+
+
+def test_open_project_over_unsaved_work_dialog(page):
+    native = []
+    page.on("dialog", lambda d: native.append(d.message))
+    payload = ev(page, """() => { const p = JSON.parse(JSON.stringify(projectPayload()));
+        p.recipes[0].name = 'Opened recipe'; return JSON.stringify(p); }""")
+    _make_draft(page)
+    names = ev(page, "() => recipes.map((r) => r.name)")
+    f = {"name": "p.json", "mimeType": "application/json", "buffer": payload.encode()}
+    page.set_input_files("#projectInput", f)
+    text = click_dialog(page, "Cancel")
+    assert "You have unsaved changes" in text
+    page.wait_for_function("() => document.getElementById('status').textContent.includes('Open project cancelled')")
+    assert ev(page, "() => recipes.map((r) => r.name)") == names
+    assert ev(page, "() => editorPending") is True
+    page.set_input_files("#projectInput", f)
+    click_dialog(page, "Open and replace")
+    page.wait_for_function("() => recipes.some((r) => r.name === 'Opened recipe')")
+    assert native == []

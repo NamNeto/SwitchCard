@@ -167,7 +167,7 @@ function lines(s) {
     .map((x) => x.trim())
     .filter(Boolean);
 }
-function applyRecipe() {
+async function applyRecipe() {
   const r = current(),
     names = lines($("interfaces").value),
     template = $("template").value,
@@ -248,10 +248,12 @@ function applyRecipe() {
   const dropMsg = formatPortRemapReport(remapPreview);
   if (dropMsg) {
     if (
-      !window.confirm(
+      !(await confirmDialog(
+        "Drop unmatched port assignments?",
         dropMsg +
           "\n\nContinue Apply? Surviving ports keep their roles by name; new ports get defaults (first=Trunk).",
-      )
+        { ok: "Drop and apply", danger: true },
+      ))
     )
       throw Error("Apply cancelled — interface list not changed.");
   }
