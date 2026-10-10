@@ -198,7 +198,7 @@
         line-height: 1.45;
       }
       .shell {
-        max-width: 1380px;
+        max-width: 1600px;
         margin: auto;
         padding: calc(var(--space) * 3) calc(var(--space) * 3) calc(var(--space) * 5);
       }
@@ -250,32 +250,59 @@
         margin-bottom: calc(var(--space) * 2.5);
       }
 
-      /* --- Tabs --- */
-      .tabs {
+      /* --- Left rail --- */
+      .app {
+        display: grid;
+        grid-template-columns: 210px minmax(0, 1fr);
+        gap: calc(var(--space) * 3);
+        align-items: start;
+      }
+      .views {
+        min-width: 0;
+      }
+      .rail {
         display: flex;
+        flex-direction: column;
         gap: 4px;
         background: var(--bg2);
-        padding: 4px;
-        border-radius: 999px;
+        padding: 6px;
+        border-radius: var(--radius, 12px);
         border: 1px solid var(--line);
         box-shadow: var(--shadow-sm);
+        position: sticky;
+        top: 12px;
       }
-      .tabs button {
+      .rail button {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 2px;
+        width: 100%;
+        text-align: left;
         background: transparent;
         color: var(--muted);
         border: 0;
-        border-radius: 999px;
-        padding: 8px 14px;
+        border-radius: 8px;
+        padding: 9px 12px;
         transition: color var(--ease), background var(--ease), box-shadow var(--ease);
       }
-      .tabs button.active {
+      .rail button[aria-current="page"] {
         background: var(--card);
         color: var(--text);
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+        font-weight: 600;
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), inset 3px 0 0 var(--accent);
       }
-      .tabs button:hover:not(.active) {
+      .rail button:hover:not([aria-current="page"]) {
         color: var(--text);
         background: var(--tab-hover);
+      }
+      .rail .chip {
+        font-size: 11.5px;
+        font-weight: 400;
+        color: var(--muted);
+      }
+      .rail .chip:empty {
+        display: none;
       }
       .grid {
         display: grid;
@@ -644,10 +671,6 @@
       }
       .save-block .actions {
         margin-top: 8px;
-      }
-      .tab-pin {
-        margin: 12px 0 0;
-        font-size: 12.5px;
       }
 
       /* --- Details / disclosures --- */
@@ -1022,6 +1045,19 @@
 
       /* --- Responsive --- */
       @media (max-width: 980px) {
+        .app {
+          grid-template-columns: minmax(0, 1fr);
+          gap: calc(var(--space) * 2);
+        }
+        .rail {
+          flex-direction: row;
+          flex-wrap: wrap;
+          position: static;
+        }
+        .rail button {
+          width: auto;
+          flex: 1 1 auto;
+        }
         .grid {
           /* minmax(0, ...) lets the column shrink below the ports table's min-width, so the
              table scrolls inside its own box instead of widening the whole page. */
@@ -1123,17 +1159,21 @@
     </header>
     <!-- ===== Main shell ===== -->
     <main class="shell">
+     <div class="app">
+      <nav id="rail" class="rail" aria-label="Workspace">
+        <button type="button" id="railBuild" aria-current="page"><span class="rail-name">Build a card</span></button>
+        <button type="button" id="railSwitches"><span class="rail-name">Switches</span><span id="chipSwitches" class="chip"></span></button>
+        <button type="button" id="railCards"><span class="rail-name">Cards</span><span id="chipCards" class="chip"></span></button>
+        <button type="button" id="railManage"><span class="rail-name">Manage recipes &amp; baseline</span><span id="chipManage" class="chip"></span></button>
+      </nav>
+      <div class="views">
       <div class="top">
         <div>
-          <h1>Prepare a switch card</h1>
+          <h1 id="viewTitle">Prepare a switch card</h1>
           <p class="muted">
             One baseline · many recipes · SD root with <code>editcontent.txt</code>
           </p>
         </div>
-        <nav id="tabs" class="tabs" aria-label="Workspace" hidden>
-          <button id="buildTab" class="active">Build a card</button
-          ><button id="maintainTab" type="button" hidden>Manage recipes & baseline</button>
-        </nav>
       </div>
       <!-- ===== Build workspace ===== -->
       <section id="build">
@@ -1556,21 +1596,11 @@
                 </p>
               </details>
             </div>
-            <div class="card">
-              <!-- Preference: show the Maintain tab in the top bar. -->
-              <div class="tab-pin">
-                <label
-                  ><input id="pinMaintainTab" type="checkbox" /><span>Show “Manage
-                  recipes &amp; baseline” in the top tabs</span></label
-                >
-              </div>
-            </div>
           </div>
           <div class="card">
             <!-- Recipe editor -->
             <div class="previewhead" style="margin-bottom: 12px">
               <h2 style="margin: 0">Recipe editor</h2>
-              <button id="backBuild" type="button">Back to card builder</button>
             </div>
             <div class="field">
               <label for="recipeName">Recipe name</label><input id="recipeName" />
@@ -1739,12 +1769,31 @@
           </div>
         </div>
       </section>
+      <!-- ===== Switches / Cards views (filled in by 09c/10c) ===== -->
+      <section id="switches" hidden>
+        <div class="card">
+          <div class="field">
+            <label for="swRecipe">Configuration recipe</label><select id="swRecipe"></select>
+          </div>
+          <p id="switchesEmpty" class="muted">Switches for this recipe will be listed here.</p>
+        </div>
+      </section>
+      <section id="cards" hidden>
+        <div class="card">
+          <div class="field">
+            <label for="cdRecipe">Configuration recipe</label><select id="cdRecipe"></select>
+          </div>
+          <p id="cardsEmpty" class="muted">Cards for this recipe will be listed here.</p>
+        </div>
+      </section>
       <div id="status" role="status" hidden></div>
       <footer>
         SwitchCard <strong>0.7.3</strong> · offline · CSP <code>connect-src 'none'</code> · not
         affiliated with Cisco · Swap Drive (<code>sync sdflash:</code>) remains Cisco’s flash↔SD
         path · MIT.
       </footer>
+      </div>
+     </div>
     </main>
     <script>
       "use strict";
@@ -1819,7 +1868,6 @@
         MAX_AUTOSAVE_BACKUPS: 3,
         // "Clear browser autosave" removes every localStorage key that starts with this prefix.
         STORAGE_PREFIX: "switchcard-",
-        SHOW_MAINTAIN_TAB_KEY: "switchcard-show-maintain-tab",
         ONBOARD_KEY: "switchcard-onboarding-dismissed",
         // v5 (0.7.0): teamPolicies (export-blocking rules), baseline fingerprints, per-recipe export
         // history. v4 (0.6.0): mgmtInterface / mgmtSources. Older files open unchanged; older releases
@@ -2048,7 +2096,6 @@
       const {
         RELEASE,
         AUTOSAVE_KEY,
-        SHOW_MAINTAIN_TAB_KEY,
         ONBOARD_KEY,
         PROJECT_VERSION,
         ROLE_NAMES,
@@ -2771,33 +2818,9 @@
           } catch (e2) {}
         }
       }
-      function showMaintainTabPinned() {
-        try {
-          return localStorage.getItem(SHOW_MAINTAIN_TAB_KEY) === "1";
-        } catch (e) {
-          return false;
-        }
-      }
-      function applyMaintainTabPin() {
-        // "Show Maintain tab" preference (SHOW_MAINTAIN_TAB_KEY); hidden by default.
-        // With only one tab visible the tab bar is just noise, so it is shown only when pinned.
-        const pinned = showMaintainTabPinned();
-        const btn = $("maintainTab");
-        if (btn) btn.hidden = !pinned;
-        if ($("tabs")) $("tabs").hidden = !pinned;
-        const box = $("pinMaintainTab");
-        if (box) box.checked = pinned;
-      }
+      // Compatibility wrapper: tab(true) opens Manage, tab(false) the card builder.
       function tab(maintenance) {
-        if (!maintenance && editorPending) {
-          message("Apply your recipe changes before returning to the card builder.");
-          return;
-        }
-        $("build").hidden = maintenance;
-        $("maintain").hidden = !maintenance;
-        $("buildTab").classList.toggle("active", !maintenance);
-        $("maintainTab").classList.toggle("active", maintenance);
-        if (maintenance && !editorPending) loadEditor();
+        showView(maintenance ? "manage" : "build");
       }
       function option(v, t) {
         const o = document.createElement("option");
@@ -3004,7 +3027,7 @@
       }
       // --- Render: rebuild the Build panel from state ---
       function renderAll() {
-        for (const id of ["recipe", "editRecipe"]) {
+        for (const id of ["recipe", "editRecipe", "swRecipe", "cdRecipe"]) {
           $(id).replaceChildren(...recipes.map((r) => option(r.id, r.name)));
           $(id).value = active;
         }
@@ -4334,6 +4357,7 @@
         renderDiffPanel(r, g);
         refreshFleetButtons();
         renderFleetColumns();
+        scheduleRailUpdate();
       }
       // One status box: a bold heading, an optional list of items and an optional muted footer.
       function statusNotice(kind, heading, items, footer) {
@@ -6438,22 +6462,11 @@
         return (rows || []).map((row) => ({ ...structuredClone(row), id: newSwitchId() }));
       }
       // --- Event wiring (buttons, inputs); the boot sequence is in 11-boot.js ---
-      $("buildTab").onclick = () => tab(false);
-      $("maintainTab").onclick = () => tab(true);
-      $("setup").onclick = () => tab(true);
-      $("backBuild").onclick = () => tab(false);
-      $("pinMaintainTab").onchange = () => {
-        try {
-          localStorage.setItem(SHOW_MAINTAIN_TAB_KEY, $("pinMaintainTab").checked ? "1" : "0");
-        } catch (e) {}
-        applyMaintainTabPin();
-        message(
-          $("pinMaintainTab").checked
-            ? "Setup tab pinned in the top bar."
-            : "Setup tab hidden from the top bar — use Manage recipes & baseline under the recipe picker.",
-        );
-      };
-      applyMaintainTabPin();
+      $("setup").onclick = () => showView("manage");
+      $("railBuild").onclick = () => showView("build");
+      $("railSwitches").onclick = () => showView("switches");
+      $("railCards").onclick = () => showView("cards");
+      $("railManage").onclick = () => showView("manage");
       // Hints are bounded to MAX_TEAM_HINTS lines of MAX_TEAM_HINT_CHARS, without control characters.
       function boundedHints(text) {
         const all = lines(text).filter((h) => !singleLineBad(h));
@@ -6886,7 +6899,7 @@
         updateDeleteSkuPresetButton();
         message('Deleted custom SKU preset "' + name + '".');
       };
-      for (const id of ["recipe", "editRecipe"])
+      for (const id of ["recipe", "editRecipe", "swRecipe", "cdRecipe"])
         $(id).onchange = () => {
           if (editorPending) {
             $(id).value = active;
@@ -7385,6 +7398,58 @@
             msg += " Migration notes: " + restored.migrationNotes.join(" ");
           message(msg);
         }
+      }
+      // --- Views: the left rail (Build a card / Switches / Cards / Manage) and its status chips ---
+      let currentView = "build";
+      const VIEW_TITLES = {
+        build: "Prepare a switch card",
+        switches: "Switches",
+        cards: "Cards",
+        manage: "Manage recipes & baseline",
+      };
+      const VIEW_SECTIONS = { build: "build", switches: "switches", cards: "cards", manage: "maintain" };
+      const VIEW_RAIL = { build: "railBuild", switches: "railSwitches", cards: "railCards", manage: "railManage" };
+      let railTimer = null;
+      // Shows one view. Leaving the recipe editor is refused while it holds an unapplied draft.
+      function showView(name) {
+        if (!VIEW_SECTIONS[name]) return false;
+        if (name !== "manage" && editorPending) {
+          message("Apply your recipe changes before leaving the recipe editor.");
+          return false;
+        }
+        currentView = name;
+        for (const v of Object.keys(VIEW_SECTIONS)) {
+          $(VIEW_SECTIONS[v]).hidden = v !== name;
+          const b = $(VIEW_RAIL[v]);
+          if (v === name) b.setAttribute("aria-current", "page");
+          else b.removeAttribute("aria-current");
+        }
+        $("viewTitle").textContent = VIEW_TITLES[name];
+        if (name === "manage" && !editorPending) loadEditor();
+        if (name === "switches" && typeof renderSwitches === "function") renderSwitches();
+        if (name === "cards" && typeof renderCards === "function") renderCards();
+        scheduleRailUpdate();
+        return true;
+      }
+      // Chip texts are recomputed 250 ms after the last change, not on every keystroke.
+      function scheduleRailUpdate() {
+        clearTimeout(railTimer);
+        railTimer = setTimeout(updateRail, 250);
+      }
+      function updateRail() {
+        let r;
+        try {
+          r = current();
+        } catch (e) {
+          return;
+        }
+        const rows = r.switches || [];
+        const res = rows.length ? checkSwitchRows(r, rows) : { rows: [] };
+        const bad = res.rows.filter((x) => x.errors.length).length;
+        $("chipSwitches").textContent = rows.length + (bad ? " · " + bad + (bad === 1 ? " error" : " errors") : "");
+        const up = res.rows.filter((x) => exportState(r, x.host, x.sha256).state === "current").length;
+        $("chipCards").textContent = up + " of " + rows.length + " up to date";
+        $("chipManage").textContent = baseline ? baseline.version : "no baseline";
       }
       // --- Boot sequence (sorts last: runs after all wiring) ---
       // The examples render first; the autosave restore then awaits its in-page dialogs.

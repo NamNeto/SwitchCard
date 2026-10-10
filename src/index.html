@@ -56,17 +56,21 @@
     </header>
     <!-- ===== Main shell ===== -->
     <main class="shell">
+     <div class="app">
+      <nav id="rail" class="rail" aria-label="Workspace">
+        <button type="button" id="railBuild" aria-current="page"><span class="rail-name">Build a card</span></button>
+        <button type="button" id="railSwitches"><span class="rail-name">Switches</span><span id="chipSwitches" class="chip"></span></button>
+        <button type="button" id="railCards"><span class="rail-name">Cards</span><span id="chipCards" class="chip"></span></button>
+        <button type="button" id="railManage"><span class="rail-name">Manage recipes &amp; baseline</span><span id="chipManage" class="chip"></span></button>
+      </nav>
+      <div class="views">
       <div class="top">
         <div>
-          <h1>Prepare a switch card</h1>
+          <h1 id="viewTitle">Prepare a switch card</h1>
           <p class="muted">
             One baseline · many recipes · SD root with <code>editcontent.txt</code>
           </p>
         </div>
-        <nav id="tabs" class="tabs" aria-label="Workspace" hidden>
-          <button id="buildTab" class="active">Build a card</button
-          ><button id="maintainTab" type="button" hidden>Manage recipes & baseline</button>
-        </nav>
       </div>
       <!-- ===== Build workspace ===== -->
       <section id="build">
@@ -489,21 +493,11 @@
                 </p>
               </details>
             </div>
-            <div class="card">
-              <!-- Preference: show the Maintain tab in the top bar. -->
-              <div class="tab-pin">
-                <label
-                  ><input id="pinMaintainTab" type="checkbox" /><span>Show “Manage
-                  recipes &amp; baseline” in the top tabs</span></label
-                >
-              </div>
-            </div>
           </div>
           <div class="card">
             <!-- Recipe editor -->
             <div class="previewhead" style="margin-bottom: 12px">
               <h2 style="margin: 0">Recipe editor</h2>
-              <button id="backBuild" type="button">Back to card builder</button>
             </div>
             <div class="field">
               <label for="recipeName">Recipe name</label><input id="recipeName" />
@@ -672,12 +666,31 @@
           </div>
         </div>
       </section>
+      <!-- ===== Switches / Cards views (filled in by 09c/10c) ===== -->
+      <section id="switches" hidden>
+        <div class="card">
+          <div class="field">
+            <label for="swRecipe">Configuration recipe</label><select id="swRecipe"></select>
+          </div>
+          <p id="switchesEmpty" class="muted">Switches for this recipe will be listed here.</p>
+        </div>
+      </section>
+      <section id="cards" hidden>
+        <div class="card">
+          <div class="field">
+            <label for="cdRecipe">Configuration recipe</label><select id="cdRecipe"></select>
+          </div>
+          <p id="cardsEmpty" class="muted">Cards for this recipe will be listed here.</p>
+        </div>
+      </section>
       <div id="status" role="status" hidden></div>
       <footer>
         SwitchCard <strong>0.7.3</strong> · offline · CSP <code>connect-src 'none'</code> · not
         affiliated with Cisco · Swap Drive (<code>sync sdflash:</code>) remains Cisco’s flash↔SD
         path · MIT.
       </footer>
+      </div>
+     </div>
     </main>
     <script>
 @@SCRIPT@@

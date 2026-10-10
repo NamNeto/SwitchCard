@@ -1,6 +1,6 @@
 // --- Render: rebuild the Build panel from state ---
 function renderAll() {
-  for (const id of ["recipe", "editRecipe"]) {
+  for (const id of ["recipe", "editRecipe", "swRecipe", "cdRecipe"]) {
     $(id).replaceChildren(...recipes.map((r) => option(r.id, r.name)));
     $(id).value = active;
   }
