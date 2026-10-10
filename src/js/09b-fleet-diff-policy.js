@@ -785,7 +785,6 @@ function refreshFleetButtons() {
     if (badRows) reasons.push(badRows + " row" + (badRows === 1 ? " has" : "s have") + " errors.");
   }
   reasons.push(...blockers(r));
-  if (!$("reviewed").checked) reasons.push("Check “I reviewed this configuration…” above.");
   const ok = !reasons.length && !busy;
   btn.disabled = !ok;
   btnText.disabled = !ok;
@@ -803,7 +802,6 @@ async function exportFleet(textOnly) {
   if (editorPending) throw Error("Apply recipe changes or Discard unapplied draft first.");
   const gates = blockers(r);
   if (gates.length) throw Error(gates[0]);
-  if (!$("reviewed").checked) throw Error("Tick the review box first.");
   const res = checkFleet(r, $("fleetCsv").value);
   fleet = { ...res, recipeId: r.id, stamp: fleetStamp(r) };
   renderFleet(fleet);

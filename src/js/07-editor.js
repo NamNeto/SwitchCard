@@ -72,15 +72,13 @@ function renderPreview() {
   $("downloadConfig").disabled = busy || editorPending || !!g.errors.length || !!policyHits.length;
   $("copyPreview").disabled = busy || !!g.errors.length;
   $("downloadCard").disabled =
-    busy || !!g.errors.length || !!b.length || !$("reviewed").checked;
+    busy || !!g.errors.length || !!b.length;
   $("savePackage").disabled = busy || editorPending || !baseline;
   const why = [];
   if (editorPending)
     why.push("Apply recipe changes or Discard unapplied draft first.");
   if (g.errors.length) why.push("Fix red input errors first.");
   if (b.length) why.push(...b.filter((x) => !why.includes(x)));
-  if (!g.errors.length && !b.length && !$("reviewed").checked)
-    why.push("Check “I reviewed this configuration…” above.");
   const ew = $("exportWhy");
   if (ew) {
     ew.textContent = $("downloadCard").disabled
@@ -324,7 +322,6 @@ function newSwitch() {
     p.ip = "";
     p.mask = "";
   }
-  $("reviewed").checked = false;
   touch();
   renderAll();
   const kept = NEW_SWITCH_KEEP_KEYS.filter((k) => (r.values[k] || "") !== "");

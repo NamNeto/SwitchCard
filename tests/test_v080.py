@@ -198,3 +198,22 @@ def test_open_project_over_unsaved_work_dialog(page):
     click_dialog(page, "Open and replace")
     page.wait_for_function("() => recipes.some((r) => r.name === 'Opened recipe')")
     assert native == []
+
+
+def test_export_dialog_requires_review_tick(page):
+    ev(page, """() => { recipes[0].example = false; active = recipes[0].id;
+        baseline = {model:'IE3100', version:'x', files:[{path:'a.bin', blob:new Blob(['x'])}]};
+        renderAll(); renderPreview(); }""")
+    assert ev(page, "() => $('downloadCard').disabled") is False
+    assert ev(page, "() => $('reviewed')") is None
+    stub_downloads(page)
+    page.click("#downloadCard")
+    page.wait_for_selector("dialog[open]")
+    assert "editcontent.txt SHA-256" in page.inner_text("dialog[open]")
+    assert page.is_disabled("dialog[open] .dialog-actions button.primary") or \
+        page.locator("dialog[open] .dialog-actions button", has_text="Download ZIP").is_disabled()
+    page.check("dialog[open] input[type=checkbox]")
+    click_dialog(page, "Download ZIP")
+    page.wait_for_function("() => document.getElementById('status').textContent.includes('SD-card ZIP exported')")
+    d = downloads(page)
+    assert len(d) == 1 and d[0]["name"].endswith(".zip")

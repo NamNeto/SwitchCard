@@ -1268,10 +1268,6 @@
               <div id="checks"></div>
               <pre id="preview" tabindex="0"></pre>
               <p id="previewMeter" class="muted" style="margin-top: 6px"></p>
-              <label style="margin-top: 14px"
-                ><input id="reviewed" type="checkbox" /><span>I reviewed this
-                configuration and the baseline selection.</span></label
-              >
               <div class="actions even">
                 <button id="downloadConfig">Save text only</button
                 ><button id="copyPreview" type="button">Copy preview</button
@@ -2157,7 +2153,6 @@
       }
       function touch() {
         dirty = true;
-        $("reviewed").checked = false;
         scheduleAutosave();
       }
       function scheduleAutosave() {
@@ -4297,15 +4292,13 @@
         $("downloadConfig").disabled = busy || editorPending || !!g.errors.length || !!policyHits.length;
         $("copyPreview").disabled = busy || !!g.errors.length;
         $("downloadCard").disabled =
-          busy || !!g.errors.length || !!b.length || !$("reviewed").checked;
+          busy || !!g.errors.length || !!b.length;
         $("savePackage").disabled = busy || editorPending || !baseline;
         const why = [];
         if (editorPending)
           why.push("Apply recipe changes or Discard unapplied draft first.");
         if (g.errors.length) why.push("Fix red input errors first.");
         if (b.length) why.push(...b.filter((x) => !why.includes(x)));
-        if (!g.errors.length && !b.length && !$("reviewed").checked)
-          why.push("Check “I reviewed this configuration…” above.");
         const ew = $("exportWhy");
         if (ew) {
           ew.textContent = $("downloadCard").disabled
@@ -4549,7 +4542,6 @@
           p.ip = "";
           p.mask = "";
         }
-        $("reviewed").checked = false;
         touch();
         renderAll();
         const kept = NEW_SWITCH_KEEP_KEYS.filter((k) => (r.values[k] || "") !== "");
@@ -4917,7 +4909,6 @@
         fleet = null;
         customSkuPresets = normalizeCustomSkuPresets(p.customSkuPresets);
         persistCustomSkuPresetsLocal();
-        $("reviewed").checked = false;
         renderAll();
         loadEditor();
         tab(false);
@@ -5972,7 +5963,6 @@
           if (badRows) reasons.push(badRows + " row" + (badRows === 1 ? " has" : "s have") + " errors.");
         }
         reasons.push(...blockers(r));
-        if (!$("reviewed").checked) reasons.push("Check “I reviewed this configuration…” above.");
         const ok = !reasons.length && !busy;
         btn.disabled = !ok;
         btnText.disabled = !ok;
@@ -5990,7 +5980,6 @@
         if (editorPending) throw Error("Apply recipe changes or Discard unapplied draft first.");
         const gates = blockers(r);
         if (gates.length) throw Error(gates[0]);
-        if (!$("reviewed").checked) throw Error("Tick the review box first.");
         const res = checkFleet(r, $("fleetCsv").value);
         fleet = { ...res, recipeId: r.id, stamp: fleetStamp(r) };
         renderFleet(fleet);
@@ -6765,7 +6754,6 @@
           );
         if (e.key === CONFIG.AUTOSAVE_BACKUP_KEY || CONFIG.AUTOSAVE_BACKUP_KEYS.includes(e.key)) refreshBackupButtons();
       });
-      $("reviewed").onchange = renderPreview;
       $("folderInput").onchange = () =>
         run(async () => {
           const model = $("baseModel").value,
@@ -6831,8 +6819,8 @@
         const b = blockers(r, g);
         if (editorPending)
           throw Error("Apply recipe changes or Discard unapplied draft first.");
-        if (g.errors.length || b.length || !$("reviewed").checked)
-          throw Error("Complete the checks and review first.");
+        if (g.errors.length || b.length)
+          throw Error("Complete the checks first.");
         return { r, g };
       }
       function buildCardFiles(g) {
@@ -6845,7 +6833,13 @@
       $("downloadCard").onclick = () =>
         run(async () => {
           const { r, g } = assertExportReady();
-          if (!window.confirm(exportConfirmSummary(r, g))) {
+          if (
+            !(await writeDialog({
+              title: "Export SD-card ZIP?",
+              summary: exportConfirmSummary(r, g),
+              primary: "Download ZIP",
+            }))
+          ) {
             message("SD-card ZIP export cancelled.");
             return;
           }
@@ -7036,7 +7030,6 @@
         editorPending = true;
         restoreDraftFields(draft);
         $("editRecipe").value = active;
-        $("reviewed").checked = false;
         tab(true);
         renderPreview();
       }

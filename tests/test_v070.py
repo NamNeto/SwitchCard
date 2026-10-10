@@ -203,7 +203,7 @@ def test_fleet_ui_gates(page):
         $('fleetCsv').value = csv;
         $('checkFleet').click();
         const afterCheck = { rows: $('fleetRows').children.length, why: $('fleetWhy').textContent, disabled: $('exportFleet').disabled };
-        $('reviewed').checked = true; renderPreview();
+        renderPreview();
         const reviewed = { why: $('fleetWhy').textContent, disabled: $('exportFleet').disabled };
         return { afterCheck, reviewed };
     }""", FLEET_CSV.replace("\\n", "\n"))

@@ -5,7 +5,6 @@ function message(t) {
 }
 function touch() {
   dirty = true;
-  $("reviewed").checked = false;
   scheduleAutosave();
 }
 function scheduleAutosave() {
