@@ -133,6 +133,9 @@ function renderFields() {
       touch();
       renderFields();
       renderPreview();
+      // renderFields() rebuilt the table: keep focus on this port's new Role select.
+      const again = [...$("ports").querySelectorAll("select[data-attr='role']")].find((n) => n.dataset.port === p.name);
+      if (again) again.focus({ preventScroll: true });
     });
     roleTd.append(roleEl);
     tr.append(roleTd);

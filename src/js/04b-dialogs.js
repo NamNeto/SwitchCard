@@ -19,17 +19,41 @@ function el(tag, attrs, ...children) {
   return node;
 }
 
+// Focus that would otherwise fall to <body> after an action goes back to the control that started
+// it. A control that was rebuilt is found again by id; one that is now disabled or hidden hands
+// focus to the nearest enabled control in its group. Nothing moves while something else has focus.
+function canFocus(n) {
+  return !!(n && n.isConnected && !n.disabled && !n.closest("[hidden]") && n.getClientRects().length);
+}
+function focusLost() {
+  const a = document.activeElement;
+  return !a || a === document.body || a === document.documentElement;
+}
+function restoreFocus(opener, nearest) {
+  if (!opener || opener === document.body || !focusLost()) return;
+  let t = canFocus(opener) ? opener : opener.id ? document.getElementById(opener.id) : null;
+  if (!canFocus(t) && nearest !== false) {
+    const box = opener.isConnected ? opener.closest(".actions, .sw-toolbar, .card, section") : null;
+    t = box ? [...box.querySelectorAll("button, input, select, textarea")].find(canFocus) : null;
+  }
+  if (canFocus(t)) t.focus({ preventScroll: true });
+}
+
 // Resolves with the clicked action's value, or null on Esc. Resolved by our own handlers,
 // not the native close event (automated browsers can defer that indefinitely).
 function showDialog({ title, body, actions, onOpen }) {
   return new Promise((resolve) => {
     const dlg = el("dialog", { className: "dlg" });
+    const opener = document.activeElement;
     let done = false;
     const finish = (value) => {
       if (done) return;
       done = true;
       if (dlg.open) dlg.close();
       dlg.remove();
+      // Back to the opener when it can take focus now; inside run() (opener disabled) run()
+      // puts it back once the work is done.
+      restoreFocus(opener, false);
       resolve(value);
     };
     const bar = el("div", { className: "dialog-actions" });
@@ -47,6 +71,15 @@ function showDialog({ title, body, actions, onOpen }) {
     document.body.appendChild(dlg);
     dlg.showModal();
     if (onOpen) onOpen(dlg);
+    // Focus stays inside the open dialog. The browser may first focus the scrolling body, which
+    // stops being focusable once a wide layout no longer overflows; focus then falls to <body>.
+    const keepInside = () => {
+      if (!dlg.open || (!focusLost() && dlg.contains(document.activeElement))) return;
+      const first = [...dlg.querySelectorAll("button, input, select, textarea")].find(canFocus);
+      if (first) first.focus({ preventScroll: true });
+    };
+    keepInside();
+    requestAnimationFrame(() => setTimeout(keepInside, 0));
   });
 }
 
@@ -56,6 +89,8 @@ function confirmDialog(title, textOrNode, opts) {
   return showDialog({
     title, body,
     actions: [{ label: o.cancel, value: false }, { label: o.ok, value: true, primary: true, danger: o.danger }],
+    // opts.focusOk: start on the OK button instead of Cancel (only where OK is the safe choice).
+    onOpen: o.focusOk ? (dlg) => dlg.querySelector(".dialog-actions button.primary").focus() : undefined,
   }).then((v) => v === true);
 }
 
