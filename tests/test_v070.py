@@ -194,7 +194,9 @@ def test_check_fleet_rows_inherit_and_detect_duplicates(page):
     assert r["header"] == ["HOSTNAME", "MGMT_IP"] and r["errors"] == [] and any("IGNORED" in w for w in r["warnings"])
     assert [x["host"] for x in r["rows"]] == ["EXAMPLE-SW1", "EXAMPLE-SW2"] and all(x["errors"] == [] and x["ok"] for x in r["rows"])
     assert r["unique"] == 2
-    assert r["dupErrors"][0] == [] and any("duplicate HOSTNAME" in e for e in r["dupErrors"][1]) and any("duplicate MGMT_IP" in e for e in r["dupErrors"][2])
+    # Both rows of a duplicate are errors (gauntlet r1, C1): the first row names the later one.
+    assert "duplicate HOSTNAME (also row 2)" in r["dupErrors"][0] and "duplicate MGMT_IP (also row 3)" in r["dupErrors"][0]
+    assert "duplicate HOSTNAME (also row 1)" in r["dupErrors"][1] and "duplicate MGMT_IP (also row 1)" in r["dupErrors"][2]
     assert any("cannot be set per switch" in e for e in r["bad"]) and any("header row" in e for e in r["none"])
 
 

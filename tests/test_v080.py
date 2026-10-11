@@ -201,7 +201,7 @@ def test_open_project_over_unsaved_work_dialog(page):
 
 
 def test_export_dialog_requires_review_tick(page):
-    ev(page, """() => { recipes[0].example = false; active = recipes[0].id;
+    ev(page, """() => { recipes[0].example = false; recipes[0].template = recipes[0].template.replace('! EXAMPLE ONLY - replace with your tested configuration', '! Plant test template'); active = recipes[0].id;
         baseline = {model:'IE3100', version:'x', files:[{path:'a.bin', blob:new Blob(['x'])}]};
         renderAll(); renderPreview(); }""")
     assert ev(page, "() => $('downloadCard').disabled") is False
@@ -267,6 +267,7 @@ def test_switch_rows_findings_locate_port_errors_and_duplicates(page):
     ports = {t: w for t, w in r["f"][0]}
     assert ports["Gi9/9: not in the port table."] == {"kind": "port", "name": "Gi9/9", "attr": "description"}
     assert "duplicate HOSTNAME (also row 1)" in r["e"][1]
+    assert ["duplicate HOSTNAME (also row 2)", {"kind": "row", "key": "HOSTNAME"}] in r["f"][0]
     assert ["duplicate HOSTNAME (also row 1)", {"kind": "row", "key": "HOSTNAME"}] in r["f"][1]
     assert r["same"] and r["untouched"] != "edge" and r["values"] == "IE3100-DEMO-01"
 
@@ -545,7 +546,7 @@ def test_rail_switches_views_and_locks_with_a_draft(page):
     # chips follow the switch list after typing stops
     ev(page, "() => { current().switches = [{ id: 'a', values: { HOSTNAME: 'sw-a' }, ports: {} }, { id: 'b', values: { HOSTNAME: 'sw-a' }, ports: {} }]; renderPreview(); }")
     page.wait_for_timeout(400)
-    assert ev(page, "() => $('chipSwitches').textContent") == "2 · 1 error"
+    assert ev(page, "() => $('chipSwitches').textContent") == "2 · 2 errors"  # both rows of a duplicate (gauntlet r1, C1)
     assert ev(page, "() => $('chipCards').textContent").endswith("up to date")
     assert ev(page, "() => $('chipManage').textContent") != ""
     # pending draft locks the other views
@@ -779,7 +780,7 @@ def test_switches_minor_fixes_role_and_trim(page):
 
 def _cards_setup(page, n=3):
     """Synthetic baseline, example=false and n counted-up rows; opens the Cards view."""
-    ev(page, """(n) => { const r = current(); r.example = false;
+    ev(page, """(n) => { const r = current(); r.example = false; r.template = r.template.replace('! EXAMPLE ONLY - replace with your tested configuration', '! Plant test template');
         baseline = {model: r.model, version: 'x', files: [{path: 'a.bin', blob: new Blob(['x'])}]};
         r.switches = countedUpRows(r, [], n).rows; r.exports = {};
         renderAll(); renderPreview(); showView('cards'); }""", n)
@@ -1060,6 +1061,7 @@ def test_500_rows_check_time(page):
 def test_cards_export_states_beyond_history_bound(page):
     n = 120
     ids = ev(page, """(n) => { const r = current(); r.example = false; normalizePorts(r);
+        r.template = r.template.replace('! EXAMPLE ONLY - replace with your tested configuration', '! Plant test template');
         r.values.MGMT_MASK = '255.255.0.0'; r.values.MGMT_IP = '10.20.0.10'; r.values.GATEWAY = '10.20.0.1';
         baseline = {model: r.model, version: 'x', files: [{path: 'a.bin', blob: new Blob(['x'])}]};
         r.switches = countedUpRows(r, [], n).rows; r.exports = {};

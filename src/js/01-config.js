@@ -294,6 +294,8 @@ const CONFIG = Object.freeze({
   MAX_VLAN_STATEMENTS: 256, // hard cap: refuse (never silently truncate)
   RESERVED_VLANS: Object.freeze([1002, 1003, 1004, 1005]),
   // Port-level placeholders are filled per port and can never be overridden by a recipe value.
+  // First line of the example templates; a non-example recipe that still emits it is an error.
+  EXAMPLE_HEADER_LINE: "! EXAMPLE ONLY - replace with your tested configuration",
   RESERVED_VALUE_KEYS: Object.freeze(["INTERFACE", "VLAN", "DESCRIPTION", "PORT_IP", "PORT_MASK"]),
 });
 

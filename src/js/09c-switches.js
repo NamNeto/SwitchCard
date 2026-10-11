@@ -70,11 +70,10 @@ function checkSwitchRows(r, rows, extraIpPorts) {
     switchRowCache = { stamp, map: new Map() };
   const dkeys = deviceKeys(r);
   const fields = fleetColumns(r);
-  const seenHost = new Map(),
-    seenIp = new Map();
-  const out = [];
-  (rows || []).forEach((row, idx) => {
-    const n = idx + 1;
+  // Every row that takes part in a duplicate is an error naming another row of the pair: the
+  // earlier row names the next one, every later row names the first. A typo that copies another
+  // row's address can then never leave either row exportable.
+  const hits = (rows || []).map((row) => {
     const ckey = JSON.stringify(row);
     let hit = switchRowCache.map.get(ckey);
     if (!hit) {
@@ -83,6 +82,22 @@ function checkSwitchRows(r, rows, extraIpPorts) {
       hit.sha256 = sha256Hex(hit.g.text);
       switchRowCache.map.set(ckey, hit);
     }
+    return hit;
+  });
+  const hostOf = (hit) => String(hit.rr.values.HOSTNAME || "").trim(),
+    ipOf = (hit) => String(hit.rr.values.MGMT_IP || "").trim();
+  const seenHost = new Map(),
+    seenIp = new Map(); // key -> row numbers, in order
+  const note = (m, k, n) => (m.has(k) ? m.get(k).push(n) : m.set(k, [n]));
+  hits.forEach((hit, idx) => {
+    if (dkeys.includes("HOSTNAME") && hostOf(hit)) note(seenHost, hostOf(hit).toLowerCase(), idx + 1);
+    if (dkeys.includes("MGMT_IP") && ipOf(hit)) note(seenIp, ipOf(hit), idx + 1);
+  });
+  const otherRow = (list, n) => (list && list.length > 1 ? (list[0] === n ? list[1] : list[0]) : 0);
+  const out = [];
+  (rows || []).forEach((row, idx) => {
+    const n = idx + 1;
+    const hit = hits[idx];
     const { rr, g } = hit;
     const errors = [...hit.portErrors, ...g.errors];
     const findings = [...hit.portFindings, ...g.findings];
@@ -92,16 +107,15 @@ function checkSwitchRows(r, rows, extraIpPorts) {
     const rv = (row && row.values) || {};
     const own = fields.filter((k) => rv[k] != null && String(rv[k]) !== "");
     const inherited = fields.filter((k) => !own.includes(k)); // taken from Device details
-    const host = String(rr.values.HOSTNAME || "").trim(),
-      ip = String(rr.values.MGMT_IP || "").trim();
+    const host = hostOf(hit),
+      ip = ipOf(hit);
     if (dkeys.includes("HOSTNAME") && host) {
-      const k = host.toLowerCase();
-      if (seenHost.has(k)) dup("duplicate HOSTNAME (also row " + seenHost.get(k) + ")", "HOSTNAME");
-      else seenHost.set(k, n);
+      const other = otherRow(seenHost.get(host.toLowerCase()), n);
+      if (other) dup("duplicate HOSTNAME (also row " + other + ")", "HOSTNAME");
     }
     if (dkeys.includes("MGMT_IP") && ip) {
-      if (seenIp.has(ip)) dup("duplicate MGMT_IP (also row " + seenIp.get(ip) + ")", "MGMT_IP");
-      else seenIp.set(ip, n);
+      const other = otherRow(seenIp.get(ip), n);
+      if (other) dup("duplicate MGMT_IP (also row " + other + ")", "MGMT_IP");
     }
     const policy = errors.length ? [] : policyViolations(g.text, teamPolicies);
     out.push({
@@ -133,15 +147,21 @@ function checkSwitchRows(r, rows, extraIpPorts) {
 }
 // A fleet CSV -> rows { id, values (non-empty bound cells), ports { iface: { attr: value } } }.
 // Header rules and messages are v0.7.3 checkFleet's. decodeProblems counts cells holding U+FFFD
-// (text that was not valid in the encoding it was read with).
+// (text that was not valid in the encoding it was read with); decodeWhere names them
+// ("row 7 SITE", "header column 2"), in file order.
 function switchRowsFromCsv(r, text) {
-  const result = { errors: [], warnings: [], rows: [], header: [], portCols: [], decodeProblems: 0 };
+  const result = { errors: [], warnings: [], rows: [], header: [], portCols: [], decodeProblems: 0, decodeWhere: [] };
   const parsed = parseCsv(text);
   if (!parsed.header.length) {
     result.errors.push("Paste a CSV with a header row first.");
     return result;
   }
-  for (const c of parsed.rawHeader || parsed.header) if (String(c).includes("\uFFFD")) result.decodeProblems++;
+  const rawHeader = parsed.rawHeader || parsed.header;
+  rawHeader.forEach((c, i) => {
+    if (!String(c).includes("\uFFFD")) return;
+    result.decodeProblems++;
+    result.decodeWhere.push("header column " + (i + 1));
+  });
   const dkeys = deviceKeys(r);
   // Port columns ("Gi1/3 description") set one switch's port; every other column is a placeholder.
   const portCols = [],
@@ -193,8 +213,12 @@ function switchRowsFromCsv(r, text) {
     return result;
   }
   result.header = usedCols.map(([h]) => h);
-  for (const cells of parsed.rows) {
-    for (const c of cells) if (c.includes("�")) result.decodeProblems++;
+  parsed.rows.forEach((cells, ri) => {
+    cells.forEach((c, i) => {
+      if (!c.includes("\uFFFD")) return;
+      result.decodeProblems++;
+      result.decodeWhere.push("row " + (ri + 1) + " " + (rawHeader[i] !== undefined && String(rawHeader[i]).trim() ? String(rawHeader[i]).trim() : "column " + (i + 1)));
+    });
     const row = { id: newSwitchId(), values: {}, ports: {} };
     for (const [h, i] of usedCols) {
       const c = cells[i] === undefined ? "" : cells[i];
@@ -206,7 +230,7 @@ function switchRowsFromCsv(r, text) {
       (row.ports[c.name] = row.ports[c.name] || {})[c.attr] = v;
     }
     result.rows.push(row);
-  }
+  });
   return result;
 }
 // Rows -> CSV: the recipe's bound columns, then "<iface> <attr>" for every port setting some row
