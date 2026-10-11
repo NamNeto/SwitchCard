@@ -721,6 +721,8 @@
             </div>
             <p id="swPanelEmpty" class="muted" hidden>Select a row to see its checks and its editcontent.txt.</p>
             <pre id="swPreview" tabindex="0"></pre>
+            <!-- Which lines the box shows when it scrolls (the same cue as Build's preview). -->
+            <p class="muted preview-meter sw-preview-meter"><span id="swPreviewCue" aria-live="off"></span></p>
             <details id="swDiffPanel" hidden>
               <summary id="swDiffSummary">Changes since the last export</summary>
               <pre id="swDiff" class="diff"></pre>

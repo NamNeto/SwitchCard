@@ -6,11 +6,12 @@ from helpers import ev, click_dialog
 
 HEADER = "! EXAMPLE ONLY - replace with your tested configuration"
 
-# The first and last line blocks at least half inside the preview box, measured on screen.
+# The first and last line blocks wholly inside the preview box, measured on screen (r11: one rule
+# for both ends, a line cut by an edge is not counted).
 VISIBLE = """(id) => { const pre = $(id); const box = pre.getBoundingClientRect();
-    const top = box.top + 1, bottom = box.top + pre.clientHeight + 1; /* r10: a line shown over the top inset counts */
+    const top = box.top, bottom = box.top + pre.clientHeight + 2;
     const vis = [...pre.querySelectorAll('.pl')].map((b, i) => [i + 1, b.getBoundingClientRect()])
-      .filter(([i, r]) => { const m = (r.top + r.bottom) / 2; return m >= top && m <= bottom; }).map((x) => x[0]);
+      .filter(([i, r]) => r.top >= top && r.bottom <= bottom).map((x) => x[0]);
     return [vis[0], vis[vis.length - 1], pre.querySelectorAll('.pl').length]; }"""
 
 

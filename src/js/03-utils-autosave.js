@@ -9,8 +9,19 @@ function message(t) {
       type: "button", id: "statusClose", ariaLabel: "Dismiss this message", title: "Dismiss",
       onclick: () => {
         s.hidden = true;
+        // Back to the control that raised the message (the one focused before this close
+        // control) when it can still take focus; else the view heading, brought into view.
+        const back = typeof focusNet !== "undefined" ? focusNet.previous() : null;
+        if (back && canFocus(back) && back.id !== "statusClose") {
+          back.focus({ preventScroll: true });
+          if (back.scrollIntoView) back.scrollIntoView({ block: "nearest" });
+          return;
+        }
         const h = $("viewTitle");
-        if (h) h.focus({ preventScroll: true });
+        if (h) {
+          h.focus({ preventScroll: true });
+          if (h.scrollIntoView) h.scrollIntoView({ block: "nearest" });
+        }
       },
     }),
   );

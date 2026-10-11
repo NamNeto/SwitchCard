@@ -342,6 +342,8 @@ function renderSwitchPanel(r, x) {
     swPanelKeys.text = shown;
     fillLines(pre, shown);
   }
+  // The same "Showing lines a–b of n" cue as Build's preview, under the panel's box.
+  if (typeof updatePreviewCue === "function") updatePreviewCue(pre, $("swPreviewCue"));
   const prev = lastExport(r, x.host);
   const diffKey = prev && !x.errors.length ? JSON.stringify([prev.at, prev.sha256, x.text]) : "";
   if (diffKey !== swPanelKeys.diff) {
@@ -695,10 +697,12 @@ function openPortsDialog(row, focus) {
     },
   }).then((v) => {
     autosavePaused = pausedBefore;
-    if (v !== true && JSON.stringify(row.ports || {}) !== before) {
+    if (v === true) {
+      if (dirty) touchAndAutosaveNow(); // Done commits: written now, so an immediate reload keeps it
+    } else if (JSON.stringify(row.ports || {}) !== before) {
       row.ports = JSON.parse(before);
       touch();
-    } else if (dirty) touchAndAutosaveNow(); // Done commits: written now, so an immediate reload keeps it
+    } // Cancel or Esc with nothing typed: nothing changed, nothing to mark or write.
     if (currentView !== "switches") return;
     renderSwitches();
     // A fixed check removes the button that opened the dialog: focus goes to this row's Ports button.

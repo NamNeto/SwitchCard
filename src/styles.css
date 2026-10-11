@@ -949,11 +949,22 @@ pre::after {
   padding-bottom: 2px;
   overflow: visible;
 }
-#previewCue {
+#previewCue,
+#swPreviewCue {
   color: var(--faint);
   font-size: 12.5px;
 }
-#previewCue:empty {
+#previewCue:empty,
+#swPreviewCue:empty {
+  display: none;
+}
+/* The side panel's cue: right under its box, nothing when the box shows the whole text. */
+.sw-preview-meter {
+  justify-content: flex-end;
+  margin-top: 4px;
+  padding-bottom: 0;
+}
+.sw-preview-meter:not(:has(#swPreviewCue:not(:empty))) {
   display: none;
 }
 

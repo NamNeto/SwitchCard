@@ -28,7 +28,15 @@ function rowProblem(x) {
   // An address check names the value it refused, so the bad cell is found without a hunt.
   const bad = /^(MGMT_IP|GATEWAY|MGMT_MASK) must be a valid IPv4 address/.exec(e);
   const got = bad && x.values && x.values[bad[1]] ? ' (got "' + x.values[bad[1]] + '")' : "";
-  return (t.length > 70 ? t.slice(0, 67) + "…" : t) + got;
+  return (t.length > 70 ? clauseCut(t, 67) + "…" : t) + got;
+}
+// A message cut for a short line ends at a clause boundary (", " / "; " / " — " / " (") when one
+// sits past the first third, so the cut never lands in the middle of the part that matters.
+function clauseCut(t, max) {
+  const head = t.slice(0, max);
+  let at = -1;
+  for (const sep of [" — ", "; ", ", ", " ("]) at = Math.max(at, head.lastIndexOf(sep));
+  return at > max / 3 ? head.slice(0, at) : head;
 }
 // "2, 3 (duplicate MGMT_IP 10.20.30.13) · 5 (template still contains the example header)": rows
 // grouped by problem, the first three problems, then "and N more rows".

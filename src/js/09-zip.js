@@ -243,7 +243,9 @@ async function run(fn) {
     const want = runFocusTarget;
     runFocusTarget = null;
     // The task's own target first (a view changed under the opener); else back to the opener.
-    if (want && focusLost() && canFocus(want)) {
+    // Focus on the view heading (only ever a fallback, never a control the user reached) counts
+    // as lost here.
+    if (want && (focusLost() || document.activeElement === $("viewTitle")) && canFocus(want)) {
       want.focus({ preventScroll: true });
       if (want.scrollIntoView) want.scrollIntoView({ block: "nearest" });
     } else restoreFocus(opener);
