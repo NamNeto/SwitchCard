@@ -2086,9 +2086,11 @@ button.primary.danger:focus-visible {
   padding-right: 4px;
 }
 /* Cell widths: the whole row fits beside the side panel at 1440 px and alone at 900 px. An
-   address (255.255.255.0) fits an address cell; Site takes whatever width is left (at least
-   160 px) because it holds free text; a value longer than its cell ends in an ellipsis and the
-   whole value is in the cell's title. */
+   address (255.255.255.0) fits an address cell; Site takes whatever width is left because it
+   holds free text, and it is the column that gives way (down to 108 px) when the headers, the
+   Status pill and the Ports button come out wider in another font, so the row still fits; a
+   value longer than its cell ends in an ellipsis and the whole value is in the cell's title.
+   Wider still (a large font, zoom), the box scrolls sideways with its fade and its hint. */
 #swTable td input {
   width: 96px;
   min-width: 0;
@@ -2112,7 +2114,7 @@ button.primary.danger:focus-visible {
 }
 #swTable td input[data-key="SITE"] {
   width: 100%;
-  min-width: 140px;
+  min-width: 100px;
 }
 #swTable td input[data-key$="VLAN"],
 #swTable td input[data-key$="LOOPBACK"] {
@@ -2120,7 +2122,7 @@ button.primary.danger:focus-visible {
 }
 #swTable td.c-SITE,
 #swTable th.c-SITE {
-  min-width: 148px;
+  min-width: 108px;
 }
 /* Typed values: solid field, normal text. Inherited values: dashed, transparent, italic grey. */
 #swTable input:not(.inherit) {
@@ -2665,6 +2667,9 @@ pre::-webkit-scrollbar-thumb:hover,
   font-size: 12px;
   color: var(--muted);
   text-align: right;
+}
+.scroll-hint.at-end {
+  visibility: hidden;
 }
 
 /* --- Export gate (Build, under the export buttons; Cards, above the bulk buttons): a headline,

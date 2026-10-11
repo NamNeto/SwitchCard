@@ -6,7 +6,7 @@ reads its checks neutrally, the labels box is three lines, inherited Role select
 the jump chevrons are 24 px targets on a whole-line click area."""
 import re
 
-from helpers import ev
+from helpers import ev, GRID_FIT, assert_grid_fits_or_says_more
 
 HEADER = "! EXAMPLE ONLY - replace with your tested configuration"
 
@@ -62,12 +62,12 @@ def test_grid_fits_its_card_at_1440_with_the_policy_row(page):
     ev(page, """() => { const r = current(); const rows = countedUpRows(r, [], 12).rows; r.switches = rows;
         rows[4].values.MGMT_IP = '10.20.30.300'; rows[8].values.HOSTNAME = rows[7].values.HOSTNAME; rows[10].values.HOSTNAME = 'PKG-TEST-11';
         teamPolicies = ['forbid ^hostname .*TEST']; renderAll(); showView('switches'); selectSwitch(rows[4].id); }""")
-    m = ev(page, """() => { const t = $('swTable'); const box = t.closest('.scroll') || t.parentElement;
-        const more = [...t.querySelectorAll('button.sw-more')].pop().getBoundingClientRect();
-        return { over: t.scrollWidth - box.clientWidth, tableOver: t.getBoundingClientRect().width - box.clientWidth,
-          moreIn: more.right <= box.getBoundingClientRect().right - 1, status: document.querySelectorAll('#swRows td.status')[10].textContent }; }""")
-    assert m["tableOver"] <= 0 and m["moreIn"], m
-    assert m["status"] == "1 error · policy: forbid ^hostname .*TEST", m
+    page.wait_for_timeout(100)  # the scroll hint follows the box through a ResizeObserver
+    m = ev(page, GRID_FIT)
+    # Fits (with the Segoe UI, Verdana and DejaVu Sans metrics it does: Site gives way first), or
+    # overflows with the hint and the fade showing; never a row end cut off silently.
+    assert_grid_fits_or_says_more(m)
+    assert ev(page, "() => document.querySelectorAll('#swRows td.status')[10].textContent") == "1 error · policy: forbid ^hostname .*TEST"
     # the full rule: in the cell's title and in the side panel
     ev(page, "() => selectSwitch(current().switches[10].id)")
     assert "forbidden pattern present: ^hostname .*TEST" in ev(page, "() => { const t = document.querySelectorAll('#swRows td.status')[10]; return t.title || (t.querySelector('[title]') || {}).title || ''; }")

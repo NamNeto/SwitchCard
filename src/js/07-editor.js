@@ -169,9 +169,6 @@ function renderPreview() {
   fillLines($("preview"), g.text);
   const meter = $("previewMeter");
   if (meter) meter.textContent = previewSizeLabel(g.text);
-  // The cue is measured from the box: pointless (and a forced layout) while Build is hidden;
-  // showView("build") sizes the pane, which measures it again.
-  if (typeof updatePreviewCue === "function" && !$("build").hidden) updatePreviewCue();
   // Status above the preview: at most one red box (errors) and one box for the result
   // (yellow with the notes to review, or green when there is nothing to review). Export
   // blockers are listed under the Export button (#exportWhy) and, once the checks pass, also in the
@@ -267,6 +264,11 @@ function renderPreview() {
   const fix = $("asciiFix");
   if (fix) fix.hidden = !g.asciiIssue;
   renderDiffPanel(r, g);
+  // Last, once the checks and the gate above and under it have their new height: the box is
+  // sized from its new text (whole lines: a changed line may now wrap where the box ends) and
+  // the cue measured from it. Pointless (and a forced layout) while Build is hidden;
+  // showView("build") sizes the pane then.
+  if (typeof sizeBuildPane === "function" && !$("build").hidden) sizeBuildPane();
   scheduleRailUpdate();
 }
 // Inline error state on Build: a field or port cell named by an error check gets a red border

@@ -91,11 +91,13 @@ function insertAtCaret(ta, text) {
 // The Build pane (the sticky preview card): once pinned under the header it may use the whole
 // window; at the top of the page it ends above the fold when it can. Below 981 px it is not
 // sticky. The preview box takes all the height the rest of the pane leaves, snapped to whole
-// lines (n lines of 20 px + the 18 px of border and top band, never half-way through one) and
-// never taller than its text. It keeps at least 12 lines while the pane is still unpinned (the
-// pane then runs below the fold and the page scrolls to it) and at least 8 once pinned (the
-// pane then scrolls inside, with its footer kept in view). The tips banner, a notice or a long
-// list of checks never squeeze the box: its height is set here and is final.
+// lines (n rows of the box's line-height + its border and top band, never half-way through a
+// line) and never taller than its text. It keeps at least 12 lines of text while the pane is
+// still unpinned (the pane then runs below the fold and the page scrolls to it) and at least 8
+// once pinned (the pane then scrolls inside, with its footer kept in view). Lines, not rows: a
+// wider font wraps more lines, and the minimum then takes the rows those lines need. The tips
+// banner, a notice or a long list of checks never squeeze the box: its height is set here and is
+// final. Every length comes from the rendered box (previewMetrics), none from a font's metrics.
 const buildPane = document.querySelector("#build .card.pane");
 const PREVIEW_MIN_LINES = 12, PREVIEW_MIN_LINES_PINNED = 8;
 function sizeBuildPane() {
@@ -104,7 +106,10 @@ function sizeBuildPane() {
   if ($("build").hidden || window.innerWidth <= 980) {
     buildPane.style.maxHeight = "";
     // The box is CSS-sized here (16 rows at most); it still ends at the end of a whole line.
-    if (preview) preview.style.height = preview.scrollHeight > 338 && !$("build").hidden ? wholeLineRows(preview, 16, 20) * 20 + 18 + "px" : "";
+    if (preview) {
+      const m = previewMetrics(preview);
+      preview.style.height = !$("build").hidden && textRows(preview, m) > 16 ? wholeLineRows(preview, 16, m) * m.rowH + m.extra + "px" : "";
+    }
     updatePreviewCue();
     return;
   }
@@ -131,50 +136,101 @@ function sizeBuildPane() {
   // Whole pixels, with 2 px to spare: fractional heights summed could leave the pane a sub-pixel
   // too tall, and the pinned footer would then cover the tails of the "Lines · Bytes" row.
   rest = Math.ceil(rest) + 2;
-  // The text's own height in lines (a wrapped line counts as the rows it takes).
-  const total = Math.max(1, Math.round((preview.scrollHeight - 36) / 20));
-  const fit = Math.floor((limit - rest - 18) / 20);
-  const floor = Math.min(total, pinned ? PREVIEW_MIN_LINES_PINNED : PREVIEW_MIN_LINES);
+  const m = previewMetrics(preview);
+  // The text's own height in rows (a wrapped line counts as the rows it takes).
+  const total = textRows(preview, m);
+  const fit = Math.floor((limit - rest - m.extra) / m.rowH);
+  const floor = Math.min(total, rowsForLines(preview, pinned ? PREVIEW_MIN_LINES_PINNED : PREVIEW_MIN_LINES, m));
   let lines = Math.min(total, Math.max(fit, floor));
   // One row less when that alone keeps the unpinned pane above the fold, unless a wrapped line
-  // in those rows would then leave fewer than 11 text lines in view (the rows are rows, not lines).
+  // in those rows would then leave fewer than 11 whole text lines in view.
   if (!pinned && lines > fit && lines === fit + 1 && lines > 2) {
-    const top = preview.getBoundingClientRect().top + 17 - preview.scrollTop;
-    const shown = [...preview.querySelectorAll(".pl")].filter((b) => b.getBoundingClientRect().top < top + fit * 20 - 1).length;
-    if (shown >= PREVIEW_MIN_LINES - 1 || shown >= total) lines = fit;
+    const shown = linesInRows(preview, fit, m);
+    if (shown >= PREVIEW_MIN_LINES - 1 || shown >= preview.querySelectorAll(".pl").length) lines = fit;
   }
   // Whole lines only (round 12): the box never ends between the rows of a wrapped line, so a
   // line that is shown is shown whole and the cue under the box counts exactly what is seen.
-  lines = wholeLineRows(preview, lines, 20);
-  preview.style.height = lines * 20 + 18 + "px";
+  lines = wholeLineRows(preview, lines, m);
+  preview.style.height = lines * m.rowH + m.extra + "px";
   // Unpinned, the pane grows to hold the floor; pinned, it never exceeds the window and ends
   // with its footer (no leftover padding under it when the box took whole lines only).
-  const need = rest + lines * 20 + 18;
+  const need = rest + lines * m.rowH + m.extra;
   buildPane.style.maxHeight = (pinned ? Math.min(limit, need) : Math.max(limit, need)) + "px";
   updatePreviewCue();
 }
-// The largest row count, at most `rows`, at which the box's bottom edge (at its current scroll
-// position) falls on a line boundary: a wrapped line is never cut between its rows, so the box
-// shows whole lines only and nothing reads as a complete line that is not (round 12). The rows
-// start 17 px down (the border and the 16 px top band).
-function wholeLineRows(pre, rows, rowH) {
-  const top0 = pre.getBoundingClientRect().top + 17 - pre.scrollTop;
-  const edge = top0 + rows * rowH;
+// A preview box's line metrics, read from the rendered box: the row height is its computed
+// line-height (a fixed length in the stylesheet; for "normal", the shortest line block's
+// height), the rows start under the top border and the top band (::before), and the box's
+// height is its rows plus `extra` (both borders and the band).
+function previewMetrics(pre) {
+  const px = (v) => parseFloat(v) || 0;
+  const cs = getComputedStyle(pre);
+  let rowH = px(cs.lineHeight);
+  if (!rowH) {
+    const blocks = pre.querySelectorAll(".pl");
+    for (let i = 0; i < Math.min(blocks.length, 40); i++) {
+      const h = blocks[i].getBoundingClientRect().height;
+      if (h > 0 && (!rowH || h < rowH)) rowH = h;
+    }
+    rowH = rowH || 20;
+  }
+  const inset = px(cs.borderTopWidth) + px(getComputedStyle(pre, "::before").height);
+  return { rowH, inset, extra: inset + px(cs.borderBottomWidth) };
+}
+// Where row 0 of the text starts with the text at rest (scrolled to the top), in viewport
+// pixels: the sizing is the same wherever the box happens to be scrolled.
+function rowOrigin(pre, m) {
+  return pre.getBoundingClientRect().top + m.inset - pre.scrollTop;
+}
+// The rows the whole text takes, measured from its last line block.
+function textRows(pre, m) {
+  const blocks = pre.querySelectorAll(".pl");
+  if (!blocks.length) return 1;
+  return Math.max(1, Math.round((blocks[blocks.length - 1].getBoundingClientRect().bottom - rowOrigin(pre, m)) / m.rowH));
+}
+// The rows that hold the first `n` lines whole (a wrapped line counts all its rows).
+function rowsForLines(pre, n, m) {
+  const blocks = pre.querySelectorAll(".pl");
+  if (!blocks.length) return 1;
+  const b = blocks[Math.min(n, blocks.length) - 1];
+  return Math.max(1, Math.ceil((b.getBoundingClientRect().bottom - rowOrigin(pre, m)) / m.rowH - 0.05));
+}
+// How many lines are whole within the first `rows` rows.
+function linesInRows(pre, rows, m) {
+  const edge = rowOrigin(pre, m) + rows * m.rowH + 1;
+  let n = 0;
+  for (const b of pre.querySelectorAll(".pl")) {
+    if (b.getBoundingClientRect().bottom > edge) break;
+    n++;
+  }
+  return n;
+}
+// The largest row count, at most `rows`, at which the box's bottom edge (with the text at rest)
+// falls on a line boundary: a wrapped line is never cut between its rows, so the box shows whole
+// lines only and nothing reads as a complete line that is not (round 12).
+function wholeLineRows(pre, rows, m) {
+  const top0 = rowOrigin(pre, m);
+  const edge = top0 + rows * m.rowH;
   for (const b of pre.querySelectorAll(".pl")) {
     const r = b.getBoundingClientRect();
     if (r.top >= edge - 1) break;
-    if (r.bottom > edge + 1) return Math.max(2, Math.round((r.top - top0) / rowH));
+    if (r.bottom > edge + 1) return Math.max(2, Math.round((r.top - top0) / m.rowH));
   }
   return rows;
 }
-// The side panel's box (CSS: at most 20 rows of 18 px): when the text overflows, its height is
+// The side panel's box (CSS: a max-height of 20 rows): when the text overflows it, its height is
 // set so it ends at the end of a whole line; otherwise it takes its natural height.
 function snapSidePreview() {
   const pre = $("swPreview");
   if (!pre || pre.hidden || pre.closest("[hidden]")) return;
   const was = pre.style.height;
   pre.style.height = "";
-  const want = pre.scrollHeight > 378 ? wholeLineRows(pre, 20, 18) * 18 + 18 + "px" : "";
+  let want = "";
+  if (pre.scrollHeight > pre.clientHeight + 1) {
+    const m = previewMetrics(pre);
+    const rows = Math.max(2, Math.floor((pre.getBoundingClientRect().height - m.extra) / m.rowH + 0.01));
+    want = wholeLineRows(pre, rows, m) * m.rowH + m.extra + "px";
+  }
   if (want !== was || pre.style.height !== want) pre.style.height = want;
 }
 // "Showing lines 1–20 of 76 · scroll for more" under the box while it scrolls; nothing when it all
