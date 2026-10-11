@@ -741,7 +741,7 @@ async function exportSwitchCards(r, results, opts) {
         box.hidden = true;
         stop.onclick = null;
       }
-      download(new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }), "switchcard-fleet-" + RELEASE + "-manifest.txt");
+      download(new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }), "switchcard-fleet-" + RELEASE + (recorded < n ? "-manifest-partial.txt" : "-manifest.txt"));
       if (recorded < n) {
         touch();
         const done = results.slice(0, recorded).map((x) => x.host || "switch " + x.n);

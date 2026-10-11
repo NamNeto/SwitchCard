@@ -217,7 +217,7 @@ function switchRowsFromCsv(r, text) {
     cells.forEach((c, i) => {
       if (!c.includes("\uFFFD")) return;
       result.decodeProblems++;
-      result.decodeWhere.push("row " + (ri + 1) + " " + (rawHeader[i] !== undefined && String(rawHeader[i]).trim() ? String(rawHeader[i]).trim() : "column " + (i + 1)));
+      result.decodeWhere.push("data row " + (ri + 1) + " " + (rawHeader[i] !== undefined && String(rawHeader[i]).trim() ? String(rawHeader[i]).trim() : "column " + (i + 1)));
     });
     const row = { id: newSwitchId(), values: {}, ports: {} };
     for (const [h, i] of usedCols) {

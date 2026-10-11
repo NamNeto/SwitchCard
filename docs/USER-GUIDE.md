@@ -19,7 +19,7 @@
    - Put `{{VLANS}}` where Layer-2 `vlan` statements belong and `{{PORTS}}` where interface blocks belong.
    - The default Trunk role is `switchport mode trunk` only; the Access role adds portfast and bpduguard. Edit the role templates if your standard differs.
    - Set the interface names, or pick a SKU preset and confirm it with `show ip interface brief`.
-6. For a spare-switch test, review a lab-only copy, deliberately uncheck **Example recipe**, and click **Apply recipe changes**. This allows a lab card; it does not approve production use. Complete the spare checklist ([EEM-CONTRACT.md](EEM-CONTRACT.md)) first.
+6. For a spare-switch test, review a lab-only copy, deliberately uncheck **Example recipe**, and click **Apply recipe changes**. Replace the example header line `! EXAMPLE ONLY - replace with your tested configuration` in the template with your own header first, or export stays blocked. This allows a lab card; it does not approve production use. Complete the spare checklist ([EEM-CONTRACT.md](EEM-CONTRACT.md)) first.
 7. Click **Build a card** in the rail on the left. Fill the device details and port roles (Access / Trunk / Unused / Routed).
    - To set one VLAN on several ports: tick them (or **Select all**) and click **Apply VLAN to checked**.
    - To set one role on several ports: tick them, pick the role in the bulk bar and click **Set role on checked**. The ports stay ticked, so you can apply a VLAN to the same selection next.
