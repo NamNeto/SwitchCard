@@ -375,6 +375,7 @@ $("duplicate").onclick = () => {
   const r = structuredClone(current());
   r.id = crypto.randomUUID();
   r.exports = {}; // export history belongs to the original recipe
+  r.exportStates = {}; // and so do the export states
   if (Array.isArray(r.switches)) r.switches = copySwitchRows(r.switches); // same switches, new ids
   r.name = (r.name.length + 7 > CONFIG.MAX_RECIPE_NAME_CHARS
     ? r.name.slice(0, CONFIG.MAX_RECIPE_NAME_CHARS - 7)

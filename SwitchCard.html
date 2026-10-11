@@ -230,6 +230,18 @@
       .muted {
         line-height: 1.55;
       }
+      /* Text for screen readers only (e.g. the Copy and Remove column headers). */
+      .visually-hidden {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0 0 0 0);
+        white-space: nowrap;
+        border: 0;
+      }
       small {
         font-size: 12.5px;
         line-height: 1.55;
@@ -5012,6 +5024,29 @@
               if (dropped) migrationNotes.push(rname + ": dropped " + dropped + " invalid export history entr" + (dropped === 1 ? "y" : "ies") + ".");
             }
           }
+          // Export states (v0.8.0): optional hash-only record per hostname for the Cards view; bad
+          // entries are dropped, at most MAX_FLEET_ROWS (newest) kept. v0.7.x keeps the field unread.
+          if (r.exportStates !== undefined) {
+            if (!r.exportStates || typeof r.exportStates !== "object" || Array.isArray(r.exportStates)) {
+              migrationNotes.push(rname + ": invalid export states dropped.");
+              r.exportStates = {};
+            } else {
+              const clean = {};
+              let dropped = 0;
+              for (const [k, e] of Object.entries(r.exportStates)) {
+                if (
+                  e && typeof e === "object" && typeof e.host === "string" && typeof e.at === "string" &&
+                  /^[0-9a-f]{64}$/.test(String(e.sha256 || "")) && k && k === e.host.trim().toLowerCase()
+                )
+                  clean[k] = { host: e.host, at: e.at, release: typeof e.release === "string" ? e.release : "?", sha256: e.sha256 };
+                else dropped++;
+              }
+              r.exportStates = clean;
+              const pruned = pruneExportStates(r);
+              if (dropped) migrationNotes.push(rname + ": dropped " + dropped + " invalid export state entr" + (dropped === 1 ? "y" : "ies") + ".");
+              if (pruned) migrationNotes.push(rname + ": kept the newest " + CONFIG.MAX_FLEET_ROWS + " export states (" + pruned + " older dropped).");
+            }
+          }
           // Reject duplicate / case-ambiguous saved port names.
           const portNames = r.ports.map((x) => String(x.name || "").toLowerCase());
           if (new Set(portNames).size !== portNames.length)
@@ -5492,12 +5527,42 @@
         const k = String(host || "").trim().toLowerCase();
         return k || null;
       }
+      // Two records per export: r.exports keeps the text (bounded, for diffs; the v0.7.x format) and
+      // r.exportStates keeps only the hash (v0.8.0, up to MAX_FLEET_ROWS hostnames, for Cards states).
       function recordExport(r, host, text) {
         const key = exportHistoryKey(host);
         if (!key) return;
+        const at = new Date().toISOString(),
+          sha256 = sha256Hex(text),
+          name = String(host).trim();
         if (!r.exports || typeof r.exports !== "object") r.exports = {};
-        r.exports[key] = { host: String(host).trim(), at: new Date().toISOString(), release: RELEASE, sha256: sha256Hex(text), text };
+        r.exports[key] = { host: name, at, release: RELEASE, sha256, text };
         pruneExportHistory(r);
+        if (!r.exportStates || typeof r.exportStates !== "object" || Array.isArray(r.exportStates)) r.exportStates = {};
+        r.exportStates[key] = { host: name, at, release: RELEASE, sha256 };
+        pruneExportStates(r);
+      }
+      // Newest MAX_FLEET_ROWS hash-only states; returns how many were dropped.
+      function pruneExportStates(r) {
+        const entries = Object.entries(r.exportStates || {});
+        if (entries.length <= CONFIG.MAX_FLEET_ROWS) return 0;
+        entries.sort((a, b) => String(b[1].at).localeCompare(String(a[1].at)));
+        r.exportStates = Object.fromEntries(entries.slice(0, CONFIG.MAX_FLEET_ROWS));
+        return entries.length - CONFIG.MAX_FLEET_ROWS;
+      }
+      // The last export of one hostname: whichever of the text entry (r.exports) and the hash-only state
+      // (r.exportStates) is newer, so an export made by v0.7.x (text only) still wins when it is newer.
+      // The result has `text` only when that text is the export it describes.
+      function lastExport(r, host) {
+        const key = exportHistoryKey(host);
+        if (!key) return null;
+        const own = (o) => (o && typeof o === "object" && Object.hasOwn(o, key) ? o[key] : null);
+        const t = own(r.exports),
+          s = own(r.exportStates);
+        if (!s) return t;
+        if (t && String(t.at) >= String(s.at)) return t;
+        if (t && t.sha256 === s.sha256) return { ...t, at: s.at, release: s.release };
+        return { host: s.host, at: s.at, release: s.release, sha256: s.sha256 };
       }
       // Newest first; bounded by count and by total text size so autosave never outgrows storage.
       function pruneExportHistory(r) {
@@ -5568,8 +5633,7 @@
       function renderDiffPanel(r, g) {
         const panel = $("diffPanel");
         if (!panel) return;
-        const key = exportHistoryKey(r.values && r.values.HOSTNAME);
-        const prev = key && r.exports && Object.hasOwn(r.exports, key) ? r.exports[key] : null;
+        const prev = lastExport(r, r.values && r.values.HOSTNAME);
         if (!prev || g.errors.length) {
           panel.hidden = true;
           return;
@@ -5582,6 +5646,20 @@
       function fillDiff(summary, out, prev, text) {
         out.replaceChildren();
         const when = " (" + formatSavedAt(prev.at) + ", v" + prev.release + ")";
+        if (typeof prev.text !== "string") {
+          // Hash-only state: the text fell out of the bounded history (MAX_EXPORT_HISTORY per recipe).
+          const now = sha256Hex(text);
+          if (now === prev.sha256) {
+            summary.textContent = "Identical to the last export for " + prev.host + when;
+            out.textContent = "No differences.";
+            return;
+          }
+          summary.textContent = "Changed since the last export for " + prev.host + when;
+          out.textContent = "No stored text to compare — the card changed since " + formatSavedAt(prev.at) + "; SHA-256 old " +
+            prev.sha256.slice(0, 16) + "…, new " + now.slice(0, 16) + "…. Only the last " + CONFIG.MAX_EXPORT_HISTORY +
+            " exported texts per recipe are kept for comparison.";
+          return;
+        }
         if (prev.text === text) {
           summary.textContent = "Identical to the last export for " + prev.host + when;
           out.textContent = "No differences.";
@@ -6056,28 +6134,35 @@
         const when = new Date();
         const manifest = ["row\thostname\tmgmt_ip\tfile\teditcontent_sha256\tlines\tbytes"];
         const folderFor = (row) => (dkeys.includes("HOSTNAME") ? exportHostnameForFile(row.recipe) : "switch-" + row.n);
-        if (textOnly) {
-          const files = [];
-          for (const row of results) {
-            const folder = folderFor(row);
-            files.push({ path: folder + "/editcontent.txt", blob: new Blob([row.text], { type: "text/plain" }) });
-            manifest.push([row.n, row.host, row.ip, folder + "/editcontent.txt", row.sha256, row.lines, row.bytes].join("\t"));
+        let recorded = 0;
+        try {
+          if (textOnly) {
+            const files = [];
+            for (const row of results) {
+              const folder = folderFor(row);
+              files.push({ path: folder + "/editcontent.txt", blob: new Blob([row.text], { type: "text/plain" }) });
+              manifest.push([row.n, row.host, row.ip, folder + "/editcontent.txt", row.sha256, row.lines, row.bytes].join("\t"));
+            }
+            files.push({ path: "fleet-manifest.txt", blob: new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }) });
+            download(await zip(files, when), "switchcard-fleet-" + RELEASE + "-text.zip");
+            for (const row of results) recordExport(r, row.host, row.text);
+            recorded = n;
+          } else {
+            for (let i = 0; i < n; i++) {
+              const row = results[i];
+              const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
+              message("Card " + (i + 1) + " / " + n + ": " + name);
+              download(await zip(buildCardFiles({ text: row.text }), when), name);
+              recordExport(r, row.host, row.text); // right away, so a later failure keeps this one
+              recorded++;
+              manifest.push([row.n, row.host, row.ip, name, row.sha256, row.lines, row.bytes].join("\t"));
+              await new Promise((resolve) => setTimeout(resolve, 400));
+            }
+            download(new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }), "switchcard-fleet-" + RELEASE + "-manifest.txt");
           }
-          files.push({ path: "fleet-manifest.txt", blob: new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }) });
-          download(await zip(files, when), "switchcard-fleet-" + RELEASE + "-text.zip");
-        } else {
-          for (let i = 0; i < n; i++) {
-            const row = results[i];
-            const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
-            message("Card " + (i + 1) + " / " + n + ": " + name);
-            download(await zip(buildCardFiles({ text: row.text }), when), name);
-            manifest.push([row.n, row.host, row.ip, name, row.sha256, row.lines, row.bytes].join("\t"));
-            await new Promise((resolve) => setTimeout(resolve, 400));
-          }
-          download(new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }), "switchcard-fleet-" + RELEASE + "-manifest.txt");
+        } finally {
+          if (recorded) touch(); // also after a failure, so the rows already downloaded are saved
         }
-        for (const row of results) recordExport(r, row.host, row.text);
-        touch();
         message(
           "Export finished: " + n + " switch" + (n === 1 ? "" : "es") +
             (textOnly ? " in one text-only ZIP (HOSTNAME/editcontent.txt + fleet-manifest.txt)." : " as separate card ZIPs plus a manifest with every SHA-256. If the browser blocked some downloads, allow multiple downloads for this page and export again.") +
@@ -6205,6 +6290,7 @@
           ports: (r.ports || []).map((p) => ({ ...p })),
           roles: { ...(r.roles || {}) }, // generate() fills missing roles in place (ensureRoles)
           exports: {},
+          exportStates: undefined,
           switches: undefined,
         };
         normalizePorts(rr);
@@ -6224,7 +6310,7 @@
       // The stamp is the full recipe JSON (not a hash), so a changed recipe can never reuse old text.
       let switchRowCache = { stamp: null, map: new Map() };
       function switchRecipeStamp(r) {
-        const { exports: _history, switches: _list, ...rest } = r;
+        const { exports: _history, exportStates: _states, switches: _list, ...rest } = r;
         return JSON.stringify(rest);
       }
       // Checks every row: { rows: RowResult[], warnings }. Messages are v0.7.3 checkFleet's.
@@ -6306,6 +6392,7 @@
           result.errors.push("Paste a CSV with a header row first.");
           return result;
         }
+        for (const c of parsed.rawHeader || parsed.header) if (String(c).includes("\uFFFD")) result.decodeProblems++;
         const dkeys = deviceKeys(r);
         // Port columns ("Gi1/3 description") set one switch's port; every other column is a placeholder.
         const portCols = [],
@@ -6450,11 +6537,12 @@
         }
         return { rows: res.rows.slice(1).map(make) };
       }
-      // Export state of one switch's text against the recipe's export history (keyed by hostname).
+      // Export state of one switch's text against the recipe's last export of that hostname (the newer
+      // of the text history and the hash-only states, see lastExport). entry.text may be missing.
       function exportState(r, host, sha256) {
         const key = exportHistoryKey(host);
         if (!key || !deviceKeys(r).includes("HOSTNAME")) return { state: "nohost" };
-        const entry = r.exports && typeof r.exports === "object" ? r.exports[key] : null;
+        const entry = lastExport(r, host);
         if (!entry) return { state: "new" };
         return { state: entry.sha256 === sha256 ? "current" : "changed", at: entry.at, entry };
       }
@@ -6946,6 +7034,7 @@
         const r = structuredClone(current());
         r.id = crypto.randomUUID();
         r.exports = {}; // export history belongs to the original recipe
+        r.exportStates = {}; // and so do the export states
         if (Array.isArray(r.switches)) r.switches = copySwitchRows(r.switches); // same switches, new ids
         r.name = (r.name.length + 7 > CONFIG.MAX_RECIPE_NAME_CHARS
           ? r.name.slice(0, CONFIG.MAX_RECIPE_NAME_CHARS - 7)
@@ -7499,7 +7588,9 @@
           el("tr", {},
             el("th", {}, "#"),
             cols.map((k) => el("th", { dataKey: k, title: "{{" + k + "}}" }, fieldLabel(k))),
-            el("th", {}, "Ports"), el("th", {}, "Status"), el("th", {}, ""), el("th", {}, "")),
+            el("th", {}, "Ports"), el("th", {}, "Status"),
+            el("th", {}, el("span", { className: "visually-hidden" }, "Copy")),
+            el("th", {}, el("span", { className: "visually-hidden" }, "Remove"))),
         );
         const body = [
           el("tr", { className: "defaults" },
@@ -7591,8 +7682,7 @@
             el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, ctx) }, f.text)));
         if (!items.length) checks.append(el("li", { className: "ok" }, "No problems found."));
         $("swPreview").textContent = x.text || "No output: fix the errors above.";
-        const key = exportHistoryKey(x.host);
-        const prev = key && r.exports && Object.hasOwn(r.exports, key) ? r.exports[key] : null;
+        const prev = lastExport(r, x.host);
         if (prev && !x.errors.length) {
           $("swDiffPanel").hidden = false;
           fillDiff($("swDiffSummary"), $("swDiff"), prev, x.text);
@@ -7631,7 +7721,17 @@
         swSelectedId = copy.id;
         touch();
         renderSwitches();
+        focusSwitchRow(copy.id);
         message("Copied switch " + (i + 1) + ". The copy is flagged as a duplicate until you change its hostname and management IP.");
+      }
+      // Puts focus on a row's first cell and scrolls it to the middle of the list.
+      function focusSwitchRow(id) {
+        const tr = [...$("swRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === id);
+        const input = tr && tr.querySelector("input[data-key]");
+        if (!input) return false;
+        input.focus();
+        input.scrollIntoView({ block: "center" });
+        return true;
       }
       async function removeSwitchRow(id) {
         const r = current();
@@ -7645,6 +7745,10 @@
         if (j >= 0) rows.splice(j, 1);
         touch();
         renderSwitches();
+        // Focus the next row (or the previous one, or Add counted up when the list is empty).
+        const next = rows[Math.min(Math.max(j, 0), rows.length - 1)];
+        if (next) focusSwitchRow(next.id);
+        else $("swAdd").focus();
         message("Removed " + what + ".");
       }
       // Columns of a CSV header that are neither used by the recipe nor port columns.
@@ -7685,6 +7789,8 @@
             for (const w of parsed.warnings) if (!w.startsWith("Columns not used")) p("warn", w);
             if (parsed.rows.length > room)
               p("warn", "Add after would pass " + CONFIG.MAX_FLEET_ROWS + " switches (the list has " + (r.switches || []).length + "); use Replace.");
+            const have = (r.switches || []).length;
+            if (have) p("", "Replace drops the " + have + " switch" + (have === 1 ? "" : "es") + " in the list.");
           }
           if (parsed && parsed.decodeProblems)
             p("bad", parsed.decodeProblems + (parsed.decodeProblems === 1 ? " cell" : " cells") + " could not be read as UTF-8 — save the CSV as UTF-8.");
@@ -8239,7 +8345,10 @@
         const x = checkSwitchRows(r, r.switches || []).rows.find((y) => y.row.id === tr.dataset.row);
         if (!x) return;
         if (e.target.closest("button.cd-status")) {
-          if (showView("switches")) selectSwitch(x.row.id);
+          if (showView("switches")) {
+            selectSwitch(x.row.id);
+            focusSwitchRow(x.row.id);
+          }
         } else if (e.target.closest("button.cd-diff")) showCardDiff(r, x);
         else if (e.target.closest("button.cd-card")) run(() => exportOneCard(r, x));
       });

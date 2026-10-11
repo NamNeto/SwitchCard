@@ -76,12 +76,42 @@ function exportHistoryKey(host) {
   const k = String(host || "").trim().toLowerCase();
   return k || null;
 }
+// Two records per export: r.exports keeps the text (bounded, for diffs; the v0.7.x format) and
+// r.exportStates keeps only the hash (v0.8.0, up to MAX_FLEET_ROWS hostnames, for Cards states).
 function recordExport(r, host, text) {
   const key = exportHistoryKey(host);
   if (!key) return;
+  const at = new Date().toISOString(),
+    sha256 = sha256Hex(text),
+    name = String(host).trim();
   if (!r.exports || typeof r.exports !== "object") r.exports = {};
-  r.exports[key] = { host: String(host).trim(), at: new Date().toISOString(), release: RELEASE, sha256: sha256Hex(text), text };
+  r.exports[key] = { host: name, at, release: RELEASE, sha256, text };
   pruneExportHistory(r);
+  if (!r.exportStates || typeof r.exportStates !== "object" || Array.isArray(r.exportStates)) r.exportStates = {};
+  r.exportStates[key] = { host: name, at, release: RELEASE, sha256 };
+  pruneExportStates(r);
+}
+// Newest MAX_FLEET_ROWS hash-only states; returns how many were dropped.
+function pruneExportStates(r) {
+  const entries = Object.entries(r.exportStates || {});
+  if (entries.length <= CONFIG.MAX_FLEET_ROWS) return 0;
+  entries.sort((a, b) => String(b[1].at).localeCompare(String(a[1].at)));
+  r.exportStates = Object.fromEntries(entries.slice(0, CONFIG.MAX_FLEET_ROWS));
+  return entries.length - CONFIG.MAX_FLEET_ROWS;
+}
+// The last export of one hostname: whichever of the text entry (r.exports) and the hash-only state
+// (r.exportStates) is newer, so an export made by v0.7.x (text only) still wins when it is newer.
+// The result has `text` only when that text is the export it describes.
+function lastExport(r, host) {
+  const key = exportHistoryKey(host);
+  if (!key) return null;
+  const own = (o) => (o && typeof o === "object" && Object.hasOwn(o, key) ? o[key] : null);
+  const t = own(r.exports),
+    s = own(r.exportStates);
+  if (!s) return t;
+  if (t && String(t.at) >= String(s.at)) return t;
+  if (t && t.sha256 === s.sha256) return { ...t, at: s.at, release: s.release };
+  return { host: s.host, at: s.at, release: s.release, sha256: s.sha256 };
 }
 // Newest first; bounded by count and by total text size so autosave never outgrows storage.
 function pruneExportHistory(r) {
@@ -152,8 +182,7 @@ function lineDiff(aText, bText) {
 function renderDiffPanel(r, g) {
   const panel = $("diffPanel");
   if (!panel) return;
-  const key = exportHistoryKey(r.values && r.values.HOSTNAME);
-  const prev = key && r.exports && Object.hasOwn(r.exports, key) ? r.exports[key] : null;
+  const prev = lastExport(r, r.values && r.values.HOSTNAME);
   if (!prev || g.errors.length) {
     panel.hidden = true;
     return;
@@ -166,6 +195,20 @@ function renderDiffPanel(r, g) {
 function fillDiff(summary, out, prev, text) {
   out.replaceChildren();
   const when = " (" + formatSavedAt(prev.at) + ", v" + prev.release + ")";
+  if (typeof prev.text !== "string") {
+    // Hash-only state: the text fell out of the bounded history (MAX_EXPORT_HISTORY per recipe).
+    const now = sha256Hex(text);
+    if (now === prev.sha256) {
+      summary.textContent = "Identical to the last export for " + prev.host + when;
+      out.textContent = "No differences.";
+      return;
+    }
+    summary.textContent = "Changed since the last export for " + prev.host + when;
+    out.textContent = "No stored text to compare — the card changed since " + formatSavedAt(prev.at) + "; SHA-256 old " +
+      prev.sha256.slice(0, 16) + "…, new " + now.slice(0, 16) + "…. Only the last " + CONFIG.MAX_EXPORT_HISTORY +
+      " exported texts per recipe are kept for comparison.";
+    return;
+  }
   if (prev.text === text) {
     summary.textContent = "Identical to the last export for " + prev.host + when;
     out.textContent = "No differences.";
@@ -640,28 +683,35 @@ async function exportSwitchCards(r, results, opts) {
   const when = new Date();
   const manifest = ["row\thostname\tmgmt_ip\tfile\teditcontent_sha256\tlines\tbytes"];
   const folderFor = (row) => (dkeys.includes("HOSTNAME") ? exportHostnameForFile(row.recipe) : "switch-" + row.n);
-  if (textOnly) {
-    const files = [];
-    for (const row of results) {
-      const folder = folderFor(row);
-      files.push({ path: folder + "/editcontent.txt", blob: new Blob([row.text], { type: "text/plain" }) });
-      manifest.push([row.n, row.host, row.ip, folder + "/editcontent.txt", row.sha256, row.lines, row.bytes].join("\t"));
+  let recorded = 0;
+  try {
+    if (textOnly) {
+      const files = [];
+      for (const row of results) {
+        const folder = folderFor(row);
+        files.push({ path: folder + "/editcontent.txt", blob: new Blob([row.text], { type: "text/plain" }) });
+        manifest.push([row.n, row.host, row.ip, folder + "/editcontent.txt", row.sha256, row.lines, row.bytes].join("\t"));
+      }
+      files.push({ path: "fleet-manifest.txt", blob: new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }) });
+      download(await zip(files, when), "switchcard-fleet-" + RELEASE + "-text.zip");
+      for (const row of results) recordExport(r, row.host, row.text);
+      recorded = n;
+    } else {
+      for (let i = 0; i < n; i++) {
+        const row = results[i];
+        const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
+        message("Card " + (i + 1) + " / " + n + ": " + name);
+        download(await zip(buildCardFiles({ text: row.text }), when), name);
+        recordExport(r, row.host, row.text); // right away, so a later failure keeps this one
+        recorded++;
+        manifest.push([row.n, row.host, row.ip, name, row.sha256, row.lines, row.bytes].join("\t"));
+        await new Promise((resolve) => setTimeout(resolve, 400));
+      }
+      download(new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }), "switchcard-fleet-" + RELEASE + "-manifest.txt");
     }
-    files.push({ path: "fleet-manifest.txt", blob: new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }) });
-    download(await zip(files, when), "switchcard-fleet-" + RELEASE + "-text.zip");
-  } else {
-    for (let i = 0; i < n; i++) {
-      const row = results[i];
-      const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
-      message("Card " + (i + 1) + " / " + n + ": " + name);
-      download(await zip(buildCardFiles({ text: row.text }), when), name);
-      manifest.push([row.n, row.host, row.ip, name, row.sha256, row.lines, row.bytes].join("\t"));
-      await new Promise((resolve) => setTimeout(resolve, 400));
-    }
-    download(new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }), "switchcard-fleet-" + RELEASE + "-manifest.txt");
+  } finally {
+    if (recorded) touch(); // also after a failure, so the rows already downloaded are saved
   }
-  for (const row of results) recordExport(r, row.host, row.text);
-  touch();
   message(
     "Export finished: " + n + " switch" + (n === 1 ? "" : "es") +
       (textOnly ? " in one text-only ZIP (HOSTNAME/editcontent.txt + fleet-manifest.txt)." : " as separate card ZIPs plus a manifest with every SHA-256. If the browser blocked some downloads, allow multiple downloads for this page and export again.") +

@@ -143,7 +143,10 @@ $("cdRows").addEventListener("click", (e) => {
   const x = checkSwitchRows(r, r.switches || []).rows.find((y) => y.row.id === tr.dataset.row);
   if (!x) return;
   if (e.target.closest("button.cd-status")) {
-    if (showView("switches")) selectSwitch(x.row.id);
+    if (showView("switches")) {
+      selectSwitch(x.row.id);
+      focusSwitchRow(x.row.id);
+    }
   } else if (e.target.closest("button.cd-diff")) showCardDiff(r, x);
   else if (e.target.closest("button.cd-card")) run(() => exportOneCard(r, x));
 });

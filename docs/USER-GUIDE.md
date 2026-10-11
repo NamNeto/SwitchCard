@@ -89,7 +89,7 @@ Build many cards from one recipe. The rail on the left holds **Build a card**, *
 
 - **not exported**: no export is remembered for this hostname;
 - **up to date** with the date: the text matches the last export;
-- **changed since** with the date: click it for a dialog with the line diff;
+- **changed since** with the date: click it for a dialog with the line diff (or, when the old text is no longer stored, the two SHA-256 values);
 - **not tracked**: the recipe does not use `HOSTNAME`, so exports are not remembered.
 
 Click a status to open that switch in Switches. The gate line above the table names what blocks export, with the same gates as a single card (unapplied draft, example recipe, matching baseline) plus the rows with errors or team-policy failures.
@@ -103,7 +103,7 @@ Bulk exports are all-or-nothing: a switch with errors stops them before any dial
 
 ## Changes since the last export
 
-Each export (single card or Cards) remembers the generated text per hostname inside the recipe, bounded to 50 hostnames or 512 KB per recipe and saved with the project. When you rebuild a switch with the same hostname, a **Changes since the last export** panel under the preview (and in the Switches side panel) shows the added and removed lines with a little context, or states that the text is identical. Duplicating a recipe starts with an empty history. Entries are hash-checked on open; an altered entry is dropped with a migration note.
+Each export (single card or Cards) remembers the generated text per hostname inside the recipe, bounded to 50 hostnames or 512 KB per recipe and saved with the project. The Cards states need only a hash of each export, which is kept for up to 500 hostnames per recipe, so "up to date" is right for every switch even after exporting more than 50; for a switch whose old text is no longer stored, the comparison shows the two SHA-256 values instead of the lines. When you rebuild a switch with the same hostname, a **Changes since the last export** panel under the preview (and in the Switches side panel) shows the added and removed lines with a little context, or states that the text is identical. Duplicating a recipe starts with an empty history. Entries are hash-checked on open; an altered entry is dropped with a migration note.
 
 ## Baseline fingerprints
 

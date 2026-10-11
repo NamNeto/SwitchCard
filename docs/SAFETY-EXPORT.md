@@ -35,12 +35,14 @@ Every export (Build's Export SD-card ZIP, Card ZIP and the Cards bulk exports) o
 ## Card exports (Cards)
 
 - **Gates:** every Cards export applies `blockers()` (unapplied draft, example recipe, matching baseline, team policies) exactly like a single card; the gate line lists them plus the rows with errors or policy failures.
-- **Export state** (`exportState()`): from the export history per hostname, `new` (not exported), `current` (stored hash equals the hash of the current text: up to date) or `changed` (changed since; the dialog shows the line diff). A recipe that does not bind `HOSTNAME` is not tracked.
-- **Bulk** (*All card ZIPs*, *Changed and new only*, *Text-only ZIP*): rows are re-checked at click time; an included row with errors stops the export before any dialog opens and is named in the status line (all-or-nothing). After the write dialog, card exports write one ZIP per row (`buildCardFiles` on that row's text) followed by a manifest; the text-only export writes one ZIP with `HOSTNAME/editcontent.txt` per row plus the manifest. Each exported row is recorded in the history.
+- **Export state** (`exportState()`): from the last export of the hostname (`lastExport()`: the newer of the text entry in `recipe.exports` and the hash-only entry in `recipe.exportStates`, compared by `at`), `new` (not exported), `current` (stored hash equals the hash of the current text: up to date) or `changed` (changed since; the dialog shows the line diff, or, when the text is no longer in the bounded text history, both SHA-256 values and "No stored text to compare"). The state needs only the hash, so it is right for every switch up to `MAX_FLEET_ROWS`, not only for the hostnames whose text is still stored. A recipe that does not bind `HOSTNAME` is not tracked.
+- **Bulk** (*All card ZIPs*, *Changed and new only*, *Text-only ZIP*): rows are re-checked at click time; an included row with errors stops the export before any dialog opens and is named in the status line (all-or-nothing). After the write dialog, card exports write one ZIP per row (`buildCardFiles` on that row's text) followed by a manifest; the text-only export writes one ZIP with `HOSTNAME/editcontent.txt` per row plus the manifest. Each row is recorded in the history right after its own download, so if a later card fails the rows already downloaded stay recorded (and the project is marked changed); the text-only ZIP records every row after its single download.
 
 ## Export history and diff
 
 `recordExport(recipe, host, text)` stores `{ host, at, release, sha256, text }` per lower-cased hostname in `recipe.exports`, pruned newest-first to `MAX_EXPORT_HISTORY` entries and `MAX_EXPORT_HISTORY_CHARS` characters. `validateProject` keeps only self-consistent entries (key equals the lower-cased host and the stored hash equals the hash of the text) and reports dropped ones. The Build panel and the Switches side panel diff the current text against the entry for the hostname (Myers line diff; beyond `MAX_DIFF_LINES` / `MAX_DIFF_EDITS` only the hashes are shown). Duplicate recipe starts the copy with an empty history.
+
+The same call also stores `{ host, at, release, sha256 }` (no text) in `recipe.exportStates`, bounded to the newest `MAX_FLEET_ROWS` hostnames. This hash-only record feeds the Cards states, the Cards rail chip and *Changed and new only (n)*. It is separate from `recipe.exports` because v0.7.3 drops any `exports` entry without its text; v0.7.3 keeps `exportStates` unread when it opens and saves a v0.8.0 project, and a newer export made by v0.7.3 (text entry only) still wins by its `at`. `validateProject` keeps an entry only when it is an object with string `host` and `at`, a 64-hex `sha256` and a key equal to the lower-cased trimmed host, drops the rest with a migration note, and keeps the newest `MAX_FLEET_ROWS` (note when more were dropped). Duplicate recipe starts the copy with empty export states too.
 
 ## Baseline fingerprint
 
@@ -94,7 +96,8 @@ The Configuration preview and the ZIP's root `editcontent.txt` come from **separ
 | `MAX_TEAM_HINTS` / `MAX_TEAM_HINT_CHARS` | 50 hints / 300 chars each |
 | `MAX_TEAM_POLICIES` / `MAX_TEAM_POLICY_CHARS` | 50 rules / 300 chars each |
 | `MAX_FLEET_ROWS` | 500 switches per recipe |
-| `MAX_EXPORT_HISTORY` / `MAX_EXPORT_HISTORY_CHARS` | 50 hostnames / 512 KiB of text per recipe |
+| `MAX_EXPORT_HISTORY` / `MAX_EXPORT_HISTORY_CHARS` | 50 hostnames / 512 KiB of text per recipe (diffs) |
+| `exportStates` (bounded by `MAX_FLEET_ROWS`) | 500 hash-only export records per recipe (Cards states) |
 | `MAX_FINGERPRINT_FILES` | 2,000 per-file hashes saved in the project |
 | `MAX_DIFF_LINES` / `MAX_DIFF_EDITS` | 6,000 lines / 2,000 edits before the diff falls back to hashes |
 

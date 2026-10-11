@@ -1053,3 +1053,192 @@ def test_500_rows_check_time(page):
         })""", view)
         print("showView(%s) with 500 rows incl. rail refresh: %.0f ms" % (view, ms))
     assert page.problems == []
+
+
+# --- Final review fixes ---
+
+def test_cards_export_states_beyond_history_bound(page):
+    n = 120
+    ids = ev(page, """(n) => { const r = current(); r.example = false; normalizePorts(r);
+        r.values.MGMT_MASK = '255.255.0.0'; r.values.MGMT_IP = '10.20.0.10'; r.values.GATEWAY = '10.20.0.1';
+        baseline = {model: r.model, version: 'x', files: [{path: 'a.bin', blob: new Blob(['x'])}]};
+        r.switches = countedUpRows(r, [], n).rows; r.exports = {};
+        renderAll(); renderPreview(); showView('cards'); return r.switches.map((x) => x.id); }""", n)
+    assert len(ids) == n
+    stub_downloads(page)
+    page.click("#cdText")
+    page.check("dialog[open] input[type=checkbox]")
+    click_dialog(page, "Download ZIP")
+    page.wait_for_function("() => (window.__dl || []).length === 1", timeout=20000)
+    page.wait_for_function("() => $('chipCards').textContent === '120 of 120 up to date'", timeout=10000)
+    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and new only (0)'")
+    assert page.is_disabled("#cdChanged")
+    lasts = ev(page, "() => [...document.querySelectorAll('#cdRows td.cd-last')].map((t) => t.textContent)")
+    assert len(lasts) == n and all(s.startswith("up to date") for s in lasts)
+    counts = ev(page, "() => [Object.keys(current().exports).length, Object.keys(current().exportStates).length]")
+    assert counts[0] <= 50 and counts[1] == n
+    # a row whose text was pruned from the export history
+    i = ev(page, """() => { const r = current(); const keys = Object.keys(r.exports);
+        return r.switches.findIndex((x) => !keys.includes(x.values.HOSTNAME.toLowerCase())); }""")
+    assert i >= 0
+    ev(page, "(i) => { current().switches[i].values.SITE = 'Plant Q'; touch(); renderPreview(); }", i)
+    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and new only (1)'")
+    page.wait_for_function("() => $('chipCards').textContent === '119 of 120 up to date'")
+    page.click(_cd_row(ids[i], "button.cd-diff"))
+    page.wait_for_selector("dialog[open]")
+    text = page.inner_text("dialog[open]")
+    assert "No stored text to compare" in text and "SHA-256 old" in text
+    click_dialog(page, "Close")
+    # the Switches side panel handles the text-less entry too
+    ev(page, "(id) => { showView('switches'); selectSwitch(id); }", ids[i])
+    assert ev(page, "() => $('swDiffPanel').hidden") is False
+    assert "No stored text to compare" in ev(page, "() => $('swDiff').textContent")
+    # 500 states fit the project size check
+    size = ev(page, """() => { const r = current(); r.exportStates = {};
+        for (let k = 0; k < 500; k++) r.exportStates['host-' + k] = { host: 'HOST-' + k, at: new Date().toISOString(), release: RELEASE, sha256: 'a'.repeat(64) };
+        return assertProjectSaveSize(projectPayload()).length; }""")
+    assert size < 10 * 1024 * 1024
+    assert page.problems == []
+
+
+def test_export_state_newer_entry_wins(page):
+    r = ev(page, r"""() => {
+        const r = structuredClone(recipes[0]); normalizePorts(r); r.exports = {};
+        const a = generate(r).text, b = a + '! b\n';
+        const k = 'ie3100-demo-01';
+        // a v0.7.3 export (text history only) newer than the v0.8.0 hash-only state
+        r.exportStates = { [k]: { host: 'IE3100-DEMO-01', at: '2026-01-01T00:00:00.000Z', release: '0.8.0', sha256: sha256Hex(b) } };
+        r.exports = { [k]: { host: 'IE3100-DEMO-01', at: '2026-02-01T00:00:00.000Z', release: '0.7.3', sha256: sha256Hex(a), text: a } };
+        const s1 = exportState(r, 'IE3100-DEMO-01', sha256Hex(a));
+        // a newer hash-only state wins over an older text entry; no text when they differ
+        r.exportStates[k].at = '2026-03-01T00:00:00.000Z';
+        const s2 = exportState(r, 'IE3100-DEMO-01', sha256Hex(b));
+        const s3 = exportState(r, 'IE3100-DEMO-01', sha256Hex(a));
+        // same hash: the text entry comes along, with the newer time
+        r.exportStates[k].sha256 = sha256Hex(a);
+        const s4 = exportState(r, 'IE3100-DEMO-01', sha256Hex(a));
+        return { s1: [s1.state, s1.at, typeof s1.entry.text], s2: [s2.state, s2.at, typeof s2.entry.text],
+                 s3: s3.state, s4: [s4.state, s4.at, s4.entry.text === a] };
+    }""")
+    assert r == {"s1": ["current", "2026-02-01T00:00:00.000Z", "string"],
+                 "s2": ["current", "2026-03-01T00:00:00.000Z", "undefined"],
+                 "s3": "changed",
+                 "s4": ["current", "2026-03-01T00:00:00.000Z", True]}
+
+
+def test_validate_project_export_states(page):
+    r = ev(page, r"""() => {
+        const good = 'b'.repeat(64);
+        const p = JSON.parse(JSON.stringify(projectPayload()));
+        p.recipes[0].exportStates = {
+            'a-01': { host: 'A-01', at: '2026-01-01T00:00:00.000Z', release: '0.8.0', sha256: good },
+            'a-02': { host: 'A-02', at: '2026-01-01T00:00:00.000Z', sha256: 'xyz' },
+            'wrong': { host: 'A-03', at: '2026-01-01T00:00:00.000Z', sha256: good },
+            'a-04': 'nope',
+            'a-05': { host: 'A-05', at: 5, sha256: good },
+        };
+        const q = JSON.parse(JSON.stringify(projectPayload()));
+        q.recipes[0].exportStates = [1, 2];
+        const big = JSON.parse(JSON.stringify(projectPayload()));
+        big.recipes[0].exportStates = {};
+        for (let k = 0; k < 510; k++)
+            big.recipes[0].exportStates['h-' + k] = { host: 'H-' + k, at: new Date(Date.UTC(2026, 0, 1, 0, 0, k)).toISOString(), sha256: good };
+        const vp = validateProject(p), vq = validateProject(q), vb = validateProject(big);
+        return { p: vp.recipes[0].exportStates, pn: vp._migrationNotes, q: vq.recipes[0].exportStates, qn: vq._migrationNotes,
+                 bn: Object.keys(vb.recipes[0].exportStates).length, oldest: Object.hasOwn(vb.recipes[0].exportStates, 'h-0'),
+                 newest: Object.hasOwn(vb.recipes[0].exportStates, 'h-509'), bnotes: vb._migrationNotes };
+    }""")
+    assert r["p"] == {"a-01": {"host": "A-01", "at": "2026-01-01T00:00:00.000Z", "release": "0.8.0", "sha256": "b" * 64}}
+    assert any("dropped 4 invalid export state entries" in s for s in r["pn"]), r["pn"]
+    assert r["q"] == {} and any("invalid export states dropped" in s for s in r["qn"]), r["qn"]
+    assert r["bn"] == 500 and r["oldest"] is False and r["newest"] is True
+    assert any("newest 500 export states" in s for s in r["bnotes"]), r["bnotes"]
+
+
+def test_duplicate_recipe_resets_export_states(page):
+    r = ev(page, """() => { const r = current();
+        r.exportStates = { x: { host: 'X', at: '2026-01-01T00:00:00.000Z', release: '0.8.0', sha256: 'c'.repeat(64) } };
+        document.getElementById('duplicate').click();
+        return [Object.keys(current().exports).length, Object.keys(current().exportStates || {}).length, Object.keys(r.exportStates).length]; }""")
+    assert r == [0, 0, 1]
+
+
+def test_import_summary_names_replaced_rows(page):
+    ev(page, """() => { current().switches = [{ id: 'sw-a', values: { HOSTNAME: 'A-01' }, ports: {} }]; showView('switches'); }""")
+    page.click("#swImport")
+    page.fill("dialog[open] textarea", "HOSTNAME\nB-01\n")
+    assert "Replace drops the 1 switch in the list." in page.inner_text("dialog[open]")
+    click_dialog(page, "Cancel")
+    ev(page, """() => { current().switches.push({ id: 'sw-b', values: { HOSTNAME: 'A-02' }, ports: {} }); renderSwitches(); }""")
+    page.click("#swImport")
+    page.fill("dialog[open] textarea", "HOSTNAME\nB-01\n")
+    assert "Replace drops the 2 switches in the list." in page.inner_text("dialog[open]")
+    click_dialog(page, "Cancel")
+    ev(page, "() => { current().switches = []; renderSwitches(); }")
+    page.click("#swImport")
+    page.fill("dialog[open] textarea", "HOSTNAME\nB-01\n")
+    assert "Replace drops" not in page.inner_text("dialog[open]")
+    click_dialog(page, "Cancel")
+
+
+def test_copy_remove_and_card_status_move_focus(page):
+    ev(page, """() => { current().switches = [
+        { id: 'sw-a', values: { HOSTNAME: 'A-01', MGMT_IP: '192.0.2.71' }, ports: {} },
+        { id: 'sw-b', values: { HOSTNAME: 'A-02', MGMT_IP: '192.0.2.72' }, ports: {} },
+        { id: 'sw-c', values: { HOSTNAME: 'A-03', MGMT_IP: '192.0.2.73' }, ports: {} }]; showView('switches'); }""")
+    first = """() => { const a = document.activeElement; const tr = a.closest('tr');
+        const f = tr && tr.querySelector('input[data-key]'); return [a.dataset.row || null, a === f]; }"""
+    page.click("#swRows tr[data-row='sw-a'] button.sw-copy")
+    copy = ev(page, "() => current().switches[1].id")
+    assert ev(page, first) == [copy, True]
+    # remove the copy -> focus on the next row (sw-b)
+    page.click("#swRows tr[data-row='%s'] button.sw-remove" % copy)
+    click_dialog(page, "Remove")
+    page.wait_for_function("() => !document.querySelector('dialog[open]')")
+    assert ev(page, first) == ["sw-b", True]
+    # remove the last row -> focus on the previous row
+    page.click("#swRows tr[data-row='sw-c'] button.sw-remove")
+    click_dialog(page, "Remove")
+    page.wait_for_function("() => !document.querySelector('dialog[open]')")
+    assert ev(page, first) == ["sw-b", True]
+    for rid in ("sw-a", "sw-b"):
+        page.click("#swRows tr[data-row='%s'] button.sw-remove" % rid)
+        click_dialog(page, "Remove")
+        page.wait_for_function("() => !document.querySelector('dialog[open]')")
+    assert ev(page, "() => document.activeElement.id") == "swAdd"
+    # Cards: Status opens Switches with focus in the row's first cell
+    ids = _cards_setup(page)
+    page.click(_cd_row(ids[2], "button.cd-status"))
+    assert ev(page, "() => currentView") == "switches"
+    assert ev(page, first) == [ids[2], True]
+    assert page.problems == []
+
+
+def test_import_header_decode_hint(page):
+    ev(page, "() => showView('switches')")
+    page.click("#swImport")
+    page.set_input_files("dialog[open] input[type=file]",
+                         {"name": "a.csv", "mimeType": "text/csv", "buffer": b"HOSTNAME,ST\xc4DT\nA-01,x\n"})
+    page.wait_for_function("() => document.querySelector('dialog[open]').textContent.includes('could not be read as UTF-8')")
+    assert "Header names must be placeholder names" in page.inner_text("dialog[open]")
+    click_dialog(page, "Cancel")
+
+
+def test_copy_remove_headers_have_hidden_text(page):
+    ev(page, """() => { current().switches = [{ id: 'sw-a', values: { HOSTNAME: 'A-01' }, ports: {} }]; showView('switches'); }""")
+    ths = ev(page, """() => [...$('swHead').querySelectorAll('th')].slice(-2).map((t) => {
+        const s = t.querySelector('.visually-hidden'); return [t.textContent, !!s && getComputedStyle(s).position, !!s && s.getBoundingClientRect().width <= 1]; })""")
+    assert ths == [["Copy", "absolute", True], ["Remove", "absolute", True]]
+
+
+def test_bulk_export_records_rows_before_a_failure(page):
+    _cards_setup(page)
+    ev(page, """() => { window.__n = 0; download = () => { if (++window.__n === 2) throw Error('blocked'); }; dirty = false; }""")
+    page.click("#cdAll")
+    page.check("dialog[open] input[type=checkbox]")
+    click_dialog(page, "Download ZIPs")
+    page.wait_for_function("() => !busy && $('status').textContent.includes('blocked')", timeout=10000)
+    assert ev(page, "() => Object.keys(current().exports)") == ["ie3100-demo-01"]
+    assert ev(page, "() => Object.keys(current().exportStates)") == ["ie3100-demo-01"]
+    assert ev(page, "() => dirty") is True
+    page.problems.clear()
