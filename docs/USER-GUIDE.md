@@ -64,6 +64,7 @@ Team security hints are advisory. **Team policy rules** (Manage recipes & baseli
 - Rules apply to every recipe in the project and to every switch in the Switches list; a switch that fails a rule counts as a switch with errors. They are saved with the project, the team package and the browser autosave.
 - Examples: `require transport input ssh  # VTY`, `forbid snmp-server community`, `require ^ip ssh version 2`.
 - Each line is trimmed, so a pattern cannot start or end with a literal space; write `\s` or `\b` instead.
+- Rules apply as you type, like team hints: deleting a line lifts that rule at once. **Tidy rules** rewrites the box without blank lines and extra spaces and says which rules cannot be evaluated.
 
 ## Many switches: Switches and Cards
 
@@ -81,7 +82,7 @@ Build many cards from one recipe. The rail on the left holds **Build a card**, *
 
 **Per-switch ports.** Port roles, VLANs and descriptions come from the port table on *Build a card* and are shared by every switch. The **Ports** column counts the ports a switch overrides and opens its **Ports** dialog: one line per port with Interface, Role, VLAN, Description, IP and Mask. Grey values come from the port table; typing sets the value for this switch only, and **Use table** clears that switch's settings for the port. In a CSV, a column named after an interface and one of `description`, `role`, `vlan`, `ip` or `mask`, for example `Gi1/3 description` or `GigabitEthernet1/1 ip`, does the same. A column naming an interface the recipe does not have, or an unknown role, is an error. When *Apply recipe changes* removes interfaces from the recipe, a dialog lists the per-switch settings on those ports, and only those are dropped.
 
-**Checks.** Every switch is checked exactly like a single card (every input check and the team policies), plus duplicate hostnames and management addresses across the list. The **Status** column shows `OK`, `OK · 2 notes` or `3 errors`. **Copy** adds an exact copy below a row (flagged as a duplicate until you change it) and **Remove** removes a row after a dialog. Selecting a row fills the side panel with its checks, its `editcontent.txt` and, when it was exported before, *Changes since the last export*.
+**Checks.** Every switch is checked exactly like a single card (every input check and the team policies), plus duplicate hostnames and management addresses across the list: both switches of a duplicate are errors, each naming the other row. The **Status** column shows `OK`, `OK · 2 notes` or `3 errors`. **Copy** adds an exact copy below a row (flagged as a duplicate until you change it) and **Remove** removes a row after a dialog. Selecting a row fills the side panel with its checks, its `editcontent.txt` and, when it was exported before, *Changes since the last export*.
 
 ### Cards
 
@@ -95,7 +96,7 @@ Build many cards from one recipe. The rail on the left holds **Build a card**, *
 Click a status to open that switch in Switches. The gate line above the table names what blocks export, with the same gates as a single card (unapplied draft, example recipe, matching baseline) plus the rows with errors or team-policy failures.
 
 - **Card ZIP** exports one switch.
-- **All card ZIPs** writes one SD-card ZIP per switch, then a manifest with every file name and hash. Browsers ask once whether to allow multiple downloads; if some were blocked, allow them and export again.
+- **All card ZIPs** writes one SD-card ZIP per switch, then a manifest with every file name and hash. Browsers ask once whether to allow multiple downloads; if some were blocked, allow them and export again. While it runs, the Cards view shows *Card 8 of 24: file name* and **Cancel after this card**; the cards already written stay recorded as exported, the manifest lists just those, and **Changed and new only** writes the rest.
 - **Changed and new only (n)** exports only the switches that were never exported or changed since; it is disabled when every card is up to date.
 - **Text-only ZIP** writes one ZIP with `HOSTNAME/editcontent.txt` per switch plus the manifest, for workflows that add the baseline separately.
 
@@ -119,7 +120,7 @@ Every error and review note in the red and yellow boxes is a button. Click it to
 
 ## Dialogs
 
-Every question SwitchCard asks is a dialog in the page, never a browser pop-up: restoring an autosave from another version (**Restore it** / **Start with the examples**), dropping unmatched port assignments (**Drop and continue**, or **Drop and apply** in the recipe editor), opening a file over unsaved work (**Open and replace**), **Save without the draft**, replacing the port CSV text, and the delete and clear actions, which use red buttons. Esc or **Cancel** always means no change. The browser's own "leave this page?" prompt on unsaved work still appears, because a page cannot replace it.
+Every question SwitchCard asks is a dialog in the page, never a browser pop-up: restoring an autosave from another version (**Restore it** / **Start with the examples**), dropping unmatched port assignments (**Drop and continue**, or **Drop and apply** in the recipe editor), opening a file over unsaved work (**Open and replace**), **Save without the draft**, replacing the port CSV text, and the delete and clear actions, which use red buttons. Esc or **Cancel** always means no change. The one exception is a switch's **Ports** dialog: each edit there applies as you type, Esc and **Close** just close it, and **Use table** undoes that port's settings. The browser's own "leave this page?" prompt on unsaved work still appears, because a page cannot replace it.
 
 ## Theme
 

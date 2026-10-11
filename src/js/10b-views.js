@@ -194,7 +194,7 @@ function renderSwitchPanel(r, x) {
   const items = [
     ...x.findings.map((f) => ({ level: f.level, text: f.text, where: f.where })),
     ...x.policy.map((p) => ({ level: "error", text: "Team policy: " + p, where: { kind: "policy" } })),
-  ];
+  ].sort((a, b) => (a.level === "error" ? 0 : 1) - (b.level === "error" ? 0 : 1)); // errors first (stable)
   // Each check is a button that jumps to what it is about (this row's cell, its Ports dialog, ...).
   const ctx = { view: "switches", rowId: x.row.id };
   for (const f of items)
@@ -313,7 +313,8 @@ function openImportDialog() {
       if (have) p("notice warning", "Replace drops the " + have + " switch" + (have === 1 ? "" : "es") + " in the list.");
     }
     if (parsed && parsed.decodeProblems)
-      p("bad", parsed.decodeProblems + (parsed.decodeProblems === 1 ? " cell" : " cells") + " could not be read as UTF-8 — save the CSV as UTF-8.");
+      p("bad", parsed.decodeProblems + (parsed.decodeProblems === 1 ? " cell" : " cells") + " could not be read as UTF-8 — save the CSV as UTF-8." +
+        (parsed.decodeWhere && parsed.decodeWhere.length ? " Where: " + listFew(parsed.decodeWhere, 5) + "." : ""));
     const btn = (label) => buttons.find((b) => b.textContent === label);
     if (buttons.length) {
       const add = btn("Add after"),
@@ -377,6 +378,10 @@ function openImportDialog() {
     message("Imported " + n + " switch" + (n === 1 ? "" : "es") +
       (choice === "replace" ? (before ? ", replacing the " + before + " in the list." : ".") : " after the " + before + " in the list."));
   });
+}
+// "a, b, c and 4 more": the first few items of a list.
+function listFew(items, few) {
+  return items.slice(0, few).join(", ") + (items.length > few ? " and " + (items.length - few) + " more" : "");
 }
 // Ports dialog for one row: effective values per port (grey when they come from the port table);
 // typing sets this switch's own value, Use table clears that port's settings.
@@ -452,7 +457,8 @@ function openPortsDialog(row, focus) {
           const k = ownKey(name);
           if (k !== undefined) delete row.ports[k];
           touch();
-          draw();
+          // The button is disabled now; focus stays in the dialog on this port's Role.
+          draw({ name, attr: "role" });
           changed();
         },
       }, "Use table");
@@ -480,6 +486,8 @@ function openPortsDialog(row, focus) {
                 touch();
                 draw();
                 changed();
+                const close = wrap.closest("dialog") && wrap.closest("dialog").querySelector(".dialog-actions button");
+                if (close) close.focus();
               },
             }, "Remove"))))
         : "",
@@ -728,7 +736,9 @@ $("swTemplate").onclick = () => {
     message("This recipe has no per-switch fields or ports to put in a CSV.");
     return;
   }
-  downloadCsv(t.text, "switchcard-fleet-template-" + csvFileStem(r) + ".csv");
+  // The mode is in the name, so the three kinds of template never overwrite each other.
+  const suffix = { description: "-port-descriptions", all: "-all-port-settings", none: "-fields-only" }[$("swTemplateMode").value] || "";
+  downloadCsv(t.text, "switchcard-fleet-template-" + csvFileStem(r) + suffix + ".csv");
   message("CSV template downloaded (" + t.columns.length + " columns, row 1 is the switch on Build a card). Fill one row per switch, then Import CSV.");
 };
 $("swRemoveAll").onclick = async () => {

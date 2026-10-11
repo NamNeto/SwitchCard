@@ -676,7 +676,8 @@ $("saveProject").onclick = async () => {
       );
     download(
       new Blob([pretty], { type: "application/json" }),
-      "switchcard-project-" + RELEASE + ".json",
+      // The local date keeps repeated saves apart in Downloads.
+      "switchcard-project-" + RELEASE + "-" + formatExportAt(new Date().toISOString()).slice(0, 10) + ".json",
     );
     dirty = false;
     autosave();

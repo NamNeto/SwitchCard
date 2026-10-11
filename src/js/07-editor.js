@@ -55,7 +55,11 @@ function renderPreview() {
         : b.length
           ? "Checks passed. Export is still blocked; see under the Export button."
           : "Checks passed.";
-    $("checks").append(statusNotice(notices.length ? "warning" : "ok", head, notices,
+    // Checks passed but an export gate holds (baseline model, label, example, draft): amber, with
+    // the reasons listed, so the box never reads as a green light while export is blocked.
+    const gateOnly = !notices.length && !g.errors.length && b.some((x) => !x.startsWith("Team policy:"));
+    $("checks").append(statusNotice(notices.length || gateOnly ? "warning" : "ok", head,
+      gateOnly ? b.filter((x) => !x.startsWith("Team policy:")) : notices,
       "Cisco syntax and device behavior are not verified."));
   }
   markInvalidFields(g);

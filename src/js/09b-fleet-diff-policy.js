@@ -348,7 +348,8 @@ function parseCsv(text) {
     row.push(cell);
     rows.push(row);
   }
-  const nonEmpty = rows.filter((r) => r.some((c) => c.trim() !== ""));
+  // A line of only separators and spaces (",,", or ";;" in a comma file) is an empty row.
+  const nonEmpty = rows.filter((r) => r.some((c) => c.replace(/[\s,;]+/g, "") !== ""));
   if (!nonEmpty.length) return { header: [], rows: [], delimiter: delim };
   const rawHeader = nonEmpty[0].map((h) => sanitizeSingleLine(h).text.trim());
   const header = rawHeader.map((h) => h.toUpperCase().replace(/[\s-]+/g, "_"));
@@ -703,17 +704,51 @@ async function exportSwitchCards(r, results, opts) {
       for (const row of results) recordExport(r, row.host, row.text);
       recorded = n;
     } else {
-      for (let i = 0; i < n; i++) {
-        const row = results[i];
-        const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
-        message("Card " + (i + 1) + " / " + n + ": " + name);
-        download(await zip(buildCardFiles({ text: row.text }), when), name);
-        recordExport(r, row.host, row.text); // right away, so a later failure keeps this one
-        recorded++;
-        manifest.push([row.n, row.host, row.ip, name, row.sha256, row.lines, row.bytes].join("\t"));
-        await new Promise((resolve) => setTimeout(resolve, 400));
+      // Progress in the Cards view ("Card 8 of 24: file") with a Cancel button that ends the run
+      // after the card being written. run() disabled every button, so Cancel is enabled here.
+      const box = $("cdProgress"),
+        label = $("cdProgressText"),
+        stop = $("cdCancel");
+      const STOPPING = " · cancelling after this card";
+      let stopped = false;
+      stop.onclick = () => {
+        stopped = true;
+        stop.disabled = true;
+        label.textContent += STOPPING;
+      };
+      stop.disabled = false;
+      box.hidden = false;
+      if (currentView === "cards") stop.focus({ preventScroll: true });
+      try {
+        for (let i = 0; i < n && !stopped; i++) {
+          const row = results[i];
+          const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
+          const step = "Card " + (i + 1) + " of " + n + ": " + name;
+          label.textContent = step;
+          download(await zip(buildCardFiles({ text: row.text }), when), name);
+          message(step); // after zip(), whose own "Packaging" lines would hide it
+          recordExport(r, row.host, row.text); // right away, so a later failure keeps this one
+          recorded++;
+          if (typeof scheduleRailUpdate === "function") scheduleRailUpdate(); // chips and rows follow the run
+          manifest.push([row.n, row.host, row.ip, name, row.sha256, row.lines, row.bytes].join("\t"));
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
+      } finally {
+        if (document.activeElement === stop) stop.blur(); // run() puts focus back on the opener
+        box.hidden = true;
+        stop.onclick = null;
       }
       download(new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }), "switchcard-fleet-" + RELEASE + "-manifest.txt");
+      if (recorded < n) {
+        touch();
+        const done = results.slice(0, recorded).map((x) => x.host || "switch " + x.n);
+        message(
+          "Export cancelled after card " + recorded + " of " + n + ". Written: " +
+            (done.slice(0, 5).join(", ") || "none") + (recorded > 5 ? " and " + (recorded - 5) + " more" : "") +
+            ". The manifest lists only those, and they are recorded as exported. Use Changed and new only to write the rest.",
+        );
+        return true;
+      }
     }
   } finally {
     if (recorded) touch(); // also after a failure, so the rows already downloaded are saved

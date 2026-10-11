@@ -380,6 +380,7 @@
                 <p class="muted">
                   One hint per line. Shown on Build under Config security hints as
                   <strong>Team</strong> (even when preview has errors). Advisory only — never block export.
+                  Hints apply as you type.
                 </p>
                 <div class="field">
                   <label for="teamHintsEditor">Hints</label>
@@ -402,7 +403,8 @@
                   ></textarea>
                 </div>
                 <div class="actions">
-                  <button id="applyTeamPolicies" type="button">Apply team policies</button>
+                  <button id="applyTeamPolicies" type="button" aria-describedby="teamPoliciesLive">Tidy rules</button>
+                  <span id="teamPoliciesLive" class="muted"><small>Rules apply as you type. Tidy rules removes blank lines and extra spaces and says which rules cannot be evaluated.</small></span>
                 </div>
                 <p class="muted" style="margin-top: 10px">
                   <small
@@ -674,6 +676,11 @@
             <button type="button" id="cdAll" class="primary">All card ZIPs</button>
             <button type="button" id="cdChanged">Changed and new only</button>
             <button type="button" id="cdText">Text-only ZIP</button>
+          </div>
+          <!-- Bulk card export in progress: which card, and a way to stop after it -->
+          <div id="cdProgress" class="cd-progress" hidden>
+            <span id="cdProgressText" role="status" aria-live="polite"></span>
+            <button type="button" id="cdCancel">Cancel after this card</button>
           </div>
         </div>
         <div class="card">

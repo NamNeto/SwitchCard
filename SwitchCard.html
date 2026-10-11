@@ -1247,6 +1247,12 @@
         border-color: var(--err);
         box-shadow: none;
       }
+      /* The red buttons keep a ring of their own when focused (box-shadow is reset above). */
+      button.danger:focus-visible,
+      button.primary.danger:focus-visible {
+        outline: 2px solid var(--err);
+        outline-offset: 2px;
+      }
       .dlg-summary {
         margin: 0;
         padding: 10px 12px;
@@ -1667,6 +1673,27 @@
       }
       #cdFixGate {
         margin-top: 8px;
+      }
+      /* Bulk card export in progress: "Card 8 of 24: file" and Cancel after this card. */
+      .cd-progress {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px 12px;
+        margin-top: 10px;
+        padding: 8px 12px;
+        font-size: 13px;
+        font-weight: 600;
+        border: 1px solid var(--line);
+        border-left: 3px solid var(--accent);
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+      }
+      .cd-progress[hidden] {
+        display: none;
+      }
+      #cdProgressText {
+        flex: 1 1 260px;
+        overflow-wrap: anywhere;
       }
       .cd-summary {
         display: flex;
@@ -2294,6 +2321,7 @@
                 <p class="muted">
                   One hint per line. Shown on Build under Config security hints as
                   <strong>Team</strong> (even when preview has errors). Advisory only — never block export.
+                  Hints apply as you type.
                 </p>
                 <div class="field">
                   <label for="teamHintsEditor">Hints</label>
@@ -2316,7 +2344,8 @@
                   ></textarea>
                 </div>
                 <div class="actions">
-                  <button id="applyTeamPolicies" type="button">Apply team policies</button>
+                  <button id="applyTeamPolicies" type="button" aria-describedby="teamPoliciesLive">Tidy rules</button>
+                  <span id="teamPoliciesLive" class="muted"><small>Rules apply as you type. Tidy rules removes blank lines and extra spaces and says which rules cannot be evaluated.</small></span>
                 </div>
                 <p class="muted" style="margin-top: 10px">
                   <small
@@ -2588,6 +2617,11 @@
             <button type="button" id="cdAll" class="primary">All card ZIPs</button>
             <button type="button" id="cdChanged">Changed and new only</button>
             <button type="button" id="cdText">Text-only ZIP</button>
+          </div>
+          <!-- Bulk card export in progress: which card, and a way to stop after it -->
+          <div id="cdProgress" class="cd-progress" hidden>
+            <span id="cdProgressText" role="status" aria-live="polite"></span>
+            <button type="button" id="cdCancel">Cancel after this card</button>
           </div>
         </div>
         <div class="card">
@@ -5232,7 +5266,11 @@
               : b.length
                 ? "Checks passed. Export is still blocked; see under the Export button."
                 : "Checks passed.";
-          $("checks").append(statusNotice(notices.length ? "warning" : "ok", head, notices,
+          // Checks passed but an export gate holds (baseline model, label, example, draft): amber, with
+          // the reasons listed, so the box never reads as a green light while export is blocked.
+          const gateOnly = !notices.length && !g.errors.length && b.some((x) => !x.startsWith("Team policy:"));
+          $("checks").append(statusNotice(notices.length || gateOnly ? "warning" : "ok", head,
+            gateOnly ? b.filter((x) => !x.startsWith("Team policy:")) : notices,
             "Cisco syntax and device behavior are not verified."));
         }
         markInvalidFields(g);
@@ -6571,7 +6609,8 @@
           row.push(cell);
           rows.push(row);
         }
-        const nonEmpty = rows.filter((r) => r.some((c) => c.trim() !== ""));
+        // A line of only separators and spaces (",,", or ";;" in a comma file) is an empty row.
+        const nonEmpty = rows.filter((r) => r.some((c) => c.replace(/[\s,;]+/g, "") !== ""));
         if (!nonEmpty.length) return { header: [], rows: [], delimiter: delim };
         const rawHeader = nonEmpty[0].map((h) => sanitizeSingleLine(h).text.trim());
         const header = rawHeader.map((h) => h.toUpperCase().replace(/[\s-]+/g, "_"));
@@ -6926,17 +6965,51 @@
             for (const row of results) recordExport(r, row.host, row.text);
             recorded = n;
           } else {
-            for (let i = 0; i < n; i++) {
-              const row = results[i];
-              const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
-              message("Card " + (i + 1) + " / " + n + ": " + name);
-              download(await zip(buildCardFiles({ text: row.text }), when), name);
-              recordExport(r, row.host, row.text); // right away, so a later failure keeps this one
-              recorded++;
-              manifest.push([row.n, row.host, row.ip, name, row.sha256, row.lines, row.bytes].join("\t"));
-              await new Promise((resolve) => setTimeout(resolve, 400));
+            // Progress in the Cards view ("Card 8 of 24: file") with a Cancel button that ends the run
+            // after the card being written. run() disabled every button, so Cancel is enabled here.
+            const box = $("cdProgress"),
+              label = $("cdProgressText"),
+              stop = $("cdCancel");
+            const STOPPING = " · cancelling after this card";
+            let stopped = false;
+            stop.onclick = () => {
+              stopped = true;
+              stop.disabled = true;
+              label.textContent += STOPPING;
+            };
+            stop.disabled = false;
+            box.hidden = false;
+            if (currentView === "cards") stop.focus({ preventScroll: true });
+            try {
+              for (let i = 0; i < n && !stopped; i++) {
+                const row = results[i];
+                const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
+                const step = "Card " + (i + 1) + " of " + n + ": " + name;
+                label.textContent = step;
+                download(await zip(buildCardFiles({ text: row.text }), when), name);
+                message(step); // after zip(), whose own "Packaging" lines would hide it
+                recordExport(r, row.host, row.text); // right away, so a later failure keeps this one
+                recorded++;
+                if (typeof scheduleRailUpdate === "function") scheduleRailUpdate(); // chips and rows follow the run
+                manifest.push([row.n, row.host, row.ip, name, row.sha256, row.lines, row.bytes].join("\t"));
+                await new Promise((resolve) => setTimeout(resolve, 400));
+              }
+            } finally {
+              if (document.activeElement === stop) stop.blur(); // run() puts focus back on the opener
+              box.hidden = true;
+              stop.onclick = null;
             }
             download(new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }), "switchcard-fleet-" + RELEASE + "-manifest.txt");
+            if (recorded < n) {
+              touch();
+              const done = results.slice(0, recorded).map((x) => x.host || "switch " + x.n);
+              message(
+                "Export cancelled after card " + recorded + " of " + n + ". Written: " +
+                  (done.slice(0, 5).join(", ") || "none") + (recorded > 5 ? " and " + (recorded - 5) + " more" : "") +
+                  ". The manifest lists only those, and they are recorded as exported. Use Changed and new only to write the rest.",
+              );
+              return true;
+            }
           }
         } finally {
           if (recorded) touch(); // also after a failure, so the rows already downloaded are saved
@@ -8137,7 +8210,8 @@
             );
           download(
             new Blob([pretty], { type: "application/json" }),
-            "switchcard-project-" + RELEASE + ".json",
+            // The local date keeps repeated saves apart in Downloads.
+            "switchcard-project-" + RELEASE + "-" + formatExportAt(new Date().toISOString()).slice(0, 10) + ".json",
           );
           dirty = false;
           autosave();
@@ -8502,7 +8576,7 @@
         const items = [
           ...x.findings.map((f) => ({ level: f.level, text: f.text, where: f.where })),
           ...x.policy.map((p) => ({ level: "error", text: "Team policy: " + p, where: { kind: "policy" } })),
-        ];
+        ].sort((a, b) => (a.level === "error" ? 0 : 1) - (b.level === "error" ? 0 : 1)); // errors first (stable)
         // Each check is a button that jumps to what it is about (this row's cell, its Ports dialog, ...).
         const ctx = { view: "switches", rowId: x.row.id };
         for (const f of items)
@@ -8621,7 +8695,8 @@
             if (have) p("notice warning", "Replace drops the " + have + " switch" + (have === 1 ? "" : "es") + " in the list.");
           }
           if (parsed && parsed.decodeProblems)
-            p("bad", parsed.decodeProblems + (parsed.decodeProblems === 1 ? " cell" : " cells") + " could not be read as UTF-8 — save the CSV as UTF-8.");
+            p("bad", parsed.decodeProblems + (parsed.decodeProblems === 1 ? " cell" : " cells") + " could not be read as UTF-8 — save the CSV as UTF-8." +
+              (parsed.decodeWhere && parsed.decodeWhere.length ? " Where: " + listFew(parsed.decodeWhere, 5) + "." : ""));
           const btn = (label) => buttons.find((b) => b.textContent === label);
           if (buttons.length) {
             const add = btn("Add after"),
@@ -8685,6 +8760,10 @@
           message("Imported " + n + " switch" + (n === 1 ? "" : "es") +
             (choice === "replace" ? (before ? ", replacing the " + before + " in the list." : ".") : " after the " + before + " in the list."));
         });
+      }
+      // "a, b, c and 4 more": the first few items of a list.
+      function listFew(items, few) {
+        return items.slice(0, few).join(", ") + (items.length > few ? " and " + (items.length - few) + " more" : "");
       }
       // Ports dialog for one row: effective values per port (grey when they come from the port table);
       // typing sets this switch's own value, Use table clears that port's settings.
@@ -8760,7 +8839,8 @@
                 const k = ownKey(name);
                 if (k !== undefined) delete row.ports[k];
                 touch();
-                draw();
+                // The button is disabled now; focus stays in the dialog on this port's Role.
+                draw({ name, attr: "role" });
                 changed();
               },
             }, "Use table");
@@ -8788,6 +8868,8 @@
                       touch();
                       draw();
                       changed();
+                      const close = wrap.closest("dialog") && wrap.closest("dialog").querySelector(".dialog-actions button");
+                      if (close) close.focus();
                     },
                   }, "Remove"))))
               : "",
@@ -9036,7 +9118,9 @@
           message("This recipe has no per-switch fields or ports to put in a CSV.");
           return;
         }
-        downloadCsv(t.text, "switchcard-fleet-template-" + csvFileStem(r) + ".csv");
+        // The mode is in the name, so the three kinds of template never overwrite each other.
+        const suffix = { description: "-port-descriptions", all: "-all-port-settings", none: "-fields-only" }[$("swTemplateMode").value] || "";
+        downloadCsv(t.text, "switchcard-fleet-template-" + csvFileStem(r) + suffix + ".csv");
         message("CSV template downloaded (" + t.columns.length + " columns, row 1 is the switch on Build a card). Fill one row per switch, then Import CSV.");
       };
       $("swRemoveAll").onclick = async () => {
