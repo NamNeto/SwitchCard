@@ -45,6 +45,16 @@ function badRowsSummary(xs) {
   const rest = all.slice(3).reduce((sum, [, ns]) => sum + ns.length, 0);
   return shown.join(" · ") + (rest ? " · and " + rest + " more row" + (rest === 1 ? "" : "s") : "");
 }
+// Where the fix is: a row's own values (and a team-policy hit on its text, which the side panel
+// names) are fixed in Switches; the example header still in the template is fixed in Manage.
+function badRowsFixHint(xs) {
+  const recipeLevel = (x) =>
+    x.errors.length > 0 && x.errors.every((e) => /^The template still contains the example header line/.test(e));
+  const all = xs.every(recipeLevel), none = !xs.some(recipeLevel);
+  if (all) return "Fix the recipe in Manage recipes & baseline";
+  if (none) return "Fix them in Switches";
+  return "Fix them in Switches and the recipe in Manage recipes & baseline";
+}
 // The checked rows plus their export states, for the current recipe.
 function cardRows(r) {
   const rows = r.switches || [];
@@ -175,7 +185,7 @@ function exportCardsBulk(which) {
     }
     const bad = items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x);
     if (bad.length) {
-      message("Rows with errors: " + badRowsSummary(bad) + ". Fix them in Switches; nothing was exported.");
+      message("Rows with errors: " + badRowsSummary(bad) + ". " + badRowsFixHint(bad) + "; nothing was exported.");
       return;
     }
     await exportSwitchCards(r, items.map(({ x }) => x), { textOnly: which === "text" });

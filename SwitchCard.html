@@ -6053,9 +6053,13 @@
         return "Baseline fingerprint " + c.summary + (c.changed.length ? "; changed: " + c.changed.slice(0, 5).join(", ") : "") +
           ". Use the recorded folder, or Save project to record this one.";
       }
-      function exportConfirmSummary(r, g) {
+      // opts.textOnly: Build's Save text only goes through the same write dialog as the card exports
+      // (operator round 5); only editcontent.txt is written, so the heading and the closing line say
+      // so. The baseline lines stay: the fingerprint verdict is shown on every write path alike.
+      function exportConfirmSummary(r, g, opts) {
+        const textOnly = !!(opts && opts.textOnly);
         const lines = [
-          "What goes on the card",
+          textOnly ? "What goes in editcontent.txt" : "What goes on the card",
           "",
           "Recipe: " + (r.name || "(unnamed)"),
           "Hostname: " + boundIdentityLabel(r, "HOSTNAME"),
@@ -6095,7 +6099,9 @@
               : "(none)"),
           baselineFingerprintLine(),
           "",
-          "Root editcontent.txt in the ZIP is exactly this preview text.",
+          textOnly
+            ? "editcontent.txt is exactly this preview text. No baseline files are written (Export SD-card ZIP writes the whole card)."
+            : "Root editcontent.txt in the ZIP is exactly this preview text.",
           "",
           "Cancel = no download.",
         );
@@ -7769,9 +7775,17 @@
       // a run (its buttons are disabled; showView refuses while busy), and with 200 switches its 2000
       // cells would cost a style and layout pass at both ends of every export.
       const RUN_CONTROLS = ":is(input,select,textarea,button):not(#switches[hidden] *)";
+      // A control the running task wants focused when it ends (the controls are disabled meanwhile, so
+      // it cannot take focus during the run): set with focusAfterRun(); used when the opener is gone.
+      let runFocusTarget = null;
+      function focusAfterRun(n) {
+        if (busy) runFocusTarget = n;
+        else if (canFocus(n)) n.focus({ preventScroll: true });
+      }
       async function run(fn) {
         if (busy) return;
         busy = true;
+        runFocusTarget = null;
         const opener = document.activeElement; // disabled below; focus goes back to it at the end
         document.querySelectorAll(RUN_CONTROLS).forEach((el) => {
           el.dataset.beforeDisabled = el.disabled ? "1" : "0";
@@ -7791,7 +7805,13 @@
           // Re-enabling restored the states from before the run; let the rail and Cards view set the
           // current ones (a now-empty "Changed and not exported" turns off) before focus goes back.
           if (typeof updateRail === "function") updateRail();
-          restoreFocus(opener);
+          const want = runFocusTarget;
+          runFocusTarget = null;
+          // The task's own target first (a view changed under the opener); else back to the opener.
+          if (want && focusLost() && canFocus(want)) {
+            want.focus({ preventScroll: true });
+            if (want.scrollIntoView) want.scrollIntoView({ block: "nearest" });
+          } else restoreFocus(opener);
         }
       }
       // --- v0.7.0 helpers: transliteration, team policy rules, export history + line diff, baseline
@@ -9282,7 +9302,9 @@
         const total = blocks.length;
         if (!total || pre.scrollHeight <= pre.clientHeight + 1) return null;
         const box = pre.getBoundingClientRect();
-        const top = box.top + 1 + 16, bottom = box.top + pre.clientHeight + 1;
+        // The box's inner edge is its border (the top inset scrolls with the text, so a line shown there
+        // counts; operator round 5: a fully visible top line was left out of the cue mid-scroll).
+        const top = box.top + 1, bottom = box.top + pre.clientHeight + 1;
         let first = 0, last = 0;
         blocks.forEach((b, i) => {
           const r = b.getBoundingClientRect();
@@ -9852,30 +9874,45 @@
           );
           $("folderInput").value = "";
         });
-      $("downloadConfig").onclick = () => {
-        if (editorPending) {
-          message("Apply recipe changes or Discard unapplied draft first.");
-          return;
-        }
-        const r = current();
-        if (r.example) {
-          message(EXAMPLE_TEXT_BLOCKED);
-          return;
-        }
-        const g = generate(r);
-        if (g.errors.length) return;
-        const policyHits = policyViolations(g.text, teamPolicies);
-        if (policyHits.length) {
-          message("Team policy blocks this text: " + policyHits[0]);
-          return;
-        }
-        download(new Blob([g.text], { type: "text/plain;charset=utf-8" }), "editcontent.txt");
-        message(
-          "Text exported as editcontent.txt (" +
-            previewSizeLabel(g.text) +
-            "). A browser may append a number if that filename already exists in Downloads.",
-        );
-      };
+      // Save text only: the same gates as before (draft, example recipe, input errors, team policy; no
+      // baseline needed), then the same write dialog as every card export (operator round 5): bound
+      // values, SHA-256, the baseline fingerprint verdict and the review tick before any download.
+      $("downloadConfig").onclick = () =>
+        run(async () => {
+          if (editorPending) {
+            message("Apply recipe changes or Discard unapplied draft first.");
+            return;
+          }
+          const r = current();
+          if (r.example) {
+            message(EXAMPLE_TEXT_BLOCKED);
+            return;
+          }
+          const g = generate(r);
+          if (g.errors.length) return;
+          const policyHits = policyViolations(g.text, teamPolicies);
+          if (policyHits.length) {
+            message("Team policy blocks this text: " + policyHits[0]);
+            return;
+          }
+          if (
+            !(await writeDialog({
+              title: "Save text only?",
+              summary: exportConfirmSummary(r, g, { textOnly: true }),
+              primary: "Download text",
+              warning: baselineDiffersWarning(),
+            }))
+          ) {
+            message("Save text only cancelled.");
+            return;
+          }
+          download(new Blob([g.text], { type: "text/plain;charset=utf-8" }), "editcontent.txt");
+          message(
+            "Text exported as editcontent.txt (" +
+              previewSizeLabel(g.text) +
+              "). A browser may append a number if that filename already exists in Downloads.",
+          );
+        });
 
       function assertExportReady() {
         const r = current();
@@ -9991,7 +10028,11 @@
             const notes = await acceptProject(restoredFile.p, null, restoredFile);
             let msg =
               "Project opened. Reload its baseline folder or open a team package to include firmware.";
-            if (restoredFile.draft) msg += " Unapplied recipe draft restored into the editor; Apply or Discard before export.";
+            if (restoredFile.draft) {
+              msg += " Unapplied recipe draft restored into the editor; Apply or Discard before export.";
+              // The view changed to Manage, so the Open project control that had focus is out of sight.
+              focusDraftStart();
+            }
             if (restoredFile.preservedAutosaveRaw) msg += " Earlier stored autosave bytes remain included as preservedAutosaveRaw in the imported wrapper and this workspace.";
             msg += parkedDraftNote(restoredFile);
             if (notes && notes.length) msg += " Migration notes: " + notes.join(" ");
@@ -10110,6 +10151,23 @@
         $("editRecipe").value = active;
         tab(true);
         renderPreview();
+      }
+      // A restored draft lands in Manage and the status line says "click Apply recipe changes": focus
+      // starts on that button, in the bar pinned at the window's bottom, so it is visible at any scroll
+      // position (operator round 5: the focus fell to the page after Open project, and a reload with a
+      // draft focused the heading off screen). Nothing is applied until Enter is pressed.
+      function focusDraftStart() {
+        const b = $("applyRecipe");
+        if (!b || b.closest("[hidden]")) return false;
+        // Inside run() (Open project) the controls are disabled until the run ends: focus then.
+        if (busy) {
+          focusAfterRun(b);
+          return true;
+        }
+        if (!canFocus(b)) return false;
+        b.focus({ preventScroll: true });
+        if (b.scrollIntoView) b.scrollIntoView({ block: "nearest" });
+        return true;
       }
       function applyRestoredResult(restored, source) {
         const meta = restored.meta || {};
@@ -10654,7 +10712,12 @@
             box.focus();
           },
         }).then((choice) => {
-          if (!choice || !parsed || parsed.errors.length || !parsed.rows.length) return;
+          if (!choice || !parsed || parsed.errors.length || !parsed.rows.length) {
+            // Cancel or Esc: said at once, so an earlier "Imported …" status never reads as this run's
+            // result (operator round 5).
+            message("Import cancelled; the switch list is unchanged.");
+            return;
+          }
           const before = (r.switches || []).length;
           r.switches = choice === "replace" ? parsed.rows : (r.switches || []).concat(parsed.rows);
           swSelectedId = null;
@@ -11020,17 +11083,21 @@
       });
       // The row's menu: Copy below and Remove for that row (the id is fixed when it opens). Arrow keys
       // move, Enter or Space runs the item, Esc (or focus leaving) closes and puts focus back on the
-      // button. One menu at a time; a click elsewhere closes it.
+      // button, or on the cell the menu was opened from with Shift+F10 (operator round 5). One menu at
+      // a time; a click elsewhere closes it.
       let rowMenu = null;
       function closeRowMenu(refocus) {
         if (!rowMenu) return;
-        const { menu, button } = rowMenu;
+        const { menu, button, opener } = rowMenu;
         rowMenu = null;
         menu.remove();
         button.setAttribute("aria-expanded", "false");
-        if (refocus && canFocus(button)) button.focus({ preventScroll: true });
+        if (!refocus) return;
+        const back = canFocus(opener) ? opener : button;
+        if (canFocus(back)) back.focus({ preventScroll: true });
       }
-      function openRowMenu(button, id) {
+      // opener: the control that had focus when the menu was asked for from a cell (focus returns there).
+      function openRowMenu(button, id, opener) {
         if (rowMenu && rowMenu.button === button) return closeRowMenu(true);
         closeRowMenu(false);
         const r = current();
@@ -11038,7 +11105,7 @@
         if (i < 0) return;
         const host = String((r.switches[i].values && r.switches[i].values.HOSTNAME) || (r.values && r.values.HOSTNAME) || "").trim();
         const who = "switch " + (i + 1) + (host ? " (" + host + ")" : "");
-        // Focus goes back to the button first: a confirm dialog opened by the item then returns to it.
+        // Focus goes back to the opener first: a confirm dialog opened by the item then returns to it.
         const run = (fn) => () => { closeRowMenu(true); fn(id); };
         const item = (label, cls, title, fn) =>
           el("button", { type: "button", role: "menuitem", className: cls, title, tabIndex: -1, onclick: run(fn) }, label);
@@ -11062,7 +11129,7 @@
         menu.style.top = Math.round(at.bottom + 4) + "px";
         menu.style.right = Math.max(8, Math.round(window.innerWidth - at.right)) + "px";
         document.body.append(menu);
-        rowMenu = { menu, button };
+        rowMenu = { menu, button, opener: opener && opener !== button && opener.closest("#swRows tr[data-row]") ? opener : null };
         button.setAttribute("aria-expanded", "true");
         menu.querySelector("[role=menuitem]").focus();
       }
@@ -11081,7 +11148,7 @@
         const b = tr && tr.querySelector("button.sw-more");
         if (!b) return;
         e.preventDefault();
-        openRowMenu(b, tr.dataset.row);
+        openRowMenu(b, tr.dataset.row, e.target);
       });
       $("swAdd").onclick = () => {
         const r = current();
@@ -11243,6 +11310,16 @@
         const rest = all.slice(3).reduce((sum, [, ns]) => sum + ns.length, 0);
         return shown.join(" · ") + (rest ? " · and " + rest + " more row" + (rest === 1 ? "" : "s") : "");
       }
+      // Where the fix is: a row's own values (and a team-policy hit on its text, which the side panel
+      // names) are fixed in Switches; the example header still in the template is fixed in Manage.
+      function badRowsFixHint(xs) {
+        const recipeLevel = (x) =>
+          x.errors.length > 0 && x.errors.every((e) => /^The template still contains the example header line/.test(e));
+        const all = xs.every(recipeLevel), none = !xs.some(recipeLevel);
+        if (all) return "Fix the recipe in Manage recipes & baseline";
+        if (none) return "Fix them in Switches";
+        return "Fix them in Switches and the recipe in Manage recipes & baseline";
+      }
       // The checked rows plus their export states, for the current recipe.
       function cardRows(r) {
         const rows = r.switches || [];
@@ -11373,7 +11450,7 @@
           }
           const bad = items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x);
           if (bad.length) {
-            message("Rows with errors: " + badRowsSummary(bad) + ". Fix them in Switches; nothing was exported.");
+            message("Rows with errors: " + badRowsSummary(bad) + ". " + badRowsFixHint(bad) + "; nothing was exported.");
             return;
           }
           await exportSwitchCards(r, items.map(({ x }) => x), { textOnly: which === "text" });
@@ -11462,8 +11539,9 @@
           }
           refreshBackupButtons();
           // A boot dialog was answered (its opener was the page itself): focus starts on the first
-          // control of the task, the recipe picker, or the view heading when that is not in view.
-          if (restored && focusLost()) {
+          // control of the task, the recipe picker, or the view heading when that is not in view. A
+          // restored draft starts on Apply recipe changes (pinned in view) instead.
+          if (restored && focusLost() && !(restored.draft && focusDraftStart())) {
             const start = [$("recipe"), $("viewTitle")].find((n) => n && !n.closest("[hidden]"));
             if (start) start.focus({ preventScroll: true });
           }
