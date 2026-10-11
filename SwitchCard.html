@@ -2765,6 +2765,14 @@
       #cdGates .gate-fix {
         order: 0;
       }
+      /* Under a blocked Cards gate: the text-only ZIP is not held by the baseline gates. */
+      .gate-sub {
+        order: 3;
+        flex: 1 1 100%;
+        margin: 2px 0 0;
+        color: var(--text);
+        font-weight: 500;
+      }
       /* The three export buttons: one even 16 px gap, a little wider than a plain toolbar. */
       .cd-toolbar {
         gap: 10px 16px;
@@ -5804,33 +5812,56 @@
         }).then((v) => v === true);
       }
       /* ============================================================
-         Focus safety net: focus never silently falls to <body> (operator round 6)
+         Focus safety net: focus never silently falls to <body> (operator round 6, review round 11)
          ============================================================ */
       // A click or an activation key (Enter, Space) often rebuilds, hides or disables the control it
       // was on (Transliterate hides its own panel, Discard hides its own button, a render replaces a
       // row), and the browser then drops focus to <body> or leaves it on a dead control: a keyboard
       // user loses their place and the next Tab starts from the page top. After every such event,
-      // after a dialog closes, and after any DOM change that removes, hides or disables the focused
-      // control, the net checks: if focus is lost AND the control it came from is gone, hidden or
-      // disabled, focus moves to a sensible neighbour (the same control by id, else the first enabled
-      // control of its group, else the view heading). It never moves focus that the user has (nothing
-      // is stolen from a control they just reached, and a deliberate blur stays a blur), does nothing
-      // while a dialog is open or a task runs (those put focus back themselves), and never runs on a
-      // typing key.
+      // after a dialog closes, and after a DOM change that removes, hides or disables the focused
+      // control (a MutationObserver on childList plus the disabled and hidden attributes; nothing
+      // else is watched), the net checks: if focus is lost AND the control it came from is gone,
+      // hidden or disabled, focus moves to a sensible neighbour (the same control by id, else the
+      // first enabled control of its group, else, after a user action only, the view heading).
+      //
+      // It rescues only focus that died with its control. Focus the user released on purpose (a click
+      // on empty space, a wheel scroll that closed a menu, a selection started on plain text) is noted
+      // on focusout while the control could still take focus, and nothing is done for that control
+      // afterwards, however the page changes, until focus lands on a control again. The observer path
+      // never scrolls: it focuses with preventScroll and skips the heading. The net does nothing while
+      // a dialog is open or a task runs (those put focus back themselves), never runs on a typing key,
+      // and never for a control inside a hidden view (showView places focus itself).
       const focusNet = (() => {
         let last = null; // the control that last had focus (the event target of the last focusin)
         let lastGroup = null; // its group, noted while it was in the page (a removed node has no ancestors)
         let prev = null; // the one before it: where a dismissed status message hands focus back to
+        // true once focus left `last` while it was still live: the user let it go, so a later change
+        // that removes or rebuilds that control is not a loss to make good. Cleared on the next focusin.
+        let released = false;
+        let holds = 0; // a caller that will place focus itself after async work holds the net off
         const GROUP = ".dialog-actions, .actions, .sw-toolbar, .sw-panel-actions, .notice, .gate, .field, .card, section";
         const groupOf = (n) => (n && n.closest && n.isConnected ? n.closest(GROUP) : null);
         document.addEventListener("focusin", (e) => {
           const t = e.target;
-          if (!t || t === document.body || t === document.documentElement || t === last) return;
+          if (!t || t === document.body || t === document.documentElement) return;
+          released = false;
+          if (t === last) return;
           prev = last;
           last = t;
           lastGroup = groupOf(t);
         }, true);
-        const idle = () => (typeof busy !== "undefined" && busy) || (typeof openDialogs !== "undefined" && openDialogs.length > 0);
+        document.addEventListener("focusout", (e) => {
+          // A control that is still in the page, enabled and shown after focus left it was left on
+          // purpose (or by a focus move that focusin notes next). One that is gone, disabled or hidden
+          // by then died under the focus: that is what the net is for. Decided a microtask later: the
+          // browser blurs a control it is removing while that control is still in the page.
+          const t = e.target;
+          if (!t || t !== last) return;
+          queueMicrotask(() => {
+            if (t === last && t.isConnected && canFocus(t)) released = true;
+          });
+        }, true);
+        const idle = () => holds > 0 || (typeof busy !== "undefined" && busy) || (typeof openDialogs !== "undefined" && openDialogs.length > 0);
         // Lost: on <body>, or on a control that cannot take focus any more (disabled, hidden).
         const lost = () => focusLost() || !canFocus(document.activeElement);
         // The heading of the open view, as the last resort (tabindex -1: focusable by script only).
@@ -5840,7 +5871,9 @@
         };
         // Where focus goes for a control that is gone: the same id, else its group's first enabled
         // control, else the heading. Returns the element it focused, or null.
-        function rescue(from, group) {
+        // quiet (the observer path): no scrolling and no heading; the page never jumps for a change
+        // the user did not ask for.
+        function rescue(from, group, quiet) {
           if (!lost() || idle()) return null;
           const src = from && from !== document.body ? from : last;
           if (!src || src === document.body || src === document.documentElement) return null;
@@ -5851,10 +5884,10 @@
             const box = groupOf(src) || [group, src === last ? lastGroup : null].find((g) => g && g.isConnected && !g.closest("[hidden]"));
             t = box ? [...box.querySelectorAll("button, input, select, textarea, summary, a[href]")].find(canFocus) : null;
           }
-          if (!canFocus(t)) t = heading();
+          if (!canFocus(t)) t = quiet ? null : heading();
           if (!t) return null;
           t.focus({ preventScroll: true });
-          if (t.scrollIntoView) t.scrollIntoView({ block: "nearest" });
+          if (!quiet && t.scrollIntoView) t.scrollIntoView({ block: "nearest" });
           return t;
         }
         // After the event's own handlers ran (a macrotask later: a handler that opens a dialog or
@@ -5880,13 +5913,15 @@
         let pending = false;
         const check = () => {
           pending = false;
+          if (released || !last || idle() || !lost() || canFocus(last)) return;
           // A whole view hidden (showView) is not a lost control: the view switch places focus itself.
-          if (last && !idle() && lost() && !canFocus(last) && !(last.isConnected && last.closest("section[hidden]"))) rescue(last, lastGroup);
+          if (last.isConnected && last.closest("section[hidden]")) return;
+          rescue(last, lastGroup, true);
         };
         if (typeof MutationObserver === "function")
           new MutationObserver(() => {
             // No layout here (this runs after every batch of changes): the attribute checks suffice.
-            if (pending || !last || (last.isConnected && !last.disabled && !last.closest("[hidden]"))) return;
+            if (pending || released || !last || (last.isConnected && !last.disabled && !last.closest("[hidden]"))) return;
             pending = true;
             setTimeout(check, 0);
           }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "hidden"] });
@@ -5897,6 +5932,20 @@
           // back to the control that raised the message, when it still can take it).
           previous: () => prev,
           last: () => last,
+          // The user let the focused control go (a menu closed by a scroll or a click elsewhere): no
+          // rescue for it, whatever happens to it next.
+          release: () => { released = true; },
+          // Hold the net off while a caller finishes async work and places focus itself; returns the
+          // function that lets go (safe to call twice).
+          hold: () => {
+            holds++;
+            let done = false;
+            return () => {
+              if (done) return;
+              done = true;
+              holds--;
+            };
+          },
         };
       })();
       // --- Validation helpers ---
@@ -6827,13 +6876,17 @@
       // --- Preview, Maintain editor, Apply, New switch ---
       // Export blockers (separate from generate errors): unapplied draft, example recipe,
       // missing baseline, or a baseline whose model / label this recipe does not allow.
-      function blockers(r, g) {
+      // opts.textOnly: a text-only write (Save text only, the Cards Text-only ZIP) writes no baseline
+      // files, so the baseline gates do not apply to it (operator round 7); the others all do.
+      function blockers(r, g, opts) {
         const a = [];
         if (editorPending)
           a.push("Apply recipe changes or Discard unapplied draft first.");
         if (r.example)
           a.push("Example recipe: open Manage recipes & baseline, uncheck “Example recipe…”, then Apply recipe changes.");
-        if (!baseline) a.push("Load a firmware baseline to export a complete card.");
+        if (opts && opts.textOnly) {
+          // no baseline gates
+        } else if (!baseline) a.push("Load a firmware baseline to export a complete card.");
         else {
           if (baseline.model !== r.model) a.push("Baseline model does not match this recipe.");
           if (r.firmware.length && !r.firmware.includes(baseline.version))
@@ -7347,18 +7400,23 @@
         touch();
         renderAll();
         loadEditor(); // Show exactly the cleaned values that were applied.
-        let msg =
-          "Recipe applied. Port table remapped to " +
-          r.interfaces.length +
-          " interface" +
-          (r.interfaces.length === 1 ? "" : "s") +
-          " (kept " +
-          remap.kept.length +
-          " by name";
-        if (remap.dropped.length)
-          msg += "; dropped " + remap.dropped.map((d) => d.name).join(", ");
-        if (remap.added.length) msg += "; added " + remap.added.length + " new";
-        msg += ").";
+        // The port table is mentioned only when the remap changed it (a row dropped or added); an
+        // Apply that kept every port by name says nothing about it (operator round 7).
+        let msg = "Recipe applied.";
+        if (remap.dropped.length || remap.added.length) {
+          msg +=
+            " Port table remapped to " +
+            r.interfaces.length +
+            " interface" +
+            (r.interfaces.length === 1 ? "" : "s") +
+            " (kept " +
+            remap.kept.length +
+            " by name";
+          if (remap.dropped.length)
+            msg += "; dropped " + remap.dropped.map((d) => d.name).join(", ");
+          if (remap.added.length) msg += "; added " + remap.added.length + " new";
+          msg += ").";
+        }
         if (cleaned.length) msg += " Cleaned " + cleaned.join(" and ") + "; updated values are shown in the editor.";
         if (wasExample && !r.example)
           msg += " Example flag cleared — Save project to keep this durable.";
@@ -8756,7 +8814,9 @@
       async function exportSwitchCards(r, results, opts) {
         const textOnly = !!(opts && opts.textOnly);
         if (editorPending) throw Error("Apply recipe changes or Discard unapplied draft first.");
-        const gates = blockers(r);
+        // The text-only ZIP writes no baseline files: the baseline gates do not hold it (operator
+        // round 7, as Save text only on Build); the draft, example, error and policy gates all do.
+        const gates = blockers(r, null, { textOnly });
         if (gates.length) throw Error(gates[0]);
         if (!results.length) throw Error("No switches to export.");
         const bad = results.filter((x) => x.errors.length || x.policy.length);
@@ -8780,7 +8840,9 @@
           lines.push(String(row.n).padStart(wN) + ". " + (row.host || "(no hostname)").padEnd(wHost) + "  " + String(row.ip || "").padEnd(wIp) + "  " +
             row.sha256.slice(0, 16) + "…  " + row.lines + " lines");
         if (n > 20) lines.push("… and " + (n - 20) + " more (all listed in the manifest).");
-        lines.push("", "Every editcontent.txt is exactly the text checked for that row.", "", "Cancel = no download.");
+        lines.push("", "Every editcontent.txt is exactly the text checked for that row.");
+        if (textOnly) lines.push("No baseline files are written (All card ZIPs writes the whole cards).");
+        lines.push("", "Cancel = no download.");
         const ok = await writeDialog({
           title: textOnly ? "Export text-only ZIP?" : "Export SD-card ZIPs?",
           summary: lines.join("\n"),
@@ -9731,7 +9793,7 @@
                 n +
                 " port" +
                 (n === 1 ? "" : "s") +
-                (skipped ? "; skipped " + skipped + " Unused/Routed." : "") +
+                (skipped ? "; skipped " + skipped + " Unused/Routed" : "") +
                 "."
             : "No Access/Trunk ports were checked.",
         );
@@ -10805,6 +10867,7 @@
           if (old) old.remove();
           $("swPanelTitle").textContent = "Selected switch";
           $("swPreview").textContent = "Select a row to see its checks and its editcontent.txt.";
+          if ($("swPreviewCue")) $("swPreviewCue").textContent = "";
           return;
         }
         const title = "Switch " + x.n + (x.host ? " · " + x.host : "");
@@ -10857,9 +10920,11 @@
         if (swPanelKeys.text !== shown) {
           swPanelKeys.text = shown;
           fillLines(pre, shown);
+          // The same "Showing lines a–b of n" cue as Build's preview, under the panel's box: measured
+          // on the next frame (it reads layout), and only when the text changed; the box's own scroll
+          // listener and ResizeObserver cover every other change (review round 11).
+          if (typeof updatePreviewCue === "function") requestAnimationFrame(() => updatePreviewCue(pre, $("swPreviewCue")));
         }
-        // The same "Showing lines a–b of n" cue as Build's preview, under the panel's box.
-        if (typeof updatePreviewCue === "function") updatePreviewCue(pre, $("swPreviewCue"));
         const prev = lastExport(r, x.host);
         const diffKey = prev && !x.errors.length ? JSON.stringify([prev.at, prev.sha256, x.text]) : "";
         if (diffKey !== swPanelKeys.diff) {
@@ -11438,9 +11503,18 @@
         if (!rowMenu) return;
         const { menu, button, opener } = rowMenu;
         rowMenu = null;
+        // Closed by a scroll, a resize or a press elsewhere (refocus false): the user let the menu go.
+        // Focus that was inside it goes back to the row's button without scrolling (so Tab goes on
+        // from the row; a press on another control takes focus there anyway), and the safety net is
+        // told so: removing the menu is not a loss for it to make good (review round 11).
+        const inside = menu.contains(document.activeElement);
         menu.remove();
         button.setAttribute("aria-expanded", "false");
-        if (!refocus) return;
+        if (!refocus) {
+          if (typeof focusNet !== "undefined") focusNet.release();
+          if (inside && canFocus(button)) button.focus({ preventScroll: true });
+          return;
+        }
         const back = canFocus(opener) ? opener : button;
         if (canFocus(back)) back.focus({ preventScroll: true });
       }
@@ -11692,6 +11766,21 @@
         const kind = tr && node.matches("button") ? CD_BUTTONS.find((k) => node.classList.contains(k)) : null;
         return kind ? { row: tr.dataset.row, kind } : null;
       }
+      // The rows in place: a row whose new rendering equals the old one is kept (its focused button
+      // keeps focus, nothing is announced again), one that differs is swapped, gone rows leave, and the
+      // order follows the new list. A bulk run rebuilds the table on every card (operator round 7).
+      function patchRows(box, rows) {
+        const old = new Map();
+        for (const t of box.children) old.set(t.dataset.row, t);
+        const keep = new Set(rows.map((t) => t.dataset.row));
+        for (const t of [...box.children]) if (!keep.has(t.dataset.row)) t.remove();
+        rows.forEach((tr, i) => {
+          const o = old.get(tr.dataset.row);
+          const node = o && o.isEqualNode(tr) ? o : tr;
+          if (node !== o && o) o.replaceWith(node);
+          if (box.children[i] !== node) box.insertBefore(node, box.children[i] || null);
+        });
+      }
       function renderCards() {
         let r;
         try {
@@ -11739,11 +11828,13 @@
         });
         const a = document.activeElement;
         const want = cardFocusOf(a) || (!a || a === document.body ? cdFocus : null);
-        $("cdRows").replaceChildren(...body);
+        patchRows($("cdRows"), body);
         if (want) {
           const tr = [...$("cdRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === want.row);
           const b = tr && tr.querySelector("button." + want.kind);
-          if (b && !b.disabled) b.focus();
+          // Only when its row was rebuilt: a button that kept focus is not focused again (a screen
+          // reader would announce it once per card during a bulk run; operator round 7).
+          if (b && !b.disabled && document.activeElement !== b) b.focus();
         }
         $("cdTable").hidden = !items.length;
         $("cdTable").classList.toggle("is-blocked", blocked);
@@ -11754,6 +11845,13 @@
           reasons.push("Rows with errors: " + badRowsSummary(items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x)) + ".");
         renderGate($("cdGates"), reasons, items.length ? "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + "." : "", "cdFixGate",
           null, items.length ? [baselineDiffersWarning()].filter(Boolean) : []);
+        // The text-only ZIP writes no baseline files, so the baseline gates do not hold it (operator
+        // round 7, as Save text only on Build): when they are all that blocks, the gate says so.
+        const textGates = blockers(r, null, { textOnly: true });
+        const textOpen = items.length > 0 && !busy && !textGates.length && !badRows.length;
+        if (gates.length && textOpen)
+          $("cdGates").append(el("p", { className: "gate-sub" },
+            "Text-only ZIP is still available: it writes editcontent.txt per switch and no baseline files."));
         const changed = items.filter(({ st }) => st.state === "new" || st.state === "changed").length;
         // Counts at a glance: "12 switches · 6 up to date · 3 changed · 3 not exported · 1 with errors".
         const count = (state) => items.filter(({ st }) => st.state === state).length;
@@ -11767,13 +11865,14 @@
           el("span", { className: c }, t)) : []));
         $("cdChanged").textContent = "Changed and not exported (" + changed + ")";
         $("cdAll").disabled = blocked || !items.length;
-        $("cdText").disabled = blocked || !items.length;
+        $("cdText").disabled = busy || textGates.length > 0 || !items.length;
         $("cdChanged").disabled = blocked || changed === 0;
-        // While a gate blocks, the title of each disabled button names the gate (text-only included);
-        // otherwise each title says what it exports.
+        // While a gate blocks, the title of each disabled button names the gate (the text-only button
+        // names only the gates that hold it); otherwise each title says what it exports.
         const why = gates.length ? "Export blocked: " + gates.map(gateLabel).join(" · ") : busy ? "An export is running." : "";
+        const whyText = textGates.length ? "Export blocked: " + textGates.map(gateLabel).join(" · ") : busy ? "An export is running." : "";
         $("cdAll").title = why || (items.length ? "One SD-card ZIP per switch, plus a manifest" : "No switches to export yet");
-        $("cdText").title = why || (items.length ? "One ZIP holding every editcontent.txt (no baseline files)" : "No switches to export yet");
+        $("cdText").title = whyText || (items.length ? "One ZIP holding every editcontent.txt (no baseline files, so no baseline is needed)" : "No switches to export yet");
         $("cdChanged").title = why || (changed ? "Only the switches never exported or changed since their last export" : "Nothing is changed or unexported since the last export");
       }
       // One switch's SD-card ZIP, with the same write dialog as Build's Export SD-card ZIP. Runs inside run().

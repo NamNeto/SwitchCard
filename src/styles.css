@@ -2733,6 +2733,14 @@ pre::-webkit-scrollbar-thumb:hover,
 #cdGates .gate-fix {
   order: 0;
 }
+/* Under a blocked Cards gate: the text-only ZIP is not held by the baseline gates. */
+.gate-sub {
+  order: 3;
+  flex: 1 1 100%;
+  margin: 2px 0 0;
+  color: var(--text);
+  font-weight: 500;
+}
 /* The three export buttons: one even 16 px gap, a little wider than a plain toolbar. */
 .cd-toolbar {
   gap: 10px 16px;

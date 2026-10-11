@@ -682,7 +682,9 @@ function lockRailForCardRun(on) {
 async function exportSwitchCards(r, results, opts) {
   const textOnly = !!(opts && opts.textOnly);
   if (editorPending) throw Error("Apply recipe changes or Discard unapplied draft first.");
-  const gates = blockers(r);
+  // The text-only ZIP writes no baseline files: the baseline gates do not hold it (operator
+  // round 7, as Save text only on Build); the draft, example, error and policy gates all do.
+  const gates = blockers(r, null, { textOnly });
   if (gates.length) throw Error(gates[0]);
   if (!results.length) throw Error("No switches to export.");
   const bad = results.filter((x) => x.errors.length || x.policy.length);
@@ -706,7 +708,9 @@ async function exportSwitchCards(r, results, opts) {
     lines.push(String(row.n).padStart(wN) + ". " + (row.host || "(no hostname)").padEnd(wHost) + "  " + String(row.ip || "").padEnd(wIp) + "  " +
       row.sha256.slice(0, 16) + "…  " + row.lines + " lines");
   if (n > 20) lines.push("… and " + (n - 20) + " more (all listed in the manifest).");
-  lines.push("", "Every editcontent.txt is exactly the text checked for that row.", "", "Cancel = no download.");
+  lines.push("", "Every editcontent.txt is exactly the text checked for that row.");
+  if (textOnly) lines.push("No baseline files are written (All card ZIPs writes the whole cards).");
+  lines.push("", "Cancel = no download.");
   const ok = await writeDialog({
     title: textOnly ? "Export text-only ZIP?" : "Export SD-card ZIPs?",
     summary: lines.join("\n"),
