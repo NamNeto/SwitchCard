@@ -67,7 +67,12 @@ const GATE_FIXES = [
 function renderGate(box, reasons, okText, fixId, errors, warnings) {
   const warn = (warnings || []).map((t) => el("li", { className: "gate-warn-item", title: t }, gateWarnLabel(t)));
   box.replaceChildren();
-  box.classList.toggle("gate-bad", reasons.length > 0);
+  // Input errors alone (Build): the checks box above already lists them with their jumps, so
+  // the gate is one quiet line, "Export blocked · 2 errors above", whose link goes back up to
+  // them: one list, no second red panel (round 12).
+  const quiet = reasons.length > 0 && reasons.every((x) => x === GATE_ERRORS) && !!(errors && errors.length);
+  box.classList.toggle("gate-quiet", quiet);
+  box.classList.toggle("gate-bad", reasons.length > 0 && !quiet);
   box.classList.toggle("gate-ok", !reasons.length && !!okText && !warn.length);
   box.classList.toggle("gate-warn", !reasons.length && !!okText && warn.length > 0);
   if (!reasons.length) {
@@ -80,22 +85,10 @@ function renderGate(box, reasons, okText, fixId, errors, warnings) {
     // a link to the field or cell it is about ("2 errors above: …" when they are the only reason:
     // the red checks box above lists them in full).
     if (t === GATE_ERRORS && errors && errors.length) {
+      // "2 errors above": one link back to the checks box, which lists them with their jumps.
       const n = errors.length;
-      const li = el("li", { title: t }, n + (n === 1 ? " error" : " errors") + (reasons.every((x) => x === GATE_ERRORS) ? " above: " : ": "));
-      // Two checks on one cell ("Gi1/5 VLAN" twice) share one link: "Gi1/5 VLAN (2)", both texts
-      // in its title.
-      const byName = new Map();
-      for (const f of errors) {
-        const name = findingShortName(f);
-        if (byName.has(name)) byName.get(name).push(f);
-        else byName.set(name, [f]);
-      }
-      [...byName].forEach(([name, fs], i) => {
-        if (i) li.append(" "); // the links are spaced by CSS: a comma after a chevron badge read as stranded
-        li.append(el("button", { type: "button", className: "finding-link", title: fs.map((f) => f.text).join("\n"),
-          onclick: () => focusFinding(fs[0].where, { view: "build", text: fs[0].text }) }, name + (fs.length > 1 ? " (" + fs.length + ")" : "")));
-      });
-      return li;
+      return el("li", { title: t }, el("button", { type: "button", className: "gate-jump", title: "Back to the checks: " + errors.map((f) => f.text).join("\n"),
+        onclick: () => jumpToChecks() }, n + (n === 1 ? " error" : " errors") + " above"));
     }
     return el("li", { title: t }, gateLabel(t));
   });
@@ -105,6 +98,14 @@ function renderGate(box, reasons, okText, fixId, errors, warnings) {
       box.append(el("button", { type: "button", id: fixId, className: "gate-fix", onclick: run }, label));
       break;
     }
+}
+// The gate's way back up: the checks box into view and focus on its first jump (the error).
+function jumpToChecks() {
+  const box = $("checks");
+  if (!box) return;
+  const first = box.querySelector("button.finding-link");
+  if (box.scrollIntoView) box.scrollIntoView({ block: "nearest" });
+  if (first) first.focus({ preventScroll: true });
 }
 // Text in a <pre> as one block per line (so CSS can number them): each block holds the line's
 // text node and its newline, and the box's textContent is the text byte for byte.
@@ -346,6 +347,8 @@ function statusNotice(kind, heading, items, footer, ctx, sub) {
         b.textContent = t.text;
         b.addEventListener("click", t.run ? t.run : () => focusFinding(t.where, { ...(ctx || { view: "build" }), text: t.text }));
         li.append(b);
+        // The whole line is the target (round 12): a press on the line's own edge runs the jump.
+        li.addEventListener("click", (e) => { if (e.target === li) b.click(); });
       }
       ul.append(li, document.createTextNode(" "));
     }

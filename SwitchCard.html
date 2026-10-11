@@ -1432,13 +1432,12 @@
         resize: vertical;
         font-size: 0.92em;
       }
-      /* Allowed baseline labels: two lines beside Model family, top-aligned with its select (a
-         one-per-line field reads as a list; round 11 settles between the one-line and three-line
-         boxes), grows a line per label typed beyond that (up to 180 px, then scrolls), and can be
-         dragged taller. */
+      /* Allowed baseline labels: three lines beside Model family, top-aligned with its select (a
+         one-per-line field reads as a list; round 12: visibly multi-line), grows a line per label
+         typed beyond that (up to 180 px, then scrolls), and can be dragged taller. */
       #firmwareRule {
         height: auto; /* field-sizing: content sizes it; an explicit height would pin it */
-        min-height: 60px; /* 2 lines of 20 px + padding + border */
+        min-height: 80px; /* 3 lines of 20 px + padding + border */
         max-height: 180px;
         field-sizing: content;
         padding-top: 9px;
@@ -2208,7 +2207,7 @@
         display: block;
         margin-top: 2px;
         padding-left: 1px;
-        max-width: 92px; /* a long kind ("policy: forbid ^hostname …") ends in an ellipsis; the title has it */
+        max-width: 84px; /* a long kind ends in an ellipsis; the title has it (the grid fits its card at 1440 px) */
         overflow: hidden;
         text-overflow: ellipsis;
         font-size: 11.5px;
@@ -2397,6 +2396,12 @@
       #swPreview::after {
         margin: 0 -10px;
       }
+      /* As Build's preview: a short fade at the bottom, so the last whole line (which the cue counts)
+         never reads as cut (round 12). */
+      #swPreview::after {
+        height: 8px;
+        background: linear-gradient(transparent, var(--pre-bg));
+      }
       #swPreview .pl {
         display: block;
         position: relative;
@@ -2492,7 +2497,10 @@
         color: var(--muted);
         font-style: italic;
       }
-      .sw-ports-table input.inherit:not(:disabled) {
+      /* Inherited values, selects included, are dashed and transparent; a value set for this switch
+         is a solid field (round 12: the role selects looked typed). */
+      .sw-ports-table input.inherit:not(:disabled),
+      .sw-ports-table select.inherit:not(:disabled) {
         background: transparent;
         border-style: dashed;
       }
@@ -2751,6 +2759,61 @@
         padding: 0 10px;
         font-size: 12.5px;
       }
+      /* Input errors alone (Build): one quiet line under the buttons, "Export blocked · 2 errors above",
+         the count a plain underlined link back to the checks box; no box, no second red panel. */
+      .gate.gate-quiet {
+        padding: 2px 0 0;
+        border: 0;
+        border-radius: 0;
+        background: none;
+        gap: 4px 6px;
+      }
+      .gate.gate-quiet .gate-head {
+        color: var(--err);
+      }
+      .gate.gate-quiet .gate-head::after {
+        content: " \00B7";
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .gate.gate-quiet .gate-list li {
+        padding-left: 0;
+      }
+      .gate.gate-quiet .gate-list li::before {
+        display: none;
+      }
+      button.gate-jump {
+        display: inline;
+        min-height: 24px;
+        height: auto;
+        padding: 0;
+        margin: 0;
+        border: 0;
+        border-radius: 2px;
+        background: none;
+        color: var(--text);
+        font: inherit;
+        font-weight: 600;
+        text-decoration: underline;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+        text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
+        cursor: pointer;
+      }
+      button.gate-jump:hover {
+        border: 0;
+        background: none;
+        color: var(--err);
+        text-decoration-color: currentColor;
+      }
+      button.gate-jump:active:not(:disabled) {
+        transform: none;
+      }
+      button.gate-jump:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        box-shadow: none;
+      }
       /* With a way-out button, that button shares the headline's row and the reasons follow below. */
       .gate:has(.gate-fix) .gate-list {
         order: 2;
@@ -2894,10 +2957,11 @@
         text-align: right;
         padding-right: 12px;
       }
-      /* Why a row's button is off while a gate blocks: the word beside it (its title has the gate). */
+      /* Why a row's button is off while a gate blocks: the word beside it (its title has the gate),
+         muted: the gate line above names the cause once in red (round 12). */
       #cdTable .cd-gate {
         margin-right: 8px;
-        color: var(--err);
+        color: var(--muted);
         font-size: 12px;
         font-weight: 600;
         vertical-align: middle;
@@ -3101,13 +3165,13 @@
          the text, tints the row and fills the badge. */
       button.finding-link::after {
         content: "\2060\203A"; /* a word joiner first: the badge never wraps away from its last word */
-        display: inline; /* an inline box: padding paints a 20 px pill without a break before it */
+        display: inline; /* an inline box: padding paints a 24 px pill without a break before it */
         margin-left: 6px;
-        padding: 2px 7px 3px;
+        padding: 3px 8px 4px;
         border-radius: 999px;
         background: var(--accent-dim);
         color: var(--accent-text);
-        font-size: 16px;
+        font-size: 17px;
         line-height: 1;
         font-weight: 700;
         text-decoration: none;
@@ -3119,6 +3183,7 @@
         border-radius: 4px;
         margin-right: -4px;
         padding-right: 4px;
+        min-height: 24px; /* the whole line is the target, never under 24 px (round 12) */
       }
       .notice li:has(> button.finding-link):hover,
       .sw-checks li:has(> button.finding-link):hover {
@@ -3607,14 +3672,14 @@
                   <option>IE9300</option>
                 </select>
               </div>
-              <!-- Two lines beside Model family, top-aligned with its select (round 11); it grows
-                   a line per label typed beyond that. -->
+              <!-- Three lines beside Model family, top-aligned with its select (round 12: a
+                   one-per-line list reads as a list); it grows a line per label typed beyond that. -->
               <div class="field">
                 <label for="firmwareRule">Allowed baseline labels</label
                 ><textarea
                   id="firmwareRule"
                   class="compact-xs"
-                  rows="2"
+                  rows="3"
                   placeholder="One per line; blank = any"
                   title="One label per line. Blank: any baseline label of this model family"
                 ></textarea>
@@ -6942,7 +7007,12 @@
       function renderGate(box, reasons, okText, fixId, errors, warnings) {
         const warn = (warnings || []).map((t) => el("li", { className: "gate-warn-item", title: t }, gateWarnLabel(t)));
         box.replaceChildren();
-        box.classList.toggle("gate-bad", reasons.length > 0);
+        // Input errors alone (Build): the checks box above already lists them with their jumps, so
+        // the gate is one quiet line, "Export blocked · 2 errors above", whose link goes back up to
+        // them: one list, no second red panel (round 12).
+        const quiet = reasons.length > 0 && reasons.every((x) => x === GATE_ERRORS) && !!(errors && errors.length);
+        box.classList.toggle("gate-quiet", quiet);
+        box.classList.toggle("gate-bad", reasons.length > 0 && !quiet);
         box.classList.toggle("gate-ok", !reasons.length && !!okText && !warn.length);
         box.classList.toggle("gate-warn", !reasons.length && !!okText && warn.length > 0);
         if (!reasons.length) {
@@ -6955,22 +7025,10 @@
           // a link to the field or cell it is about ("2 errors above: …" when they are the only reason:
           // the red checks box above lists them in full).
           if (t === GATE_ERRORS && errors && errors.length) {
+            // "2 errors above": one link back to the checks box, which lists them with their jumps.
             const n = errors.length;
-            const li = el("li", { title: t }, n + (n === 1 ? " error" : " errors") + (reasons.every((x) => x === GATE_ERRORS) ? " above: " : ": "));
-            // Two checks on one cell ("Gi1/5 VLAN" twice) share one link: "Gi1/5 VLAN (2)", both texts
-            // in its title.
-            const byName = new Map();
-            for (const f of errors) {
-              const name = findingShortName(f);
-              if (byName.has(name)) byName.get(name).push(f);
-              else byName.set(name, [f]);
-            }
-            [...byName].forEach(([name, fs], i) => {
-              if (i) li.append(" "); // the links are spaced by CSS: a comma after a chevron badge read as stranded
-              li.append(el("button", { type: "button", className: "finding-link", title: fs.map((f) => f.text).join("\n"),
-                onclick: () => focusFinding(fs[0].where, { view: "build", text: fs[0].text }) }, name + (fs.length > 1 ? " (" + fs.length + ")" : "")));
-            });
-            return li;
+            return el("li", { title: t }, el("button", { type: "button", className: "gate-jump", title: "Back to the checks: " + errors.map((f) => f.text).join("\n"),
+              onclick: () => jumpToChecks() }, n + (n === 1 ? " error" : " errors") + " above"));
           }
           return el("li", { title: t }, gateLabel(t));
         });
@@ -6980,6 +7038,14 @@
             box.append(el("button", { type: "button", id: fixId, className: "gate-fix", onclick: run }, label));
             break;
           }
+      }
+      // The gate's way back up: the checks box into view and focus on its first jump (the error).
+      function jumpToChecks() {
+        const box = $("checks");
+        if (!box) return;
+        const first = box.querySelector("button.finding-link");
+        if (box.scrollIntoView) box.scrollIntoView({ block: "nearest" });
+        if (first) first.focus({ preventScroll: true });
       }
       // Text in a <pre> as one block per line (so CSS can number them): each block holds the line's
       // text node and its newline, and the box's textContent is the text byte for byte.
@@ -7221,6 +7287,8 @@
               b.textContent = t.text;
               b.addEventListener("click", t.run ? t.run : () => focusFinding(t.where, { ...(ctx || { view: "build" }), text: t.text }));
               li.append(b);
+              // The whole line is the target (round 12): a press on the line's own edge runs the jump.
+              li.addEventListener("click", (e) => { if (e.target === li) b.click(); });
             }
             ul.append(li, document.createTextNode(" "));
           }
@@ -9556,7 +9624,8 @@
         const preview = $("preview");
         if ($("build").hidden || window.innerWidth <= 980) {
           buildPane.style.maxHeight = "";
-          if (preview) preview.style.height = "";
+          // The box is CSS-sized here (16 rows at most); it still ends at the end of a whole line.
+          if (preview) preview.style.height = preview.scrollHeight > 338 && !$("build").hidden ? wholeLineRows(preview, 16, 20) * 20 + 18 + "px" : "";
           updatePreviewCue();
           return;
         }
@@ -9595,12 +9664,39 @@
           const shown = [...preview.querySelectorAll(".pl")].filter((b) => b.getBoundingClientRect().top < top + fit * 20 - 1).length;
           if (shown >= PREVIEW_MIN_LINES - 1 || shown >= total) lines = fit;
         }
+        // Whole lines only (round 12): the box never ends between the rows of a wrapped line, so a
+        // line that is shown is shown whole and the cue under the box counts exactly what is seen.
+        lines = wholeLineRows(preview, lines, 20);
         preview.style.height = lines * 20 + 18 + "px";
         // Unpinned, the pane grows to hold the floor; pinned, it never exceeds the window and ends
         // with its footer (no leftover padding under it when the box took whole lines only).
         const need = rest + lines * 20 + 18;
         buildPane.style.maxHeight = (pinned ? Math.min(limit, need) : Math.max(limit, need)) + "px";
         updatePreviewCue();
+      }
+      // The largest row count, at most `rows`, at which the box's bottom edge (at its current scroll
+      // position) falls on a line boundary: a wrapped line is never cut between its rows, so the box
+      // shows whole lines only and nothing reads as a complete line that is not (round 12). The rows
+      // start 17 px down (the border and the 16 px top band).
+      function wholeLineRows(pre, rows, rowH) {
+        const top0 = pre.getBoundingClientRect().top + 17 - pre.scrollTop;
+        const edge = top0 + rows * rowH;
+        for (const b of pre.querySelectorAll(".pl")) {
+          const r = b.getBoundingClientRect();
+          if (r.top >= edge - 1) break;
+          if (r.bottom > edge + 1) return Math.max(2, Math.round((r.top - top0) / rowH));
+        }
+        return rows;
+      }
+      // The side panel's box (CSS: at most 20 rows of 18 px): when the text overflows, its height is
+      // set so it ends at the end of a whole line; otherwise it takes its natural height.
+      function snapSidePreview() {
+        const pre = $("swPreview");
+        if (!pre || pre.hidden || pre.closest("[hidden]")) return;
+        const was = pre.style.height;
+        pre.style.height = "";
+        const want = pre.scrollHeight > 378 ? wholeLineRows(pre, 20, 18) * 18 + 18 + "px" : "";
+        if (want !== was || pre.style.height !== want) pre.style.height = want;
       }
       // "Showing lines 1–20 of 76 · scroll for more" under the box while it scrolls; nothing when it all
       // fits. Measured from the line blocks that are inside the box now, so it is never a guess: a
@@ -9657,7 +9753,7 @@
         for (const id of ["checks", "exportWhy"]) if ($(id)) ro.observe($(id));
         // The cue follows the box itself, whatever changed its size.
         if ($("preview")) new ResizeObserver(() => requestAnimationFrame(updatePreviewCue)).observe($("preview"));
-        if ($("swPreview")) new ResizeObserver(() => requestAnimationFrame(() => updatePreviewCue($("swPreview"), $("swPreviewCue")))).observe($("swPreview"));
+        if ($("swPreview")) new ResizeObserver(() => requestAnimationFrame(() => { snapSidePreview(); updatePreviewCue($("swPreview"), $("swPreviewCue")); })).observe($("swPreview"));
       }
       // Theme picker (header).
       $("themeSelect").onchange = () => {
@@ -10715,7 +10811,7 @@
       function errorKind(x) {
         if (x.errors.some((e) => /^duplicate /.test(e))) return "duplicate";
         const f = (x.findings || []).find((y) => y.level === "error");
-        if (!f) return x.policy.length ? "policy: " + policyWord(x.policy[0]) : "";
+        if (!f) return x.policy.length ? "policy" : "";
         const w = f.where || {};
         if (w.kind === "field" || w.kind === "row") return ERROR_KIND_FIELD[w.key] || ("bad " + String(w.key || "value").replaceAll("_", " ").toLowerCase());
         if (w.kind === "port" || w.kind === "ports") return findingShortName(f);
@@ -10723,7 +10819,8 @@
         return w.kind ? findingShortName(f) : "";
       }
       // The rule behind a team-policy hit in a few characters ("forbid ^hostname .*TEST", "require
-      // …", "invalid rule"), for the status cell; the full text is the cell's title.
+      // …", "invalid rule"); the status cell says "policy" alone (round 12: the rule made the cell
+      // too wide for the grid at 1440 px), the cell's title and the side panel carry the full text.
       function policyWord(p) {
         const m = /^(forbidden pattern present|required pattern not found): (.*?)(?: \(.*\))?$/.exec(String(p || ""));
         if (!m) return "invalid rule";
@@ -10892,9 +10989,11 @@
           // Each check is a button that jumps to what it is about (this row's cell, its Ports dialog, ...).
           const ctx = { view: "switches", rowId: x.row.id };
           const checkList = (ul) => {
-            for (const f of items)
-              ul.append(el("li", { className: f.level === "error" ? "bad" : "warn" },
-                el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, { ...ctx, text: f.text }) }, f.text)));
+            for (const f of items) {
+              const b = el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, { ...ctx, text: f.text }) }, f.text);
+              // The whole line is the target (round 12): a press on the line's own edge runs the jump.
+              ul.append(el("li", { className: f.level === "error" ? "bad" : "warn", onclick: (e) => { if (e.target.tagName === "LI") b.click(); } }, b));
+            }
             if (!items.length) ul.append(el("li", { className: "ok" }, "No problems found."));
             return ul;
           };
@@ -10923,7 +11022,7 @@
           // The same "Showing lines a–b of n" cue as Build's preview, under the panel's box: measured
           // on the next frame (it reads layout), and only when the text changed; the box's own scroll
           // listener and ResizeObserver cover every other change (review round 11).
-          if (typeof updatePreviewCue === "function") requestAnimationFrame(() => updatePreviewCue(pre, $("swPreviewCue")));
+          if (typeof updatePreviewCue === "function") requestAnimationFrame(() => { snapSidePreview(); updatePreviewCue(pre, $("swPreviewCue")); });
         }
         const prev = lastExport(r, x.host);
         const diffKey = prev && !x.errors.length ? JSON.stringify([prev.at, prev.sha256, x.text]) : "";
@@ -11793,6 +11892,10 @@
         const blocked = gates.length > 0 || busy;
         const body = items.map(({ x, st }) => {
           const status = switchStatus(x);
+          // While a gate blocks, a clean row's result is its checks, not an export verdict: "checks OK
+          // · 1 note" in grey beside the muted "blocked" (round 12: green OK beside red blocked read as
+          // two opposite answers; the gate line names the cause once).
+          if (gates.length && !status.bad) status.text = "checks " + status.text;
           let last;
           // One pill grammar for the export state: green up to date, amber changed (opens the diff),
           // blue not exported, grey not tracked.

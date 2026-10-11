@@ -29,13 +29,20 @@ def test_verdict_leads_while_a_gate_blocks_and_never_ends_in_a_full_stop(page):
     assert page.problems == []
 
 
-# --- (2) the gate line under the Export button spaces its links; no comma after a chevron ---
-def test_gate_links_are_spaced_not_comma_separated(page):
+# --- (2) the gate line under the Export button is one quiet sentence with one jump back to the
+#         checks box (round 12: the checks box is the one list; no second red panel) ---
+def test_gate_line_is_one_quiet_sentence_with_one_jump(page):
     _real(page)
     ev(page, "() => { const r = current(); r.values.MGMT_IP = '10.20.30.300'; Object.assign(r.ports[1], { role: 'access', vlan: '5000' }); renderAll(); renderPreview(); }")
-    li = ev(page, "() => { const li = $('exportWhy').querySelector('.gate-list li'); return [li.textContent, [...li.querySelectorAll('button.finding-link')].map((b) => b.textContent)]; }")
-    assert "," not in li[0] and li[1][0] == "MGMT_IP" and li[1][1].endswith(" VLAN") and len(li[1]) == 2, li
-    assert ev(page, "() => { const b = $('exportWhy').querySelectorAll('button.finding-link'); return b[1].getBoundingClientRect().left - b[0].getBoundingClientRect().right; }") >= 8
+    g = ev(page, """() => { const g = $('exportWhy'); return { cls: g.className, text: g.textContent, links: [...g.querySelectorAll('button')].map((b) => b.textContent),
+        bg: getComputedStyle(g).backgroundColor, border: getComputedStyle(g).borderLeftWidth }; }""")
+    assert "gate-quiet" in g["cls"] and "gate-bad" not in g["cls"], g
+    assert g["links"] == ["2 errors above"] and "MGMT_IP" not in g["text"], g
+    assert g["bg"] in ("rgba(0, 0, 0, 0)", "transparent") and g["border"] == "0px", g
+    assert ev(page, "() => $('checks').querySelectorAll('.notice.error button.finding-link').length") == 2
+    page.click("#exportWhy button.gate-jump")
+    page.wait_for_timeout(100)
+    assert ev(page, "() => $('checks').contains(document.activeElement) && document.activeElement.classList.contains('finding-link')")
     assert page.problems == []
 
 
@@ -115,9 +122,9 @@ def test_import_summary_names_inherited_cells(page):
     assert page.problems == []
 
 
-# --- (8) Allowed baseline labels: a two-line box, top-aligned with Model family ---
-def test_allowed_labels_box_is_two_lines_beside_model_family(page):
+# --- (8) Allowed baseline labels: a three-line box, top-aligned with Model family (round 12) ---
+def test_allowed_labels_box_is_three_lines_beside_model_family(page):
     ev(page, "() => showView('manage')")
     m = ev(page, "() => { const t = $('firmwareRule').getBoundingClientRect(), s = $('recipeModel').getBoundingClientRect(); return [$('firmwareRule').rows, t.height, Math.abs(t.top - s.top) < 2, $('firmwareRule').placeholder]; }")
-    assert m[0] == 2 and 58 <= m[1] <= 64 and m[2] and m[3] == "One per line; blank = any"
+    assert m[0] == 3 and 78 <= m[1] <= 84 and m[2] and m[3] == "One per line; blank = any"
     assert page.problems == []

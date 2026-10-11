@@ -103,7 +103,8 @@ function sizeBuildPane() {
   const preview = $("preview");
   if ($("build").hidden || window.innerWidth <= 980) {
     buildPane.style.maxHeight = "";
-    if (preview) preview.style.height = "";
+    // The box is CSS-sized here (16 rows at most); it still ends at the end of a whole line.
+    if (preview) preview.style.height = preview.scrollHeight > 338 && !$("build").hidden ? wholeLineRows(preview, 16, 20) * 20 + 18 + "px" : "";
     updatePreviewCue();
     return;
   }
@@ -142,12 +143,39 @@ function sizeBuildPane() {
     const shown = [...preview.querySelectorAll(".pl")].filter((b) => b.getBoundingClientRect().top < top + fit * 20 - 1).length;
     if (shown >= PREVIEW_MIN_LINES - 1 || shown >= total) lines = fit;
   }
+  // Whole lines only (round 12): the box never ends between the rows of a wrapped line, so a
+  // line that is shown is shown whole and the cue under the box counts exactly what is seen.
+  lines = wholeLineRows(preview, lines, 20);
   preview.style.height = lines * 20 + 18 + "px";
   // Unpinned, the pane grows to hold the floor; pinned, it never exceeds the window and ends
   // with its footer (no leftover padding under it when the box took whole lines only).
   const need = rest + lines * 20 + 18;
   buildPane.style.maxHeight = (pinned ? Math.min(limit, need) : Math.max(limit, need)) + "px";
   updatePreviewCue();
+}
+// The largest row count, at most `rows`, at which the box's bottom edge (at its current scroll
+// position) falls on a line boundary: a wrapped line is never cut between its rows, so the box
+// shows whole lines only and nothing reads as a complete line that is not (round 12). The rows
+// start 17 px down (the border and the 16 px top band).
+function wholeLineRows(pre, rows, rowH) {
+  const top0 = pre.getBoundingClientRect().top + 17 - pre.scrollTop;
+  const edge = top0 + rows * rowH;
+  for (const b of pre.querySelectorAll(".pl")) {
+    const r = b.getBoundingClientRect();
+    if (r.top >= edge - 1) break;
+    if (r.bottom > edge + 1) return Math.max(2, Math.round((r.top - top0) / rowH));
+  }
+  return rows;
+}
+// The side panel's box (CSS: at most 20 rows of 18 px): when the text overflows, its height is
+// set so it ends at the end of a whole line; otherwise it takes its natural height.
+function snapSidePreview() {
+  const pre = $("swPreview");
+  if (!pre || pre.hidden || pre.closest("[hidden]")) return;
+  const was = pre.style.height;
+  pre.style.height = "";
+  const want = pre.scrollHeight > 378 ? wholeLineRows(pre, 20, 18) * 18 + 18 + "px" : "";
+  if (want !== was || pre.style.height !== want) pre.style.height = want;
 }
 // "Showing lines 1–20 of 76 · scroll for more" under the box while it scrolls; nothing when it all
 // fits. Measured from the line blocks that are inside the box now, so it is never a guess: a
@@ -204,7 +232,7 @@ if (buildPane && typeof ResizeObserver === "function") {
   for (const id of ["checks", "exportWhy"]) if ($(id)) ro.observe($(id));
   // The cue follows the box itself, whatever changed its size.
   if ($("preview")) new ResizeObserver(() => requestAnimationFrame(updatePreviewCue)).observe($("preview"));
-  if ($("swPreview")) new ResizeObserver(() => requestAnimationFrame(() => updatePreviewCue($("swPreview"), $("swPreviewCue")))).observe($("swPreview"));
+  if ($("swPreview")) new ResizeObserver(() => requestAnimationFrame(() => { snapSidePreview(); updatePreviewCue($("swPreview"), $("swPreviewCue")); })).observe($("swPreview"));
 }
 // Theme picker (header).
 $("themeSelect").onchange = () => {

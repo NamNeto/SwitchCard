@@ -106,6 +106,10 @@ function renderCards() {
   const blocked = gates.length > 0 || busy;
   const body = items.map(({ x, st }) => {
     const status = switchStatus(x);
+    // While a gate blocks, a clean row's result is its checks, not an export verdict: "checks OK
+    // · 1 note" in grey beside the muted "blocked" (round 12: green OK beside red blocked read as
+    // two opposite answers; the gate line names the cause once).
+    if (gates.length && !status.bad) status.text = "checks " + status.text;
     let last;
     // One pill grammar for the export state: green up to date, amber changed (opens the diff),
     // blue not exported, grey not tracked.

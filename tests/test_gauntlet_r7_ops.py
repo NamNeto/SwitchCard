@@ -141,9 +141,11 @@ def test_build_gate_merges_two_checks_on_one_cell(page):
     ev(page, """() => { const r = current(); normalizePorts(r);
         const p = r.ports.find((x) => x.role === 'access') || r.ports[0]; p.role = 'access'; p.vlan = '';
         renderAll(); renderPreview(); }""")
-    li = ev(page, """() => [...document.querySelectorAll('#exportWhy li')].map((l) => l.textContent).find((t) => /errors?(?: above)?:/.test(t)) || ''""")
-    names = [x.strip() for x in li.split(":", 1)[1].split(",")]
-    assert len(names) == len(set(names)) and "(2)" in li, li
+    # round 12: the gate is one line ("2 errors above") and the checks box lists each check once
+    li = ev(page, """() => [...document.querySelectorAll('#exportWhy li')].map((l) => l.textContent).find((t) => /errors? above/.test(t)) || ''""")
+    assert li == "2 errors above", li
+    texts = ev(page, "() => [...$('checks').querySelectorAll('.notice.error button.finding-link')].map((b) => b.textContent)")
+    assert len(texts) == 2 and len(set(texts)) == 2, texts
 
 
 def test_csv_multiline_cell_is_noted_in_the_import(page):

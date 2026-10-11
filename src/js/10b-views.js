@@ -173,7 +173,7 @@ const ERROR_KIND_FIELD = { MGMT_IP: "bad IP", GATEWAY: "bad gateway", MGMT_MASK:
 function errorKind(x) {
   if (x.errors.some((e) => /^duplicate /.test(e))) return "duplicate";
   const f = (x.findings || []).find((y) => y.level === "error");
-  if (!f) return x.policy.length ? "policy: " + policyWord(x.policy[0]) : "";
+  if (!f) return x.policy.length ? "policy" : "";
   const w = f.where || {};
   if (w.kind === "field" || w.kind === "row") return ERROR_KIND_FIELD[w.key] || ("bad " + String(w.key || "value").replaceAll("_", " ").toLowerCase());
   if (w.kind === "port" || w.kind === "ports") return findingShortName(f);
@@ -181,7 +181,8 @@ function errorKind(x) {
   return w.kind ? findingShortName(f) : "";
 }
 // The rule behind a team-policy hit in a few characters ("forbid ^hostname .*TEST", "require
-// …", "invalid rule"), for the status cell; the full text is the cell's title.
+// …", "invalid rule"); the status cell says "policy" alone (round 12: the rule made the cell
+// too wide for the grid at 1440 px), the cell's title and the side panel carry the full text.
 function policyWord(p) {
   const m = /^(forbidden pattern present|required pattern not found): (.*?)(?: \(.*\))?$/.exec(String(p || ""));
   if (!m) return "invalid rule";
@@ -350,9 +351,11 @@ function renderSwitchPanel(r, x) {
     // Each check is a button that jumps to what it is about (this row's cell, its Ports dialog, ...).
     const ctx = { view: "switches", rowId: x.row.id };
     const checkList = (ul) => {
-      for (const f of items)
-        ul.append(el("li", { className: f.level === "error" ? "bad" : "warn" },
-          el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, { ...ctx, text: f.text }) }, f.text)));
+      for (const f of items) {
+        const b = el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, { ...ctx, text: f.text }) }, f.text);
+        // The whole line is the target (round 12): a press on the line's own edge runs the jump.
+        ul.append(el("li", { className: f.level === "error" ? "bad" : "warn", onclick: (e) => { if (e.target.tagName === "LI") b.click(); } }, b));
+      }
       if (!items.length) ul.append(el("li", { className: "ok" }, "No problems found."));
       return ul;
     };
@@ -381,7 +384,7 @@ function renderSwitchPanel(r, x) {
     // The same "Showing lines a–b of n" cue as Build's preview, under the panel's box: measured
     // on the next frame (it reads layout), and only when the text changed; the box's own scroll
     // listener and ResizeObserver cover every other change (review round 11).
-    if (typeof updatePreviewCue === "function") requestAnimationFrame(() => updatePreviewCue(pre, $("swPreviewCue")));
+    if (typeof updatePreviewCue === "function") requestAnimationFrame(() => { snapSidePreview(); updatePreviewCue(pre, $("swPreviewCue")); });
   }
   const prev = lastExport(r, x.host);
   const diffKey = prev && !x.errors.length ? JSON.stringify([prev.at, prev.sha256, x.text]) : "";
