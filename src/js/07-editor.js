@@ -113,10 +113,12 @@ function findingShortName(f) {
     case "ports":
       return "ports";
     case "template":
+      // The gate names the one template error with a known cause by that cause.
+      return /^The template still contains the example header line/.test((f && f.text) || "") ? "example header in template" : "template";
     case "interfaces":
     case "sources":
     case "file":
-      return { template: "template", interfaces: "interfaces", sources: "management sources", file: "config text" }[w.kind];
+      return { interfaces: "interfaces", sources: "management sources", file: "config text" }[w.kind];
     case "policy":
       return "team policy";
   }
@@ -149,7 +151,9 @@ function renderPreview() {
   fillLines($("preview"), g.text);
   const meter = $("previewMeter");
   if (meter) meter.textContent = previewSizeLabel(g.text);
-  if (typeof updatePreviewCue === "function") updatePreviewCue();
+  // The cue is measured from the box: pointless (and a forced layout) while Build is hidden;
+  // showView("build") sizes the pane, which measures it again.
+  if (typeof updatePreviewCue === "function" && !$("build").hidden) updatePreviewCue();
   // Status above the preview: at most one red box (errors) and one box for the result
   // (yellow with the notes to review, or green when there is nothing to review). Export
   // blockers are listed under the Export button (#exportWhy) and, once the checks pass, also in the
@@ -494,6 +498,9 @@ async function applyRecipe() {
   if (wasExample && !r.example)
     msg += " Example flag cleared — Save project to keep this durable.";
   else msg += " Save a project or team package to keep your changes.";
+  // Unticking Example is not the whole way out: the example header line blocks export too.
+  if (!r.example && String(r.template || "").includes(CONFIG.EXAMPLE_HEADER_LINE))
+    msg += " The template still has the example header line, which blocks export until you replace it.";
   message(msg);
 }
 // New switch uses a keep-list, not a clear-list: only these site-wide values survive;

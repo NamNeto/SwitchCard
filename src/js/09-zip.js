@@ -120,7 +120,9 @@ async function zip(files, when) {
     c.set(name, 46);
     central.push(c);
     offset += h.length + bytes.length;
-    message("Packaging " + (i + 1) + " / " + files.length + ": " + f.path);
+    // During a bulk card run the progress line already says which card is being written; the
+    // per-file counters would only replace it (and the reason a refused view click was given).
+    if (!(typeof cardRun !== "undefined" && cardRun)) message("Packaging " + (i + 1) + " / " + files.length + ": " + f.path);
     await new Promise((r) => setTimeout(r, 0));
   }
   const length = central.reduce((n, c) => n + c.length, 0),
@@ -203,11 +205,16 @@ async function unzip(file) {
   checkFiles(files);
   return files;
 }
+// Every control is disabled for the duration. The controls of a hidden Switches view are left
+// alone: that view is neither visible nor focusable while hidden, the rail cannot open it during
+// a run (its buttons are disabled; showView refuses while busy), and with 200 switches its 2000
+// cells would cost a style and layout pass at both ends of every export.
+const RUN_CONTROLS = ":is(input,select,textarea,button):not(#switches[hidden] *)";
 async function run(fn) {
   if (busy) return;
   busy = true;
   const opener = document.activeElement; // disabled below; focus goes back to it at the end
-  document.querySelectorAll("input,select,textarea,button").forEach((el) => {
+  document.querySelectorAll(RUN_CONTROLS).forEach((el) => {
     el.dataset.beforeDisabled = el.disabled ? "1" : "0";
     el.disabled = true;
   });
@@ -217,11 +224,9 @@ async function run(fn) {
     message("Could not finish: " + String(e.message).replace(/\.\.$/, "."));
   } finally {
     busy = false;
-    document.querySelectorAll("input,select,textarea,button").forEach((el) => {
-      if (el.dataset.beforeDisabled !== undefined) {
-        el.disabled = el.dataset.beforeDisabled === "1";
-        delete el.dataset.beforeDisabled;
-      }
+    document.querySelectorAll("[data-before-disabled]").forEach((el) => {
+      el.disabled = el.dataset.beforeDisabled === "1";
+      delete el.dataset.beforeDisabled;
     });
     renderPreview();
     // Re-enabling restored the states from before the run; let the rail and Cards view set the

@@ -684,12 +684,15 @@
         <div class="sw-layout">
           <div class="sw-main">
             <p class="scroll-hint" hidden>More columns to the right: scroll the list sideways (Shift + mouse wheel).</p>
+            <!-- Keyboard: every cell is a tab stop, so a link past the list (and one back) saves the walk. -->
+            <a class="skip-grid" href="#swPanelTitle">Skip the switch list</a>
             <div class="scroll">
               <table id="swTable">
                 <thead id="swHead"></thead>
                 <tbody id="swRows"></tbody>
               </table>
             </div>
+            <a class="skip-grid" href="#swAdd">Back to the switch toolbar</a>
             <div id="swEmpty" class="sw-empty">
               <strong>No switches yet</strong>
               <p class="muted">
@@ -703,7 +706,7 @@
           </div>
           <!-- Side panel for the selected row -->
           <aside id="swPanel" class="card">
-            <h2 id="swPanelTitle">Selected switch</h2>
+            <h2 id="swPanelTitle" tabindex="-1">Selected switch</h2>
             <ul id="swChecks" class="sw-checks"></ul>
             <p id="swPanelEmpty" class="muted" hidden>Select a row to see its checks and its editcontent.txt.</p>
             <pre id="swPreview" tabindex="0"></pre>

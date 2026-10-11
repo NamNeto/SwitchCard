@@ -543,12 +543,16 @@
         border-color: var(--accent);
         box-shadow: 0 0 0 3px var(--accent-dim);
       }
+      /* Keyboard focus: a solid 2 px ring just outside the control (at least 3:1 against every
+         surface, WCAG 2.4.13) on top of the soft halo, which alone is about 1.2:1 and hard to see on
+         an active rail item or a checkbox. */
       input:focus-visible,
       select:focus-visible,
       textarea:focus-visible,
       button:focus-visible,
       .filebutton:focus-visible {
-        outline: none;
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
         border-color: var(--accent);
         box-shadow: 0 0 0 3px var(--accent-dim);
       }
@@ -807,6 +811,34 @@
       }
       h1:focus {
         outline: none;
+      }
+      h1:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 4px;
+        border-radius: 4px;
+      }
+      /* Two links around the switch grid, shown only while focused: past the list to the selected
+         switch panel, and from under it back to the toolbar, so Tab need not walk every cell. */
+      .skip-grid {
+        position: absolute;
+        left: -9999px;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--accent-text);
+      }
+      .skip-grid:focus {
+        position: static;
+        display: inline-block;
+        margin: 0 0 8px;
+        padding: 6px 10px;
+        border: 1px solid var(--accent);
+        border-radius: var(--radius-sm);
+        background: var(--card);
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
+      .sw-layout.sw-none .skip-grid {
+        display: none;
       }
       .warning {
         background: var(--warn-bg);
@@ -1184,7 +1216,10 @@
       /* Scale (200+ switches): the Switches view keeps its layout while another view is shown, so
          coming back to it needs a repaint only, not a fresh style and layout pass over every cell. It
          stays out of sight, out of the tab order and out of the accessibility tree (visibility), takes
-         no room (absolute, zero height), and keeps the width it has when shown (.views has no padding). */
+         no room (absolute, zero height), and keeps the width it has when shown (.views has no padding).
+         Nothing touches its cells while it is hidden (run() leaves them enabled), so it costs the other
+         views nothing. (content-visibility: hidden was measured: it restyles the whole grid on every
+         return to the view, which is slower.) */
       .views {
         position: relative;
       }
@@ -1291,8 +1326,11 @@
         opacity: 0;
         overflow: hidden;
       }
+      /* The visually hidden file input inside carries the focus (also after its dialog closes or a
+         chooser is cancelled): the ring is drawn on the visible button whenever it does. */
       .filebutton:focus-within {
-        outline: none;
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
         border-color: var(--accent);
         box-shadow: 0 0 0 3px var(--accent-dim);
       }
@@ -1592,7 +1630,20 @@
         max-width: min(720px, 94vw);
         width: 100%;
       }
-      dialog.dlg::backdrop {
+      /* Shown with show(), not showModal() (04b-dialogs.js says why): fixed and centred like a modal,
+         above everything, with its own veil just below it. */
+      dialog.dlg[open] {
+        position: fixed;
+        inset: 0;
+        margin: auto;
+        z-index: 1001;
+        max-height: calc(100vh - 6px - 2em);
+        overflow: auto;
+      }
+      .dlg-veil {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
         background: var(--backdrop);
       }
       dialog.dlg h2 {
@@ -2284,7 +2335,7 @@
           margin-right: auto;
           max-width: min(920px, 100vw - 24px - 356px);
         }
-        dialog.dlg.dlg-ports::backdrop {
+        .dlg-veil:has(+ dialog.dlg-ports) {
           background: var(--backdrop-light);
         }
       }
@@ -3579,12 +3630,15 @@
         <div class="sw-layout">
           <div class="sw-main">
             <p class="scroll-hint" hidden>More columns to the right: scroll the list sideways (Shift + mouse wheel).</p>
+            <!-- Keyboard: every cell is a tab stop, so a link past the list (and one back) saves the walk. -->
+            <a class="skip-grid" href="#swPanelTitle">Skip the switch list</a>
             <div class="scroll">
               <table id="swTable">
                 <thead id="swHead"></thead>
                 <tbody id="swRows"></tbody>
               </table>
             </div>
+            <a class="skip-grid" href="#swAdd">Back to the switch toolbar</a>
             <div id="swEmpty" class="sw-empty">
               <strong>No switches yet</strong>
               <p class="muted">
@@ -3598,7 +3652,7 @@
           </div>
           <!-- Side panel for the selected row -->
           <aside id="swPanel" class="card">
-            <h2 id="swPanelTitle">Selected switch</h2>
+            <h2 id="swPanelTitle" tabindex="-1">Selected switch</h2>
             <ul id="swChecks" class="sw-checks"></ul>
             <p id="swPanelEmpty" class="muted" hidden>Select a row to see its checks and its editcontent.txt.</p>
             <pre id="swPreview" tabindex="0"></pre>
@@ -4303,7 +4357,7 @@
       let parkedDraft = null;
       function parkedDraftNote(result) {
         if (!result || result.parkedDraft == null) return "";
-        return " An unapplied Maintain draft" + (result.parkedReason ? " was not loaded because " + result.parkedReason : " from an earlier session is still parked") +
+        return " An unapplied recipe draft" + (result.parkedReason ? " was not loaded because " + result.parkedReason : " from an earlier session is still parked") +
           "; it is kept unchanged as parkedDraft in browser autosave and autosave downloads (re-type it by hand if you need it).";
       }
       function autosave() {
@@ -5252,16 +5306,57 @@
       // Resolves with the clicked action's value, or null on Esc. Resolved by our own handlers,
       // not the native close event (automated browsers can defer that indefinitely).
       // note: a short sentence at the left of the action bar (what the buttons do or do not save).
+      //
+      // The dialog is a <dialog> shown with show(), not showModal(): a modal makes the whole document
+      // inert, which restyles every element on open and again on close (with 200 switches, 2000 grid
+      // cells: 20-30 ms each way, the larger part of opening the Ports dialog). Modality is provided
+      // here instead: a veil over the page takes the clicks, Tab and Shift+Tab wrap inside the dialog
+      // from anywhere, Esc cancels, focus that lands outside is brought back, and aria-modal says so
+      // to assistive technology. The dialog keeps its open attribute (dialog[open]).
+      const openDialogs = [];
       function showDialog({ title, body, actions, onOpen, note }) {
         return new Promise((resolve) => {
-          const dlg = el("dialog", { className: "dlg" });
+          const dlg = el("dialog", { className: "dlg", ariaModal: "true" });
+          const veil = el("div", { className: "dlg-veil" });
           const opener = document.activeElement;
           let done = false;
+          const controls = () => [...dlg.querySelectorAll("button, input, select, textarea, a[href], summary, [tabindex]:not([tabindex='-1'])")]
+            .filter((n) => canFocus(n) && n.tabIndex >= 0);
+          const topmost = () => openDialogs[openDialogs.length - 1] === dlg;
+          const onKey = (e) => {
+            if (!dlg.open || !topmost()) return;
+            if (e.key === "Escape" && !e.altKey && !e.ctrlKey && !e.metaKey) {
+              e.preventDefault();
+              e.stopPropagation();
+              finish(null);
+              return;
+            }
+            // Tab wraps inside the dialog: from the last control to the first and back, never via <body>.
+            if (e.key !== "Tab" || e.altKey || e.ctrlKey || e.metaKey) return;
+            const list = controls();
+            if (!list.length) return;
+            const first = list[0],
+              last = list[list.length - 1],
+              a = document.activeElement;
+            if (e.shiftKey ? a === first || !dlg.contains(a) : a === last || !dlg.contains(a)) {
+              e.preventDefault();
+              (e.shiftKey ? last : first).focus();
+            }
+          };
+          // Focus that lands behind the veil (a click on it, a script) comes back to the dialog.
+          const onFocus = (e) => {
+            if (dlg.open && topmost() && !dlg.contains(e.target)) keepInside();
+          };
           const finish = (value) => {
             if (done) return;
             done = true;
+            document.removeEventListener("keydown", onKey, true);
+            document.removeEventListener("focusin", onFocus, true);
+            const at = openDialogs.indexOf(dlg);
+            if (at >= 0) openDialogs.splice(at, 1);
             if (dlg.open) dlg.close();
             dlg.remove();
+            veil.remove();
             // Back to the opener when it can take focus now; inside run() (opener disabled) run()
             // puts it back once the work is done.
             restoreFocus(opener, false);
@@ -5281,23 +5376,8 @@
           }
           dlg.append(el("h2", {}, title), el("div", { className: "dialog-body" }, body), bar);
           dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(null); });
-          // Tab wraps inside the dialog: from the last control to the first and back, never via <body>.
-          dlg.addEventListener("keydown", (e) => {
-            if (e.key !== "Tab" || e.altKey || e.ctrlKey || e.metaKey) return;
-            const list = [...dlg.querySelectorAll("button, input, select, textarea, a[href], summary, [tabindex]:not([tabindex='-1'])")]
-              .filter((n) => canFocus(n) && n.tabIndex >= 0);
-            if (!list.length) return;
-            const first = list[0],
-              last = list[list.length - 1],
-              a = document.activeElement;
-            if (e.shiftKey ? a === first || !dlg.contains(a) : a === last || !dlg.contains(a)) {
-              e.preventDefault();
-              (e.shiftKey ? last : first).focus();
-            }
-          });
-          document.body.appendChild(dlg);
-          dlg.showModal();
-          if (onOpen) onOpen(dlg);
+          // A click on the veil is not a dismissal (Esc and Cancel are): focus just comes back.
+          veil.addEventListener("mousedown", (e) => { e.preventDefault(); keepInside(); });
           // Focus stays inside the open dialog. The browser may first focus the scrolling body, which
           // stops being focusable once a wide layout no longer overflows; focus then falls to <body>.
           const keepInside = () => {
@@ -5305,6 +5385,12 @@
             const first = [...dlg.querySelectorAll("button, input, select, textarea")].find(canFocus);
             if (first) first.focus({ preventScroll: true });
           };
+          document.body.append(veil, dlg);
+          openDialogs.push(dlg);
+          document.addEventListener("keydown", onKey, true);
+          document.addEventListener("focusin", onFocus, true);
+          dlg.show();
+          if (onOpen) onOpen(dlg);
           keepInside();
           requestAnimationFrame(() => setTimeout(keepInside, 0));
         });
@@ -5333,12 +5419,15 @@
       const EXPORT_STATE_PILL = {
         current: ["pill-ok", "up to date"], changed: ["pill-warn", "changed"], new: ["pill-new", "new"], nohost: ["pill-muted", "not tracked"],
       };
+      // A long list (200 switches) is built in chunks: the rows that fit the scrolling box come with
+      // the dialog, the rest follow after its first paint, so opening stays quick.
+      const DLG_ROWS_FIRST = 40, DLG_ROWS_CHUNK = 80;
       function summaryRowsTable(rows) {
-        return el("table", { className: "dlg-rows" },
-          el("thead", {}, el("tr", {}, ["#", "Hostname", "Mgmt IP", "State", "Lines", "SHA-256", ""].map((h) => el("th", {}, h)))),
-          el("tbody", {}, rows.map((x) => {
+        const tbody = el("tbody");
+        const fill = (from, to) => {
+          for (const x of rows.slice(from, to)) {
             const [cls, label] = EXPORT_STATE_PILL[x.state] || EXPORT_STATE_PILL.nohost;
-            return el("tr", {},
+            tbody.append(el("tr", {},
               el("td", { className: "num" }, String(x.n)),
               el("td", {}, x.host || "(no hostname)"),
               el("td", { className: "mono" }, x.ip || ""),
@@ -5349,8 +5438,14 @@
               el("td", { className: "dlg-sha-copy" }, el("button", {
                 type: "button", className: "dlg-copy-sha", title: "Copy the full SHA-256 of this card's editcontent.txt",
                 onclick: async (e) => { e.target.textContent = (await copyText(x.sha256)) ? "Copied" : "Copy failed"; },
-              }, "Copy")));
-          })));
+              }, "Copy"))));
+          }
+          if (to < rows.length) setTimeout(() => fill(to, to + DLG_ROWS_CHUNK), 0);
+        };
+        fill(0, DLG_ROWS_FIRST);
+        return el("table", { className: "dlg-rows" },
+          el("thead", {}, el("tr", {}, ["#", "Hostname", "Mgmt IP", "State", "Lines", "SHA-256", ""].map((h) => el("th", {}, h)))),
+          tbody);
       }
       function summaryView(text, rows) {
         const box = el("div", { className: "dlg-summary" });
@@ -6463,10 +6558,12 @@
           case "ports":
             return "ports";
           case "template":
+            // The gate names the one template error with a known cause by that cause.
+            return /^The template still contains the example header line/.test((f && f.text) || "") ? "example header in template" : "template";
           case "interfaces":
           case "sources":
           case "file":
-            return { template: "template", interfaces: "interfaces", sources: "management sources", file: "config text" }[w.kind];
+            return { interfaces: "interfaces", sources: "management sources", file: "config text" }[w.kind];
           case "policy":
             return "team policy";
         }
@@ -6499,7 +6596,9 @@
         fillLines($("preview"), g.text);
         const meter = $("previewMeter");
         if (meter) meter.textContent = previewSizeLabel(g.text);
-        if (typeof updatePreviewCue === "function") updatePreviewCue();
+        // The cue is measured from the box: pointless (and a forced layout) while Build is hidden;
+        // showView("build") sizes the pane, which measures it again.
+        if (typeof updatePreviewCue === "function" && !$("build").hidden) updatePreviewCue();
         // Status above the preview: at most one red box (errors) and one box for the result
         // (yellow with the notes to review, or green when there is nothing to review). Export
         // blockers are listed under the Export button (#exportWhy) and, once the checks pass, also in the
@@ -6844,6 +6943,9 @@
         if (wasExample && !r.example)
           msg += " Example flag cleared — Save project to keep this durable.";
         else msg += " Save a project or team package to keep your changes.";
+        // Unticking Example is not the whole way out: the example header line blocks export too.
+        if (!r.example && String(r.template || "").includes(CONFIG.EXAMPLE_HEADER_LINE))
+          msg += " The template still has the example header line, which blocks export until you replace it.";
         message(msg);
       }
       // New switch uses a keep-list, not a clear-list: only these site-wide values survive;
@@ -7269,7 +7371,7 @@
         return confirmDialog(
           "Replace the current workspace?",
           "You have unsaved changes" +
-            (editorPending ? " (including an unapplied Maintain draft)" : "") +
+            (editorPending ? " (including an unapplied recipe draft)" : "") +
             ". Opening this " +
             (kind || "file") +
             " will replace the current workspace. Continue?",
@@ -7419,7 +7521,9 @@
           c.set(name, 46);
           central.push(c);
           offset += h.length + bytes.length;
-          message("Packaging " + (i + 1) + " / " + files.length + ": " + f.path);
+          // During a bulk card run the progress line already says which card is being written; the
+          // per-file counters would only replace it (and the reason a refused view click was given).
+          if (!(typeof cardRun !== "undefined" && cardRun)) message("Packaging " + (i + 1) + " / " + files.length + ": " + f.path);
           await new Promise((r) => setTimeout(r, 0));
         }
         const length = central.reduce((n, c) => n + c.length, 0),
@@ -7502,11 +7606,16 @@
         checkFiles(files);
         return files;
       }
+      // Every control is disabled for the duration. The controls of a hidden Switches view are left
+      // alone: that view is neither visible nor focusable while hidden, the rail cannot open it during
+      // a run (its buttons are disabled; showView refuses while busy), and with 200 switches its 2000
+      // cells would cost a style and layout pass at both ends of every export.
+      const RUN_CONTROLS = ":is(input,select,textarea,button):not(#switches[hidden] *)";
       async function run(fn) {
         if (busy) return;
         busy = true;
         const opener = document.activeElement; // disabled below; focus goes back to it at the end
-        document.querySelectorAll("input,select,textarea,button").forEach((el) => {
+        document.querySelectorAll(RUN_CONTROLS).forEach((el) => {
           el.dataset.beforeDisabled = el.disabled ? "1" : "0";
           el.disabled = true;
         });
@@ -7516,11 +7625,9 @@
           message("Could not finish: " + String(e.message).replace(/\.\.$/, "."));
         } finally {
           busy = false;
-          document.querySelectorAll("input,select,textarea,button").forEach((el) => {
-            if (el.dataset.beforeDisabled !== undefined) {
-              el.disabled = el.dataset.beforeDisabled === "1";
-              delete el.dataset.beforeDisabled;
-            }
+          document.querySelectorAll("[data-before-disabled]").forEach((el) => {
+            el.disabled = el.dataset.beforeDisabled === "1";
+            delete el.dataset.beforeDisabled;
           });
           renderPreview();
           // Re-enabling restored the states from before the run; let the rail and Cards view set the
@@ -9656,7 +9763,7 @@
             if (
               !(await confirmDialog(
                 "Save without the draft?",
-                "Unapplied Maintain draft is NOT included in Save project (applied recipes only). Continue download anyway?",
+                "The unapplied recipe draft is NOT included in Save project (applied recipes only). Continue download anyway?",
                 { ok: "Save without the draft" },
               ))
             ) {
@@ -9712,7 +9819,7 @@
             const notes = await acceptProject(restoredFile.p, null, restoredFile);
             let msg =
               "Project opened. Reload its baseline folder or open a team package to include firmware.";
-            if (restoredFile.draft) msg += " Unapplied Maintain draft restored into the editor; Apply or Discard before export.";
+            if (restoredFile.draft) msg += " Unapplied recipe draft restored into the editor; Apply or Discard before export.";
             if (restoredFile.preservedAutosaveRaw) msg += " Earlier stored autosave bytes remain included as preservedAutosaveRaw in the imported wrapper and this workspace.";
             msg += parkedDraftNote(restoredFile);
             if (notes && notes.length) msg += " Migration notes: " + notes.join(" ");
@@ -9812,6 +9919,16 @@
           e.returnValue = "";
         }
       });
+      // An edit made within the autosave debounce of a reload or close is written on the way out
+      // (synchronously, to localStorage); nothing is written while autosave is paused (boot dialog,
+      // an open Ports dialog), which keeps those cases as they are.
+      window.addEventListener("pagehide", () => {
+        if (autosaveTimer && !autosavePaused) {
+          clearTimeout(autosaveTimer);
+          autosaveTimer = null;
+          autosave();
+        }
+      });
       function restorePendingDraft(draft) {
         active = draft.recipeId;
         renderAll();
@@ -9879,6 +9996,12 @@
         }
         if (name !== "manage" && editorPending) {
           message("Apply your recipe changes before leaving the recipe editor.");
+          return false;
+        }
+        // run() disables the rail for the duration of an export; nothing else may change the view
+        // meanwhile either (the hidden Switches grid is left enabled on that promise).
+        if (typeof busy !== "undefined" && busy && name !== currentView) {
+          message("An export is running. Other views open again when it ends.");
           return false;
         }
         currentView = name;
@@ -10094,6 +10217,13 @@
       // Each part is redrawn only when what it shows changed (keys below), so a keystroke that leaves
       // the checks alone does not re-insert the detail row and re-lay out the whole table.
       let swPanelKeys = { checks: null, text: null, diff: null };
+      // The side panel sits below the grid from 1200 px down (styles.css); the selected row's checks
+      // then also show inline under the row. A change re-renders the panel either way.
+      const PANEL_BELOW = window.matchMedia("(max-width: 1200px)");
+      PANEL_BELOW.addEventListener("change", () => {
+        swPanelKeys.checks = null;
+        if (currentView === "switches") renderSwitches();
+      });
       function renderSwitchPanel(r, x) {
         const checks = $("swChecks");
         $("swPanelEmpty").hidden = !!x;
@@ -10117,9 +10247,11 @@
           ...(x.policy.length ? x.policy : x.errors.length && x.text ? policyViolations(x.text, teamPolicies) : [])
             .map((p) => ({ level: "error", text: "Team policy: " + p, where: { kind: "policy" } })),
         ].sort((a, b) => (a.level === "error" ? 0 : 1) - (b.level === "error" ? 0 : 1)); // errors first (stable)
-        const tr = [...$("swRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === x.row.id);
+        // The inline detail row exists only while the panel sits below the grid (narrow windows); beside
+        // the grid it would be a hidden row whose insertion still re-lays out the whole table.
+        const tr = PANEL_BELOW.matches ? [...$("swRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === x.row.id) : null;
         const detail = $("swRows").querySelector("tr.sw-detail");
-        const detailOk = !tr || (detail && detail.dataset.for === x.row.id && tr.nextElementSibling === detail);
+        const detailOk = tr ? detail && detail.dataset.for === x.row.id && tr.nextElementSibling === detail : !detail;
         const checksKey = JSON.stringify([x.row.id, title, items.map((f) => [f.level, f.text, f.where || null])]);
         if (checksKey !== swPanelKeys.checks || !detailOk) {
           swPanelKeys.checks = checksKey;
@@ -10334,8 +10466,11 @@
           touch();
           if (currentView === "switches") renderSwitches();
           const n = parsed.rows.length;
+          // Rows that arrived with errors are named at once, not only in the rail chip.
+          const bad = checkSwitchRows(r, r.switches).rows.filter((x) => parsed.rows.includes(x.row) && (x.errors.length || x.policy.length)).map((x) => x.n);
           message("Imported " + n + " switch" + (n === 1 ? "" : "es") +
-            (choice === "replace" ? (before ? ", replacing the " + before + " in the list." : ".") : " after the " + before + " in the list."));
+            (choice === "replace" ? (before ? ", replacing the " + before + " in the list." : ".") : " after the " + before + " in the list.") +
+            (bad.length ? " " + bad.length + (bad.length === 1 ? " has errors (row " : " have errors (rows ") + listFew(bad, 6) + "); the Status column says what is wrong." : ""));
         });
       }
       // "a, b, c and 4 more": the first few items of a list.
@@ -10501,7 +10636,7 @@
           if (v !== true && JSON.stringify(row.ports || {}) !== before) {
             row.ports = JSON.parse(before);
             touch();
-          } else if (dirty) scheduleAutosave();
+          } else if (dirty) touchAndAutosaveNow(); // Done commits: written now, so an immediate reload keeps it
           if (currentView !== "switches") return;
           renderSwitches();
           // A fixed check removes the button that opened the dialog: focus goes to this row's Ports button.
@@ -11062,6 +11197,12 @@
             if (autosavePaused) setAutosaveHint("paused");
           }
           refreshBackupButtons();
+          // A boot dialog was answered (its opener was the page itself): focus starts on the first
+          // control of the task, the recipe picker, or the view heading when that is not in view.
+          if (restored && focusLost()) {
+            const start = [$("recipe"), $("viewTitle")].find((n) => n && !n.closest("[hidden]"));
+            if (start) start.focus({ preventScroll: true });
+          }
         } finally {
           if (typeof sizeBuildPane === "function") sizeBuildPane();
           bootDone = true;
