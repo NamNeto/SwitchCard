@@ -39,6 +39,7 @@ function switchRowRecipe(r, row) {
     ports: (r.ports || []).map((p) => ({ ...p })),
     roles: { ...(r.roles || {}) }, // generate() fills missing roles in place (ensureRoles)
     exports: {},
+    exportStates: undefined,
     switches: undefined,
   };
   normalizePorts(rr);
@@ -58,7 +59,7 @@ function switchRowRecipe(r, row) {
 // The stamp is the full recipe JSON (not a hash), so a changed recipe can never reuse old text.
 let switchRowCache = { stamp: null, map: new Map() };
 function switchRecipeStamp(r) {
-  const { exports: _history, switches: _list, ...rest } = r;
+  const { exports: _history, exportStates: _states, switches: _list, ...rest } = r;
   return JSON.stringify(rest);
 }
 // Checks every row: { rows: RowResult[], warnings }. Messages are v0.7.3 checkFleet's.
@@ -140,6 +141,7 @@ function switchRowsFromCsv(r, text) {
     result.errors.push("Paste a CSV with a header row first.");
     return result;
   }
+  for (const c of parsed.rawHeader || parsed.header) if (String(c).includes("\uFFFD")) result.decodeProblems++;
   const dkeys = deviceKeys(r);
   // Port columns ("Gi1/3 description") set one switch's port; every other column is a placeholder.
   const portCols = [],
@@ -284,11 +286,12 @@ function countedUpRows(r, rows, n) {
   }
   return { rows: res.rows.slice(1).map(make) };
 }
-// Export state of one switch's text against the recipe's export history (keyed by hostname).
+// Export state of one switch's text against the recipe's last export of that hostname (the newer
+// of the text history and the hash-only states, see lastExport). entry.text may be missing.
 function exportState(r, host, sha256) {
   const key = exportHistoryKey(host);
   if (!key || !deviceKeys(r).includes("HOSTNAME")) return { state: "nohost" };
-  const entry = r.exports && typeof r.exports === "object" ? r.exports[key] : null;
+  const entry = lastExport(r, host);
   if (!entry) return { state: "new" };
   return { state: entry.sha256 === sha256 ? "current" : "changed", at: entry.at, entry };
 }

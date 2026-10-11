@@ -219,6 +219,29 @@ function validateProject(p) {
         if (dropped) migrationNotes.push(rname + ": dropped " + dropped + " invalid export history entr" + (dropped === 1 ? "y" : "ies") + ".");
       }
     }
+    // Export states (v0.8.0): optional hash-only record per hostname for the Cards view; bad
+    // entries are dropped, at most MAX_FLEET_ROWS (newest) kept. v0.7.x keeps the field unread.
+    if (r.exportStates !== undefined) {
+      if (!r.exportStates || typeof r.exportStates !== "object" || Array.isArray(r.exportStates)) {
+        migrationNotes.push(rname + ": invalid export states dropped.");
+        r.exportStates = {};
+      } else {
+        const clean = {};
+        let dropped = 0;
+        for (const [k, e] of Object.entries(r.exportStates)) {
+          if (
+            e && typeof e === "object" && typeof e.host === "string" && typeof e.at === "string" &&
+            /^[0-9a-f]{64}$/.test(String(e.sha256 || "")) && k && k === e.host.trim().toLowerCase()
+          )
+            clean[k] = { host: e.host, at: e.at, release: typeof e.release === "string" ? e.release : "?", sha256: e.sha256 };
+          else dropped++;
+        }
+        r.exportStates = clean;
+        const pruned = pruneExportStates(r);
+        if (dropped) migrationNotes.push(rname + ": dropped " + dropped + " invalid export state entr" + (dropped === 1 ? "y" : "ies") + ".");
+        if (pruned) migrationNotes.push(rname + ": kept the newest " + CONFIG.MAX_FLEET_ROWS + " export states (" + pruned + " older dropped).");
+      }
+    }
     // Reject duplicate / case-ambiguous saved port names.
     const portNames = r.ports.map((x) => String(x.name || "").toLowerCase());
     if (new Set(portNames).size !== portNames.length)

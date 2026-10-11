@@ -82,7 +82,9 @@ function buildSwitchGrid(cols, rows) {
     el("tr", {},
       el("th", {}, "#"),
       cols.map((k) => el("th", { dataKey: k, title: "{{" + k + "}}" }, fieldLabel(k))),
-      el("th", {}, "Ports"), el("th", {}, "Status"), el("th", {}, ""), el("th", {}, "")),
+      el("th", {}, "Ports"), el("th", {}, "Status"),
+      el("th", {}, el("span", { className: "visually-hidden" }, "Copy")),
+      el("th", {}, el("span", { className: "visually-hidden" }, "Remove"))),
   );
   const body = [
     el("tr", { className: "defaults" },
@@ -174,8 +176,7 @@ function renderSwitchPanel(r, x) {
       el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, ctx) }, f.text)));
   if (!items.length) checks.append(el("li", { className: "ok" }, "No problems found."));
   $("swPreview").textContent = x.text || "No output: fix the errors above.";
-  const key = exportHistoryKey(x.host);
-  const prev = key && r.exports && Object.hasOwn(r.exports, key) ? r.exports[key] : null;
+  const prev = lastExport(r, x.host);
   if (prev && !x.errors.length) {
     $("swDiffPanel").hidden = false;
     fillDiff($("swDiffSummary"), $("swDiff"), prev, x.text);
@@ -214,7 +215,17 @@ function copySwitchRow(id) {
   swSelectedId = copy.id;
   touch();
   renderSwitches();
+  focusSwitchRow(copy.id);
   message("Copied switch " + (i + 1) + ". The copy is flagged as a duplicate until you change its hostname and management IP.");
+}
+// Puts focus on a row's first cell and scrolls it to the middle of the list.
+function focusSwitchRow(id) {
+  const tr = [...$("swRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === id);
+  const input = tr && tr.querySelector("input[data-key]");
+  if (!input) return false;
+  input.focus();
+  input.scrollIntoView({ block: "center" });
+  return true;
 }
 async function removeSwitchRow(id) {
   const r = current();
@@ -228,6 +239,10 @@ async function removeSwitchRow(id) {
   if (j >= 0) rows.splice(j, 1);
   touch();
   renderSwitches();
+  // Focus the next row (or the previous one, or Add counted up when the list is empty).
+  const next = rows[Math.min(Math.max(j, 0), rows.length - 1)];
+  if (next) focusSwitchRow(next.id);
+  else $("swAdd").focus();
   message("Removed " + what + ".");
 }
 // Columns of a CSV header that are neither used by the recipe nor port columns.
@@ -268,6 +283,8 @@ function openImportDialog() {
       for (const w of parsed.warnings) if (!w.startsWith("Columns not used")) p("warn", w);
       if (parsed.rows.length > room)
         p("warn", "Add after would pass " + CONFIG.MAX_FLEET_ROWS + " switches (the list has " + (r.switches || []).length + "); use Replace.");
+      const have = (r.switches || []).length;
+      if (have) p("", "Replace drops the " + have + " switch" + (have === 1 ? "" : "es") + " in the list.");
     }
     if (parsed && parsed.decodeProblems)
       p("bad", parsed.decodeProblems + (parsed.decodeProblems === 1 ? " cell" : " cells") + " could not be read as UTF-8 — save the CSV as UTF-8.");
