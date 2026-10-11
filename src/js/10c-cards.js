@@ -115,10 +115,13 @@ function renderCards() {
         el("button", { type: "button", className: "cd-status " + (status.bad ? "cd-bad" : "cd-ok"),
           title: (status.title ? status.title + "\n" : "") + "Open this switch in Switches" }, status.text)),
       last,
-      el("td", {},
+      // While a gate blocks, every row's button is off: the word beside it and its title say why
+      // (round 11), so twelve disabled buttons never sit there without a reason.
+      el("td", { className: "cd-action" },
+        gates.length && !cardRowBad(x) ? el("span", { className: "cd-gate", title: "Export blocked: " + gateLabel(gates[0]) }, "blocked") : null,
         el("button", {
           type: "button", className: "cd-card", disabled: blocked || cardRowBad(x),
-          title: cardRowBad(x) ? "Fix this switch's errors first." : gates[0] || "Download the SD-card ZIP of this switch",
+          title: cardRowBad(x) ? "Fix this switch's errors first." : gates.length ? "Export blocked: " + gateLabel(gates[0]) : busy ? "An export is running." : "Download the SD-card ZIP of this switch",
         }, "Card ZIP")));
   });
   const a = document.activeElement;

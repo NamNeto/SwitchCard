@@ -475,15 +475,15 @@
                   <option>IE9300</option>
                 </select>
               </div>
-              <!-- One line beside Model family, level with its select (round 10); it grows a
-                   line per label typed beyond that. -->
+              <!-- Two lines beside Model family, top-aligned with its select (round 11); it grows
+                   a line per label typed beyond that. -->
               <div class="field">
                 <label for="firmwareRule">Allowed baseline labels</label
                 ><textarea
                   id="firmwareRule"
                   class="compact-xs"
-                  rows="1"
-                  placeholder="Blank = any label"
+                  rows="2"
+                  placeholder="One per line; blank = any"
                   title="One label per line. Blank: any baseline label of this model family"
                 ></textarea>
               </div>
@@ -758,7 +758,7 @@
                   <th>#</th>
                   <th>Hostname</th>
                   <th>Management IP</th>
-                  <th>Checks</th>
+                  <th>Status</th>
                   <th>Last export</th>
                   <th><span class="visually-hidden">Export</span></th>
                 </tr>

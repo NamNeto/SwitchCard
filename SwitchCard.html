@@ -136,8 +136,8 @@
         --ok-line: rgba(21, 102, 68, 0.4);
         --info-bg: rgba(30, 88, 168, 0.08);
         --info-line: rgba(30, 88, 168, 0.4);
-        --backdrop: rgba(20, 20, 16, 0.62);
-        --backdrop-light: rgba(20, 20, 16, 0.42);
+        --backdrop: rgba(20, 20, 16, 0.7); /* the page steps back behind a dialog in light too */
+        --backdrop-light: rgba(20, 20, 16, 0.5);
         --glow2: rgba(61, 139, 253, 0.06);
         --tab-hover: rgba(0, 0, 0, 0.04);
         --btn-hover: #e9e7e0;
@@ -188,8 +188,8 @@
           --ok-line: rgba(21, 102, 68, 0.4);
           --info-bg: rgba(30, 88, 168, 0.08);
           --info-line: rgba(30, 88, 168, 0.4);
-          --backdrop: rgba(20, 20, 16, 0.62);
-          --backdrop-light: rgba(20, 20, 16, 0.42);
+          --backdrop: rgba(20, 20, 16, 0.7); /* the page steps back behind a dialog in light too */
+          --backdrop-light: rgba(20, 20, 16, 0.5);
           --glow2: rgba(61, 139, 253, 0.06);
           --tab-hover: rgba(0, 0, 0, 0.04);
           --btn-hover: #e9e7e0;
@@ -773,6 +773,18 @@
       .notice li.li-gate {
         font-weight: 600;
       }
+      /* The verdict leads while a gate blocks: "Export blocked" in red at the head of the amber box,
+         the gates in a few words after it, and the check result as a secondary line (round 11). */
+      .notice-head .notice-gate {
+        color: var(--err);
+      }
+      .notice-sub {
+        display: block;
+        margin-top: 2px;
+        color: var(--muted);
+        font-size: 12.5px;
+        font-weight: 500;
+      }
       .notice li + li,
       .sw-checks li + li {
         margin-top: 4px;
@@ -1248,8 +1260,8 @@
         position: absolute;
         left: 0;
         right: 0;
-        top: -25px;
-        height: 24px;
+        top: -37px;
+        height: 36px;
         background: linear-gradient(to bottom, transparent, var(--card));
         pointer-events: none;
       }
@@ -1420,12 +1432,13 @@
         resize: vertical;
         font-size: 0.92em;
       }
-      /* Allowed baseline labels: one line beside Model family, level with its 40 px select (round 10),
-         grows a line per label typed beyond that (up to 180 px, then scrolls), and can be dragged
-         taller. */
+      /* Allowed baseline labels: two lines beside Model family, top-aligned with its select (a
+         one-per-line field reads as a list; round 11 settles between the one-line and three-line
+         boxes), grows a line per label typed beyond that (up to 180 px, then scrolls), and can be
+         dragged taller. */
       #firmwareRule {
         height: auto; /* field-sizing: content sizes it; an explicit height would pin it */
-        min-height: 40px; /* 1 line of 20 px + padding + border */
+        min-height: 60px; /* 2 lines of 20 px + padding + border */
         max-height: 180px;
         field-sizing: content;
         padding-top: 9px;
@@ -1856,13 +1869,14 @@
         overflow-wrap: normal;
         padding-bottom: 4px;
       }
-      /* A per-row copy of the full hash in the bulk table, in a column of its own: a 28 px target
-         (round 10; 22 px read as noise in a long stack), quiet until the row is hovered or focused. */
+      /* A per-row copy of the full hash in the bulk table, in a column of its own: a 22 px button, so
+         twelve rows plus the guarantee line fit the dialog at 900 px without scrolling (round 11),
+         quiet until the row is hovered or focused. */
       .dlg-rows button.dlg-copy-sha {
         min-height: 0;
-        height: 28px;
-        padding: 0 9px;
-        font-size: 11.5px;
+        height: 22px;
+        padding: 0 7px;
+        font-size: 11px;
         font-weight: 600;
         vertical-align: middle;
         color: var(--muted);
@@ -1876,7 +1890,7 @@
         padding-right: 4px;
       }
       .dlg-rows td.dlg-sha-copy {
-        width: 62px;
+        width: 56px;
         padding-left: 4px;
         padding-right: 2px;
       }
@@ -2166,6 +2180,10 @@
         color: var(--err);
         font-weight: 700;
       }
+      /* The frame is drawn over the first 2 px: the red stripe stays 3 px wide inside it (round 11). */
+      #swTable tr.row-bad.selected > td:first-child {
+        box-shadow: inset 5px 0 0 var(--err);
+      }
       #swTable input.cell-bad,
       #swTable input.cell-bad:hover {
         border: 1px solid var(--err);
@@ -2190,6 +2208,9 @@
         display: block;
         margin-top: 2px;
         padding-left: 1px;
+        max-width: 92px; /* a long kind ("policy: forbid ^hostname …") ends in an ellipsis; the title has it */
+        overflow: hidden;
+        text-overflow: ellipsis;
         font-size: 11.5px;
         font-weight: 600;
         line-height: 1.2;
@@ -2436,6 +2457,16 @@
         .dlg-veil:has(+ dialog.dlg-ports) {
           background: var(--backdrop-light);
         }
+      }
+      /* The Ports dialog's note takes a line of its own above the buttons, so it never wraps mid-
+         sentence beside them and the side panel's live preview stays in view (round 11). */
+      dialog.dlg-ports .dialog-actions {
+        flex-wrap: wrap;
+      }
+      dialog.dlg-ports .dialog-actions .dialog-note {
+        flex: 1 1 100%;
+        margin-right: 0;
+        margin-bottom: 2px;
       }
       .sw-ports-table {
         min-width: 0;
@@ -2709,6 +2740,9 @@
       .gate-list li button.finding-link::after {
         margin-left: 5px; /* the same 20 px badge as the checks; the links sit inline in a sentence */
       }
+      .gate-list li button.finding-link ~ button.finding-link {
+        margin-left: 8px; /* spaced, not comma-separated: a comma after a chevron badge read as stranded */
+      }
       .gate-fix {
         margin-left: auto;
         order: 1;
@@ -2810,27 +2844,32 @@
       .cd-summary .sum-bad::before {
         background: var(--err);
       }
-      /* Fixed columns at their natural widths and the last one taking the rest, with Card ZIP at its
-         start, so the button sits right after the export state instead of at the far edge of a wide
-         card (round 10); the table scrolls in its box when the window is narrower than 806 px. */
+      /* The table spreads to its card with Card ZIP pinned at the end of every row (both critics of
+         round 10 preferred it to a compact table with the buttons mid-row); the columns share the
+         width in proportion so no gap dwarfs the others; the table scrolls in its box below 680 px. */
       #cdTable {
         table-layout: fixed;
-        min-width: 806px;
+        min-width: 680px;
       }
       #cdTable th:nth-child(1) {
         width: 46px;
       }
       #cdTable th:nth-child(2) {
-        width: 160px;
+        width: 20%;
       }
       #cdTable th:nth-child(3) {
-        width: 130px;
+        width: 15%;
       }
       #cdTable th:nth-child(4) {
-        width: 120px;
+        width: 14%;
       }
-      #cdTable th:nth-child(5) {
-        width: 250px; /* "changed › since 2026-10-08 14:05" whole */
+      /* The fifth column (Last export) takes the rest: "changed › since 2026-10-08 14:05" whole from
+         the 900 px window up. */
+      #cdTable th:nth-child(6) {
+        width: 104px;
+      }
+      #cdTable.is-blocked th:nth-child(6) {
+        width: 164px; /* room for the "blocked" word beside the disabled button */
       }
       #cdTable td,
       #cdTable th {
@@ -2844,8 +2883,17 @@
         padding-left: 12px;
       }
       #cdTable td:last-child {
-        text-align: left; /* the button starts right after the export state; the rest of the row is free */
+        text-align: right;
         padding-right: 12px;
+      }
+      /* Why a row's button is off while a gate blocks: the word beside it (its title has the gate). */
+      #cdTable .cd-gate {
+        margin-right: 8px;
+        color: var(--err);
+        font-size: 12px;
+        font-weight: 600;
+        vertical-align: middle;
+        cursor: help;
       }
       #cdTable td {
         overflow: hidden;
@@ -2979,13 +3027,13 @@
         align-items: flex-start;
         gap: 14px;
         margin: 14px 0 0;
-        padding: 14px 16px;
-        /* A calm confirmation step, not a caution banner (round 10): a neutral frame with the accent
-           at its edge, which turns green once the box is ticked. */
-        border: 1px solid var(--line2);
-        border-left: 3px solid var(--accent);
+        padding: 12px 14px;
+        /* A deliberate caution step (both critics of round 10): an amber frame and tint, which turns
+           green once the box is ticked. */
+        border: 1px solid var(--warn-line);
+        border-left: 3px solid var(--warn);
         border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-        background: var(--card2);
+        background: var(--warn-bg);
         color: var(--text);
         font-size: 14px;
         font-weight: 600;
@@ -3551,15 +3599,15 @@
                   <option>IE9300</option>
                 </select>
               </div>
-              <!-- One line beside Model family, level with its select (round 10); it grows a
-                   line per label typed beyond that. -->
+              <!-- Two lines beside Model family, top-aligned with its select (round 11); it grows
+                   a line per label typed beyond that. -->
               <div class="field">
                 <label for="firmwareRule">Allowed baseline labels</label
                 ><textarea
                   id="firmwareRule"
                   class="compact-xs"
-                  rows="1"
-                  placeholder="Blank = any label"
+                  rows="2"
+                  placeholder="One per line; blank = any"
                   title="One label per line. Blank: any baseline label of this model family"
                 ></textarea>
               </div>
@@ -3834,7 +3882,7 @@
                   <th>#</th>
                   <th>Hostname</th>
                   <th>Management IP</th>
-                  <th>Checks</th>
+                  <th>Status</th>
                   <th>Last export</th>
                   <th><span class="visually-hidden">Export</span></th>
                 </tr>
@@ -6810,6 +6858,18 @@
         };
         return short[reason] || reason;
       }
+      // A gate in two or three words, for the checks heading ("Export blocked · example recipe · no
+      // firmware baseline"); the full sentence stays under the Export button.
+      function gateWord(reason) {
+        if (/^Example recipe:/.test(reason)) return "example recipe";
+        const short = {
+          "Load a firmware baseline to export a complete card.": "no firmware baseline",
+          "Baseline model does not match this recipe.": "baseline is for another model",
+          "Baseline label is not allowed by this recipe.": "baseline label not allowed",
+          "Apply recipe changes or Discard unapplied draft first.": "unapplied recipe draft",
+        };
+        return short[reason] || reason.replace(/\.$/, "").toLowerCase();
+      }
       // Short label of a non-blocking gate warning; the full sentence stays as the item's title.
       function gateWarnLabel(t) {
         return /^Baseline fingerprint DIFFERS/.test(t)
@@ -6853,7 +6913,7 @@
               else byName.set(name, [f]);
             }
             [...byName].forEach(([name, fs], i) => {
-              if (i) li.append(", ");
+              if (i) li.append(" "); // the links are spaced by CSS: a comma after a chevron badge read as stranded
               li.append(el("button", { type: "button", className: "finding-link", title: fs.map((f) => f.text).join("\n"),
                 onclick: () => focusFinding(fs[0].where, { view: "build", text: fs[0].text }) }, name + (fs.length > 1 ? " (" + fs.length + ")" : "")));
             });
@@ -6957,22 +7017,27 @@
             "Rules are edited under Team security hints in Manage recipes & baseline."));
         if (!g.errors.length || notices.length) {
           const count = notices.length === 1 ? "1 note to review" : notices.length + " notes to review";
-          // Checks passed but an export gate holds (example recipe, baseline, draft): the heading says
-          // so, so one card never shows "Checks passed" above "Export blocked" as two verdicts; the
-          // gate under the Export button names the reasons. Without notes the box lists them here too
-          // (each a jump to its way out); with notes it stays short, so the pane keeps its preview
+          // Checks passed but an export gate holds (example recipe, baseline, draft): the verdict leads.
+          // The heading is "Export blocked" (red words) with the gates in a few words each, and the
+          // check result follows as a secondary line ("Checks: 0 errors · 1 note to review"), so one
+          // card never shows "Checks passed" above "Export blocked" as two verdicts (round 11). The
+          // gate under the Export button names the reasons in full with the way out. Without notes the
+          // box lists the gates as jumps too; with notes it stays short, so the pane keeps its preview
           // lines and its footer. Amber, not green.
           const gates = g.errors.length ? [] : b.filter((x) => !x.startsWith("Team policy:"));
           const head = g.errors.length
             ? count
-            : "Checks passed" + (notices.length ? " · " + count : "") + (gates.length ? " · export blocked" : ".");
+            : gates.length
+              ? { gate: "Export blocked", rest: " · " + gates.map(gateWord).join(" · ") }
+              : "Checks passed" + (notices.length ? " · " + count : "");
+          const sub = g.errors.length || !gates.length ? "" : "Checks: 0 errors · " + (notices.length ? count : "nothing to review");
           const gateItems = notices.length ? [] : gates.map((t) => {
             const fix = GATE_FIXES.find(([re]) => re.test(t));
             return { text: gateLabel(t), gate: true, title: t, run: fix ? fix[2] : null };
           });
           $("checks").append(statusNotice(notices.length || gates.length ? "warning" : "ok", head,
             [...notices, ...gateItems],
-            "Cisco syntax and device behavior are not verified."));
+            "Cisco syntax and device behavior are not verified.", null, sub));
         }
         markInvalidFields(g);
         const sh = $("securityHints");
@@ -7066,13 +7131,27 @@
       // One status box: a bold heading, an optional list of items and an optional muted footer.
       // An item is a string, or {text, where}: a button with the same text that runs
       // focusFinding(where, ctx) (ctx defaults to the Build page).
-      function statusNotice(kind, heading, items, footer, ctx) {
+      // heading may be {gate, rest}: the gate words lead in red ("Export blocked"), the rest follows.
+      // sub: a secondary line under the heading (the check result while a gate blocks).
+      function statusNotice(kind, heading, items, footer, ctx, sub) {
         const el = document.createElement("div");
         el.className = "notice " + kind;
         const h = document.createElement("strong");
         h.className = "notice-head";
-        h.textContent = heading;
+        if (heading && typeof heading === "object") {
+          const g = document.createElement("span");
+          g.className = "notice-gate";
+          g.textContent = heading.gate;
+          h.append(g, document.createTextNode(heading.rest || ""));
+          el.classList.add("notice-gated");
+        } else h.textContent = heading;
         el.append(h);
+        if (sub) {
+          const s = document.createElement("span");
+          s.className = "notice-sub";
+          s.textContent = sub;
+          el.append(s);
+        }
         if (items && items.length) {
           const ul = document.createElement("ul");
           for (const t of items) {
@@ -10545,7 +10624,7 @@
               // same actions, but Tab reaches them only across every later row).
               el("td", { className: "c-more" }, el("button", {
                 type: "button", className: "sw-more", ariaLabel: "Row actions, switch " + (i + 1), ariaHaspopup: "menu", ariaExpanded: "false",
-                title: "Copy below or Remove this switch",
+                title: "Row actions",
               }, "\u22ef"))),
           );
         });
@@ -10574,12 +10653,42 @@
       function errorKind(x) {
         if (x.errors.some((e) => /^duplicate /.test(e))) return "duplicate";
         const f = (x.findings || []).find((y) => y.level === "error");
-        if (!f) return x.policy.length ? "policy" : "";
+        if (!f) return x.policy.length ? "policy: " + policyWord(x.policy[0]) : "";
         const w = f.where || {};
         if (w.kind === "field" || w.kind === "row") return ERROR_KIND_FIELD[w.key] || ("bad " + String(w.key || "value").replaceAll("_", " ").toLowerCase());
         if (w.kind === "port" || w.kind === "ports") return findingShortName(f);
         if (w.kind === "file") return "config text";
         return w.kind ? findingShortName(f) : "";
+      }
+      // The rule behind a team-policy hit in a few characters ("forbid ^hostname .*TEST", "require
+      // …", "invalid rule"), for the status cell; the full text is the cell's title.
+      function policyWord(p) {
+        const m = /^(forbidden pattern present|required pattern not found): (.*?)(?: \(.*\))?$/.exec(String(p || ""));
+        if (!m) return "invalid rule";
+        const t = (m[1].startsWith("forbidden") ? "forbid " : "require ") + m[2];
+        return t.length > 26 ? t.slice(0, 25) + "…" : t;
+      }
+      // The cell a team-policy hit points at, when the matched text holds one of the switch's values
+      // (the hostname in "hostname PKG-TEST-11"): that key, else null. The rule is about the card
+      // text; the value that put it there is the one to change.
+      function policyCellKey(x) {
+        if (!x.policy.length || !x.text) return null;
+        const body = positiveConfigText(x.text);
+        const vals = x.values || {};
+        for (const line of teamPolicies || []) {
+          const p = parsePolicyLine(line);
+          if (!p || p.error || p.mode !== "forbid") continue;
+          const m = p.re.exec(body);
+          if (!m) continue;
+          const from = body.lastIndexOf("\n", m.index) + 1;
+          const to = body.indexOf("\n", m.index + Math.max(1, m[0].length));
+          const hit = body.slice(from, to < 0 ? body.length : to);
+          for (const k of Object.keys(vals)) {
+            const v = String(vals[k] == null ? "" : vals[k]).trim();
+            if (v.length >= 2 && hit.includes(v)) return k;
+          }
+        }
+        return null;
       }
       // Re-checks the list (cached per row) and updates values, placeholders, inherit marks, port
       // counts, statuses and the side panel in the existing table.
@@ -10599,6 +10708,11 @@
           for (const f of x.findings)
             if (f.level === "error" && f.where && (f.where.kind === "field" || f.where.kind === "row") && !cellErrors.has(f.where.key))
               cellErrors.set(f.where.key, f.text);
+          // A team-policy hit whose matched line holds one of the row's values outlines that cell too.
+          if (x.policy.length && !x.errors.length) {
+            const k = policyCellKey(x);
+            if (k && !cellErrors.has(k)) cellErrors.set(k, "Team policy: " + x.policy[0]);
+          }
           for (const input of tr.querySelectorAll("input[data-key]")) {
             const k = input.dataset.key;
             const own = vals[k] == null ? "" : String(vals[k]);
@@ -10637,7 +10751,8 @@
             !tail || st.bad ? head : el("span", {}, head, el("span", { className: "st-notes" }, " · " + tail)));
           td.replaceChildren(pill, tail && st.bad ? el("span", { className: "st-what" }, el("span", { className: "visually-hidden" }, " · "), tail) : "");
           td.title = st.title;
-          // A team-policy hit is about the whole card text, not one cell: the status cell is the marked one.
+          // A team-policy hit: the status cell names the rule, and the cell whose value matched (when
+          // one does) is outlined like any other error cell.
           td.className = "status " + (st.bad ? "bad" : "ok") + (x.policy.length ? " policy" : "");
           tr.classList.toggle("row-bad", st.bad);
         }
@@ -10853,12 +10968,15 @@
           else {
             p("", parsed.rows.length + (parsed.rows.length === 1 ? " row" : " rows") + " found.");
             p("", "Columns used: " + (parsed.header.join(", ") || "none") + ".");
+            // Which rows fall back to Device details (an empty cell in a used column), so a silent
+            // inheritance is never a surprise after Add (round 11).
+            for (const line of inheritedCellsSummary(parsed, r)) p("", line);
             const ignored = ignoredCsvColumns(text, parsed);
             if (ignored.length) p("", "Ignored columns: " + ignored.join(", ") + ".");
             if (parsed.portCols.length) p("", "Port columns: " + parsed.portCols.join(", ") + ".");
             for (const w of parsed.warnings) if (!w.startsWith("Columns not used")) p("warn", w);
             if (parsed.rows.length > room)
-              p("warn", "Add after would pass " + CONFIG.MAX_FLEET_ROWS + " switches (the list has " + (r.switches || []).length + "); use Replace.");
+              p("warn", "Adding would pass " + CONFIG.MAX_FLEET_ROWS + " switches (the list has " + (r.switches || []).length + "); use Replace the list.");
             const have = (r.switches || []).length;
             if (have) p("notice warning", "Replace drops the " + have + " switch" + (have === 1 ? "" : "es") + " in the list.");
           }
@@ -10867,8 +10985,8 @@
               (parsed.decodeWhere && parsed.decodeWhere.length ? " Where: " + listFew(parsed.decodeWhere, 5) + "." : ""));
           const btn = (label) => buttons.find((b) => b.textContent === label);
           if (buttons.length) {
-            const add = btn("Add after"),
-              replace = btn("Replace");
+            const add = btn("Add to the list"),
+              replace = btn("Replace the list");
             add.disabled = !ok || parsed.rows.length > room;
             replace.disabled = !ok;
             // Replace drops the rows in the list: never the filled primary while it would.
@@ -10906,11 +11024,12 @@
         return showDialog({
           title: "Import CSV",
           body,
-          // Replace (drops the list) stands apart at the left; Cancel and the primary Add after at the right.
+          // Replace the list (drops it) stands apart at the left; Cancel and the primary, safe Add to
+          // the list at the right.
           actions: [
-            { label: "Replace", value: "replace", disabled: true, aside: true },
+            { label: "Replace the list", value: "replace", disabled: true, aside: true },
             { label: "Cancel", value: null },
-            { label: "Add after", value: "add", primary: true, disabled: true },
+            { label: "Add to the list", value: "add", primary: true, disabled: true },
           ],
           onOpen: (dlg) => {
             dlg.classList.add("dlg-wide");
@@ -10937,6 +11056,26 @@
             (choice === "replace" ? (before ? ", replacing the " + before + " in the list." : ".") : " after the " + before + " in the list.") +
             (bad.length ? " " + bad.length + (bad.length === 1 ? " has errors (row " : " have errors (rows ") + listFew(bad, 6) + "); the Status column says what is wrong." : ""));
         });
+      }
+      // "3 rows take SITE from Device details (Packaging hall): rows 3, 4, 5." per used column with an
+      // empty cell; a column every row fills says nothing. Columns not in the file are inherited by
+      // every row, which the columns line above already says.
+      function inheritedCellsSummary(parsed, r) {
+        const out = [];
+        const defs = (r && r.values) || {};
+        for (const k of parsed.header || []) {
+          const rows = [];
+          parsed.rows.forEach((row, i) => {
+            const v = row.values ? row.values[k] : undefined;
+            if (v == null || String(v).trim() === "") rows.push(i + 1);
+          });
+          if (!rows.length) continue;
+          const d = String(defs[k] == null ? "" : defs[k]).trim();
+          out.push((rows.length === parsed.rows.length ? "Every row takes " : rows.length + (rows.length === 1 ? " row takes " : " rows take ")) +
+            k + " from Device details" + (d ? " (" + (d.length > 40 ? d.slice(0, 39) + "…" : d) + ")" : " (empty there)") +
+            (rows.length === parsed.rows.length ? "." : ": " + (rows.length === 1 ? "row " : "rows ") + listFew(rows, 8) + "."));
+        }
+        return out;
       }
       // "a, b, c and 4 more": the first few items of a list.
       function listFew(items, few) {
@@ -11589,10 +11728,13 @@
               el("button", { type: "button", className: "cd-status " + (status.bad ? "cd-bad" : "cd-ok"),
                 title: (status.title ? status.title + "\n" : "") + "Open this switch in Switches" }, status.text)),
             last,
-            el("td", {},
+            // While a gate blocks, every row's button is off: the word beside it and its title say why
+            // (round 11), so twelve disabled buttons never sit there without a reason.
+            el("td", { className: "cd-action" },
+              gates.length && !cardRowBad(x) ? el("span", { className: "cd-gate", title: "Export blocked: " + gateLabel(gates[0]) }, "blocked") : null,
               el("button", {
                 type: "button", className: "cd-card", disabled: blocked || cardRowBad(x),
-                title: cardRowBad(x) ? "Fix this switch's errors first." : gates[0] || "Download the SD-card ZIP of this switch",
+                title: cardRowBad(x) ? "Fix this switch's errors first." : gates.length ? "Export blocked: " + gateLabel(gates[0]) : busy ? "An export is running." : "Download the SD-card ZIP of this switch",
               }, "Card ZIP")));
         });
         const a = document.activeElement;

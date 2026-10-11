@@ -653,13 +653,13 @@ def test_import_dialog_replace_add_and_decode_warning(page):
                          {"name": "a.csv", "mimeType": "text/csv", "buffer": b"HOSTNAME,SITE\nA-01,M\xfcnchen\n"})
     page.wait_for_function("() => document.querySelector('dialog[open]').textContent.includes('could not be read as UTF-8')")
     assert "1 cell" in page.inner_text("dialog[open]")
-    # errors disable Replace / Add after
+    # errors disable Replace the list / Add to the list
     page.fill("dialog[open] textarea", "foo bar\n1\n")
     assert ev(page, "() => [...document.querySelectorAll('dialog[open] .dialog-actions button')].filter((b) => b.disabled).length") == 2
     page.fill("dialog[open] textarea", "HOSTNAME,SITE,NOPE,Gi1/3 description\nA-01,Plant,x,uplink\nA-02,,,\n")
     text = page.inner_text("dialog[open]")
     assert "2 rows" in text and "NOPE" in text and "GigabitEthernet1/3 description" in text
-    click_dialog(page, "Replace")
+    click_dialog(page, "Replace the list")
     rows = ev(page, "() => current().switches")
     assert [r["values"] for r in rows] == [{"HOSTNAME": "A-01", "SITE": "Plant"}, {"HOSTNAME": "A-02"}]
     assert rows[0]["ports"] == {"GigabitEthernet1/3": {"description": "uplink"}} and rows[1]["ports"] == {}
@@ -669,7 +669,7 @@ def test_import_dialog_replace_add_and_decode_warning(page):
     page.click("dialog[open] button:text-is('Start from template')")
     assert ev(page, "() => document.querySelector('dialog[open] textarea').value").startswith("HOSTNAME,")
     page.fill("dialog[open] textarea", "HOSTNAME\nA-03\n")
-    click_dialog(page, "Add after")
+    click_dialog(page, "Add to the list")
     assert ev(page, "() => current().switches.map((x) => x.values.HOSTNAME)") == ["A-01", "A-02", "A-03"]
     # Export CSV and CSV template downloads (BOM + CRLF)
     stub_downloads(page)
@@ -752,7 +752,7 @@ def test_switches_team_policy_hit_is_an_error(page):
         { id: 'sw-a', values: { HOSTNAME: 'A-01' }, ports: {} }, { id: 'sw-b', values: { HOSTNAME: 'A-02', MGMT_IP: '192.0.2.77' }, ports: {} }];
         showView('switches'); }""")
     status = "#swRows tr[data-row='sw-a'] td.status"
-    assert page.text_content(status) == "1 error · policy"  # gauntlet r6: the kind of error under the count
+    assert page.text_content(status) == "1 error · policy: forbid ^hostname A-01$"  # r6: the kind under the count; r11: the rule
     assert ev(page, "(s) => document.querySelector(s).classList.contains('bad')", status) is True
     assert "Team policy: forbidden pattern present" in page.get_attribute(status, "title")
     page.click("#swRows tr[data-row='sw-a'] td.num")
@@ -948,7 +948,7 @@ def test_cards_team_policy_row_blocks(page):
     assert page.is_disabled(_cd_row(ids[1], "button.cd-card"))
     assert page.is_enabled(_cd_row(ids[0], "button.cd-card"))
     assert "Rows with errors: 2 (team policy: forbidden pattern present: ^hostname IE3100-DEMO-02$)." in page.inner_text("#cdGates")
-    assert page.inner_text(_cd_row(ids[1], "button.cd-status")) == "1 error · policy"  # gauntlet r6: the kind of error under the count
+    assert page.inner_text(_cd_row(ids[1], "button.cd-status")) == "1 error · policy: forbid ^hostname IE3100-D…"  # r6: the kind under the count; r11: the rule, cut
     stub_downloads(page)
     page.click("#cdAll")
     page.wait_for_function("() => $('status').textContent.includes('Rows with errors: 2 (') && $('status').textContent.includes('nothing was exported')")
@@ -962,11 +962,10 @@ def test_cards_empty_list_still_shows_gates(page):
     assert ev(page, "() => $('cdEmpty').hidden") is False
 
 
-# $('checks').textContent for example 0. Round 10: the heading carries the export verdict (the
-# gates, example recipe and no baseline, are named under the Export button), so the card shows one
-# status.
+# $('checks').textContent for example 0. Round 11: the verdict leads (Export blocked, the gates in a
+# few words), the check result follows as a secondary line, then the notes.
 EXAMPLE0_CHECKS_TEXT = (
-    "Checks passed · 1 note to review · export blocked No enable secret / username patterns found. Optional; "
+    "Export blocked · example recipe · no firmware baselineChecks: 0 errors · 1 note to review No enable secret / username patterns found. Optional; "
     "confirm local credentials exist in your tested recipe.  Cisco syntax and device behavior are not verified."
 )
 
