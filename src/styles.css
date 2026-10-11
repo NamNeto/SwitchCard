@@ -104,8 +104,8 @@
   --ok-line: rgba(21, 102, 68, 0.4);
   --info-bg: rgba(30, 88, 168, 0.08);
   --info-line: rgba(30, 88, 168, 0.4);
-  --backdrop: rgba(20, 20, 16, 0.5);
-  --backdrop-light: rgba(20, 20, 16, 0.28);
+  --backdrop: rgba(20, 20, 16, 0.62);
+  --backdrop-light: rgba(20, 20, 16, 0.42);
   --glow2: rgba(61, 139, 253, 0.06);
   --tab-hover: rgba(0, 0, 0, 0.04);
   --btn-hover: #e9e7e0;
@@ -156,8 +156,8 @@
     --ok-line: rgba(21, 102, 68, 0.4);
     --info-bg: rgba(30, 88, 168, 0.08);
     --info-line: rgba(30, 88, 168, 0.4);
-    --backdrop: rgba(20, 20, 16, 0.5);
-    --backdrop-light: rgba(20, 20, 16, 0.28);
+    --backdrop: rgba(20, 20, 16, 0.62);
+    --backdrop-light: rgba(20, 20, 16, 0.42);
     --glow2: rgba(61, 139, 253, 0.06);
     --tab-hover: rgba(0, 0, 0, 0.04);
     --btn-hover: #e9e7e0;
@@ -419,7 +419,10 @@ code {
   }
   #build .card.pane > .pane-foot {
     position: sticky;
-    bottom: 0;
+    /* The footer reaches into the pane's bottom padding (negative margin, same padding back),
+       and so must its sticky bottom: at 0 the browser would lift it by that padding and its
+       top would cover the tails of the "Lines · Bytes" row above. */
+    bottom: calc(var(--space) * -2.25);
     z-index: 2;
     margin: 0 calc(var(--space) * -2.5) calc(var(--space) * -2.25);
     padding: 0 calc(var(--space) * 2.5) calc(var(--space) * 2.25);
@@ -926,11 +929,16 @@ pre::after {
   font-size: 11px;
   user-select: none;
 }
+/* Room for descenders ("Bytes"): a full line-height and nothing clipping below the row, so the
+   pinned footer under it never covers a glyph's tail at any sub-pixel position. */
 .preview-meter {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   flex-wrap: wrap;
+  line-height: 1.5;
+  padding-bottom: 2px;
+  overflow: visible;
 }
 #previewCue {
   color: var(--faint);
@@ -1315,7 +1323,7 @@ footer {
    most of the window; the handle still resizes it). The two team lists and the interface
    list start at 4-6 lines and grow the same way. */
 #template {
-  min-height: 506px; /* 24 lines of 20.15 px + padding */
+  min-height: 180px; /* 8 lines; growTextarea sizes it to its text plus two lines */
   max-height: 80vh;
 }
 #interfaces {
@@ -1337,11 +1345,11 @@ textarea.compact-xs {
   resize: vertical;
   font-size: 0.92em;
 }
-/* Allowed baseline labels: three lines tall ("one per line" is visible as such), grows a line per
-   label typed (up to 180 px, then scrolls), and can be dragged taller. */
+/* Allowed baseline labels: one control-height line beside Model family (the row stays aligned),
+   grows a line per label typed (up to 180 px, then scrolls), and can be dragged taller. */
 #firmwareRule {
-  height: 80px;
-  min-height: 80px;
+  height: auto; /* field-sizing: content sizes it; an explicit height would pin it */
+  min-height: var(--control-h);
   max-height: 180px;
   field-sizing: content;
   padding-top: 9px;
@@ -1983,16 +1991,6 @@ button.primary.danger:focus-visible {
   padding-left: 8px;
   padding-right: 4px;
 }
-#swTable th.c-copy,
-#swTable th.c-remove,
-#swTable td.c-copy,
-#swTable td.c-remove {
-  padding-left: 2px;
-  padding-right: 2px;
-}
-#swTable td.c-remove {
-  padding-right: 4px;
-}
 /* Cell widths: the whole row fits beside the side panel at 1440 px and alone at 900 px. An
    address (255.255.255.0) fits an address cell; Site takes whatever width is left (at least
    160 px) because it holds free text; a value longer than its cell ends in an ellipsis and the
@@ -2053,8 +2051,13 @@ button.primary.danger:focus-visible {
 #swTable tr.defaults td[data-key] {
   padding-left: 13px;
 }
+/* The selected row: a clear accent tint (16 %, visible in light too), a 2 px accent frame (so an
+   error row, whose edge and tint are red, still shows that it is the selected one) and a 3 px
+   accent edge. */
 #swTable tr.selected {
-  background: var(--accent-glow);
+  background: var(--accent-dim);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 #swTable tr.selected > td:first-child {
   box-shadow: inset 3px 0 0 var(--accent-text); /* the accent as text: 5:1 on the table in light */
@@ -2064,7 +2067,7 @@ button.primary.danger:focus-visible {
   background: var(--err-bg);
 }
 #swTable tr.row-bad.selected {
-  background: linear-gradient(var(--accent-glow), var(--accent-glow)), var(--err-bg);
+  background: linear-gradient(var(--accent-dim), var(--accent-dim)), var(--err-bg);
 }
 #swTable tr.row-bad > td:first-child {
   box-shadow: inset 3px 0 0 var(--err);
@@ -2132,10 +2135,10 @@ button.primary.danger:focus-visible {
   font-size: 12.5px;
   font-weight: 650;
 }
-/* The row's own Copy and Remove columns are there at every width, so the detail row does not
-   repeat them. */
+/* The selected row's Copy below and Remove, inline under the row while the panel sits below the
+   grid (the detail row shows only then); beside the grid they are in the panel. */
 #swTable tr.sw-detail .sw-detail-actions {
-  display: none;
+  display: flex;
   gap: 8px;
   margin-top: 8px;
 }
@@ -2147,42 +2150,11 @@ button.primary.danger:focus-visible {
   color: var(--muted);
   font-weight: 500;
 }
-/* Row actions as 30 px icon buttons: a drawn "two pages" for Copy, a red × for Remove. */
-#swTable button.sw-icon {
-  position: relative;
-  width: 30px;
-  padding: 0;
-  color: var(--muted);
-}
-#swTable button.sw-icon:hover {
-  color: var(--text);
-}
-#swTable button.sw-copy::before,
-#swTable button.sw-copy::after {
-  content: "";
-  position: absolute;
-  width: 9px;
-  height: 11px;
-  border: 1.5px solid currentColor;
-  border-radius: 2px;
-}
-#swTable button.sw-copy::before {
-  left: 8px;
-  top: 6px;
-}
-#swTable button.sw-copy::after {
-  left: 12px;
-  top: 10px;
-  background: var(--card2);
-}
-#swTable button.sw-remove {
-  color: var(--err);
-  font-size: 17px;
-  line-height: 1;
-}
-#swTable button.sw-remove:hover {
-  color: var(--err);
-  border-color: var(--err);
+/* A team-policy hit has no single cell: the status cell is the marked one (the rule is its title,
+   and the side panel names it). */
+#swTable td.status.policy {
+  box-shadow: inset 0 0 0 1px var(--err);
+  border-radius: 6px;
 }
 #swTable button.sw-ports.has-set {
   color: var(--accent-text);
@@ -2218,6 +2190,19 @@ button.primary.danger:focus-visible {
 }
 .sw-checks {
   margin: 0 0 12px;
+  font-size: 13px;
+}
+/* Copy below (left) and the red Remove set apart at the right, above the preview. */
+.sw-panel-actions {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.sw-panel-actions button {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
   font-size: 13px;
 }
 .sw-checks li.bad {
@@ -2298,10 +2283,13 @@ dialog.dlg textarea {
 /* The Ports dialog keeps the side panel in view: it sits to the left and its veil is lighter, so
    the panel's preview (which follows every keystroke) can be read while typing. */
 @media (min-width: 1300px) {
-  dialog.dlg.dlg-ports {
-    margin-left: 24px;
-    margin-right: auto;
-    max-width: min(920px, 100vw - 24px - 356px);
+  /* Centred over the content column: between the rail (24 px gutter + 210 px + 24 px gap) and
+     the side panel (308 px + 12 px gap + 24 px gutter), so it reads as placed over the grid. */
+  dialog.dlg.dlg-ports[open] {
+    left: 258px;
+    right: 344px;
+    width: min(920px, 100vw - 602px); /* auto margins then centre it in that band */
+    max-width: 920px;
   }
   .dlg-veil:has(+ dialog.dlg-ports) {
     background: var(--backdrop-light);
@@ -2804,6 +2792,13 @@ pre::-webkit-scrollbar-thumb:hover,
   border-radius: 50%;
   background: currentColor;
 }
+/* It opens the changes: a chevron after the text says so, and hovering underlines it. */
+#cdTable button.cd-diff::after {
+  content: "\2060\203A";
+  margin-left: 5px;
+  font-size: 14px;
+  font-weight: 700;
+}
 #cdTable button.cd-diff:hover {
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -2879,17 +2874,24 @@ button.finding-link {
   white-space: normal;
   cursor: pointer;
 }
-/* "This goes somewhere": a small round chevron badge right after the text (on its line, in its
-   colour); hovering the row underlines the text, tints the row and fills the badge. */
+/* In a checks list the whole line is the button (a click anywhere on it jumps); in the gate line
+   the links stay inline in their sentence. */
+.notice li > button.finding-link,
+.sw-checks li > button.finding-link {
+  display: block;
+  width: 100%;
+}
+/* "This goes somewhere": a text-size chevron badge in the accent colour right after the text (on
+   its line); hovering the row underlines the text, tints the row and fills the badge. */
 button.finding-link::after {
   content: "\2060\203A"; /* a word joiner first: the badge never wraps away from its last word */
   display: inline;
-  margin-left: 5px;
-  padding: 0 5.5px 1px;
+  margin-left: 6px;
+  padding: 0 6.5px 1px;
   border-radius: 999px;
-  background: color-mix(in srgb, currentColor 16%, transparent);
-  color: inherit;
-  font-size: 13px;
+  background: var(--accent-dim);
+  color: var(--accent-text);
+  font-size: 15px;
   line-height: 1;
   font-weight: 700;
   text-decoration: none;
@@ -2917,7 +2919,7 @@ li:hover > button.finding-link {
 }
 button.finding-link:hover::after,
 li:hover > button.finding-link::after {
-  background: color-mix(in srgb, currentColor 30%, transparent);
+  background: color-mix(in srgb, var(--accent) 34%, transparent);
 }
 button.finding-link:active:not(:disabled) {
   transform: none;

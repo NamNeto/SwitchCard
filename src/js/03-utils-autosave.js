@@ -482,21 +482,21 @@ async function restoreAutosaveRaw(raw, key, opts) {
         nSwitches + (nSwitches === 1 ? " switch" : " switches") + (parsed.draft ? ", an unapplied recipe draft" : "");
       const base = p.baseline ? p.baseline.model + " / " + p.baseline.version + " (label only; firmware files are never stored)" : "none recorded";
       const kv = (k, v) => el("tr", {}, el("th", { scope: "row" }, k), el("td", {}, v));
-      // One line per button; Esc takes the safe choice, and the sentence says nothing is deleted.
+      // One line per button, each named for its outcome; Esc takes the safe choice, and the
+      // sentence says nothing is deleted.
       body = el("div", {},
         el("p", {}, found),
         el("table", { className: "dlg-kv dlg-kv-plain" }, kv("Holds", holds), kv("Baseline", base)),
         el("ul", { className: "dlg-choices" },
           el("li", {}, el("strong", {}, "Restore it"), " opens that work in this page."),
-          el("li", {}, el("strong", {}, "Not now"), " (or Esc) shows the example recipes and keeps that autosave as a backup," +
-            " which Save your work → Restore autosave backup brings back at any time. Nothing is deleted.")));
+          el("li", {}, el("strong", {}, "Start with the examples"), " (or Esc) keeps your v" + meta.release +
+            " work as a backup. To get it later: Save your work → Restore autosave backup. Nothing is deleted.")));
     }
     const ok = await confirmDialog(
       "Restore an autosave from v" + meta.release + "?",
       body,
       // At boot the default is the user's own work, so Enter never hides it.
-      { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Not now", focusOk: !fromBackup,
-        note: fromBackup ? undefined : "Esc = Not now. Nothing is deleted." },
+      { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples", focusOk: !fromBackup },
     );
     if (!ok) return fail("declined", "you chose not to restore data saved by v" + meta.release);
   }

@@ -105,24 +105,21 @@ function renderSwitches() {
 // Short column headers for the common fields, so headers stay on one line; the title has the rest.
 const SW_SHORT_LABELS = { MGMT_IP: "Mgmt IP", MGMT_MASK: "Mask", MGMT_VLAN: "VLAN", GATEWAY: "Gateway", MGMT_LOOPBACK: "Loopback" };
 function buildSwitchGrid(cols, rows) {
-  // Every cell carries its column as a class (c-HOSTNAME, c-ports, c-copy, ...) for the widths
-  // and for the narrow layout, which folds the two icon columns into the selected row's line.
+  // Every cell carries its column as a class (c-HOSTNAME, c-ports, ...) for the widths. Copy and
+  // Remove act on the selected row from the side panel (and from the inline detail row while the
+  // panel sits below the grid), not as icons on every row.
   $("swHead").replaceChildren(
     el("tr", {},
       el("th", {}, "#"),
       el("th", {}, "Status"),
       cols.map((k) => el("th", { className: "c-" + k, dataKey: k, title: fieldLabel(k) + " {{" + k + "}}" }, SW_SHORT_LABELS[k] || fieldLabel(k))),
-      el("th", { className: "c-ports" }, "Ports"),
-      el("th", { className: "c-copy" }, el("span", { className: "visually-hidden" }, "Copy")),
-      el("th", { className: "c-remove" }, el("span", { className: "visually-hidden" }, "Remove"))),
+      el("th", { className: "c-ports" }, "Ports")),
   );
   const body = [
     el("tr", { className: "defaults" },
       el("td", { colSpan: 2, title: "Device details and the port table on Build a card" }, "Defaults"),
       cols.map((k) => el("td", { className: "c-" + k, dataKey: k })),
-      el("td", { className: "c-ports", title: "The port table on Build a card" }, "Build"),
-      el("td", { className: "c-copy" }),
-      el("td", { className: "c-remove" })),
+      el("td", { className: "c-ports", title: "The port table on Build a card" }, "Build")),
   ];
   rows.forEach((row, i) => {
     body.push(
@@ -132,12 +129,7 @@ function buildSwitchGrid(cols, rows) {
         cols.map((k) =>
           // size 12: the cell's CSS width rules, not the input's 20-character default.
           el("td", { className: "c-" + k }, el("input", { dataRow: row.id, dataKey: k, size: 12, autocomplete: "off", ariaLabel: fieldLabel(k) + ", switch " + (i + 1) }))),
-        el("td", { className: "c-ports" }, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" })),
-        // Compact icon buttons (their words stay for screen readers), so the row fits beside the panel.
-        el("td", { className: "c-copy" }, el("button", { type: "button", className: "sw-copy sw-icon", title: "Copy this switch below itself", ariaLabel: "Copy switch " + (i + 1) + " below itself" },
-          el("span", { className: "visually-hidden" }, "Copy"))),
-        el("td", { className: "c-remove" }, el("button", { type: "button", className: "sw-remove sw-icon", title: "Remove this switch", ariaLabel: "Remove switch " + (i + 1) },
-          el("span", { ariaHidden: "true" }, "×"), el("span", { className: "visually-hidden" }, "Remove")))),
+        el("td", { className: "c-ports" }, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" }))),
     );
   });
   $("swRows").replaceChildren(...body);
@@ -228,7 +220,8 @@ function patchSwitchGrid(r) {
       !tail || st.bad ? head : el("span", {}, head, el("span", { className: "st-notes" }, " · " + tail)));
     td.replaceChildren(pill, tail && st.bad ? el("span", { className: "st-what" }, el("span", { className: "visually-hidden" }, " · "), tail) : "");
     td.title = st.title;
-    td.className = "status " + (st.bad ? "bad" : "ok");
+    // A team-policy hit is about the whole card text, not one cell: the status cell is the marked one.
+    td.className = "status " + (st.bad ? "bad" : "ok") + (x.policy.length ? " policy" : "");
     tr.classList.toggle("row-bad", st.bad);
   }
   $("swEmpty").hidden = rows.length > 0;
@@ -262,6 +255,13 @@ function renderSwitchPanel(r, x) {
   const checks = $("swChecks");
   $("swPanelEmpty").hidden = !!x;
   $("swPreview").hidden = !x;
+  // The selected row's Copy below and Remove, in the panel.
+  const actions = $("swPanel").querySelector(".sw-panel-actions");
+  actions.hidden = !x;
+  if (x) {
+    $("swCopyRow").onclick = () => copySwitchRow(x.row.id);
+    $("swRemoveRow").onclick = () => removeSwitchRow(x.row.id);
+  }
   if (!x) {
     if (swPanelKeys.checks === "none") return;
     swPanelKeys = { checks: "none", text: null, diff: null };
@@ -306,7 +306,7 @@ function renderSwitchPanel(r, x) {
     // (narrow windows), so the reason for an error is never out of view.
     if (tr) {
       const cols = tr.children.length;
-      // Copy and Remove here too: below 1000 px the icon columns are hidden and these show instead.
+      // Copy below and Remove here too: the panel (and its buttons) sits below the grid then.
       tr.after(el("tr", { className: "sw-detail", dataFor: x.row.id },
         el("td", { colSpan: cols },
           el("span", { className: "sw-detail-title" }, title),
@@ -852,9 +852,7 @@ $("swRows").addEventListener("click", (e) => {
   if (!tr) return;
   const id = tr.dataset.row;
   selectSwitch(id);
-  if (e.target.closest("button.sw-copy")) copySwitchRow(id);
-  else if (e.target.closest("button.sw-remove")) removeSwitchRow(id);
-  else if (e.target.closest("button.sw-ports")) {
+  if (e.target.closest("button.sw-ports")) {
     const row = (current().switches || []).find((x) => x.id === id);
     if (row) openPortsDialog(row);
   }
