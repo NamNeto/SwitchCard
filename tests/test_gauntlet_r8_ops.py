@@ -97,7 +97,8 @@ def test_example_header_is_named_in_the_gate_and_the_apply_status(page):
     page.wait_for_function("() => $('status').textContent.includes('Recipe applied')")
     assert "example header line, which blocks export" in ev(page, "() => $('status').textContent")
     ev(page, "() => showView('build')")
-    assert "example header in template" in page.inner_text("#exportWhy")
+    # round 12: the checks box names the error with its jump; the gate line only counts it
+    assert "example header" in page.inner_text("#checks") and "1 error above" in page.inner_text("#exportWhy")
     assert page.problems == []
 
 

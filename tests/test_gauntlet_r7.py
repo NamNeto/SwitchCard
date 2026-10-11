@@ -122,15 +122,15 @@ def test_import_dialog_replace_stands_apart(page):
     assert page.problems == []
 
 
-# --- (6) Allowed baseline labels: a two-line box beside Model family, top-aligned with its select
-#         (round 11: between the one-line and three-line boxes), growing a line per label beyond ---
-def test_allowed_baseline_labels_is_two_lines_that_grow(page):
+# --- (6) Allowed baseline labels: a three-line box beside Model family, top-aligned with its
+#         select (round 12: visibly multi-line), growing a line per label beyond ---
+def test_allowed_baseline_labels_is_three_lines_that_grow(page):
     ev(page, "() => showView('manage')")
-    assert ev(page, "() => $('firmwareRule').rows") == 2
+    assert ev(page, "() => $('firmwareRule').rows") == 3
     page.fill("#firmwareRule", "")
     m = ev(page, """() => { const t = $('firmwareRule').getBoundingClientRect(), s = $('recipeModel').getBoundingClientRect();
         return { h: t.height, sh: s.height, sameTop: Math.abs(t.top - s.top) < 2 }; }""")
-    assert 58 <= m["h"] <= 64 and m["sameTop"], m
+    assert 78 <= m["h"] <= 84 and m["sameTop"], m
     page.fill("#firmwareRule", "17.12.4\n17.15.1\n17.15.2\n17.15.3\n17.15.4")
     assert ev(page, "() => $('firmwareRule').clientHeight") >= 110
     assert ev(page, "() => getComputedStyle($('firmwareRule')).resize") == "vertical"

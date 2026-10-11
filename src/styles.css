@@ -1400,13 +1400,12 @@ textarea.compact-xs {
   resize: vertical;
   font-size: 0.92em;
 }
-/* Allowed baseline labels: two lines beside Model family, top-aligned with its select (a
-   one-per-line field reads as a list; round 11 settles between the one-line and three-line
-   boxes), grows a line per label typed beyond that (up to 180 px, then scrolls), and can be
-   dragged taller. */
+/* Allowed baseline labels: three lines beside Model family, top-aligned with its select (a
+   one-per-line field reads as a list; round 12: visibly multi-line), grows a line per label
+   typed beyond that (up to 180 px, then scrolls), and can be dragged taller. */
 #firmwareRule {
   height: auto; /* field-sizing: content sizes it; an explicit height would pin it */
-  min-height: 60px; /* 2 lines of 20 px + padding + border */
+  min-height: 80px; /* 3 lines of 20 px + padding + border */
   max-height: 180px;
   field-sizing: content;
   padding-top: 9px;
@@ -2176,7 +2175,7 @@ button.primary.danger:focus-visible {
   display: block;
   margin-top: 2px;
   padding-left: 1px;
-  max-width: 92px; /* a long kind ("policy: forbid ^hostname …") ends in an ellipsis; the title has it */
+  max-width: 84px; /* a long kind ends in an ellipsis; the title has it (the grid fits its card at 1440 px) */
   overflow: hidden;
   text-overflow: ellipsis;
   font-size: 11.5px;
@@ -2365,6 +2364,12 @@ button.primary.danger:focus-visible {
 #swPreview::after {
   margin: 0 -10px;
 }
+/* As Build's preview: a short fade at the bottom, so the last whole line (which the cue counts)
+   never reads as cut (round 12). */
+#swPreview::after {
+  height: 8px;
+  background: linear-gradient(transparent, var(--pre-bg));
+}
 #swPreview .pl {
   display: block;
   position: relative;
@@ -2460,7 +2465,10 @@ dialog.dlg-ports .dialog-actions .dialog-note {
   color: var(--muted);
   font-style: italic;
 }
-.sw-ports-table input.inherit:not(:disabled) {
+/* Inherited values, selects included, are dashed and transparent; a value set for this switch
+   is a solid field (round 12: the role selects looked typed). */
+.sw-ports-table input.inherit:not(:disabled),
+.sw-ports-table select.inherit:not(:disabled) {
   background: transparent;
   border-style: dashed;
 }
@@ -2719,6 +2727,61 @@ pre::-webkit-scrollbar-thumb:hover,
   padding: 0 10px;
   font-size: 12.5px;
 }
+/* Input errors alone (Build): one quiet line under the buttons, "Export blocked · 2 errors above",
+   the count a plain underlined link back to the checks box; no box, no second red panel. */
+.gate.gate-quiet {
+  padding: 2px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  gap: 4px 6px;
+}
+.gate.gate-quiet .gate-head {
+  color: var(--err);
+}
+.gate.gate-quiet .gate-head::after {
+  content: " \00B7";
+  color: var(--muted);
+  font-weight: 500;
+}
+.gate.gate-quiet .gate-list li {
+  padding-left: 0;
+}
+.gate.gate-quiet .gate-list li::before {
+  display: none;
+}
+button.gate-jump {
+  display: inline;
+  min-height: 24px;
+  height: auto;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 2px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
+  cursor: pointer;
+}
+button.gate-jump:hover {
+  border: 0;
+  background: none;
+  color: var(--err);
+  text-decoration-color: currentColor;
+}
+button.gate-jump:active:not(:disabled) {
+  transform: none;
+}
+button.gate-jump:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  box-shadow: none;
+}
 /* With a way-out button, that button shares the headline's row and the reasons follow below. */
 .gate:has(.gate-fix) .gate-list {
   order: 2;
@@ -2862,10 +2925,11 @@ pre::-webkit-scrollbar-thumb:hover,
   text-align: right;
   padding-right: 12px;
 }
-/* Why a row's button is off while a gate blocks: the word beside it (its title has the gate). */
+/* Why a row's button is off while a gate blocks: the word beside it (its title has the gate),
+   muted: the gate line above names the cause once in red (round 12). */
 #cdTable .cd-gate {
   margin-right: 8px;
-  color: var(--err);
+  color: var(--muted);
   font-size: 12px;
   font-weight: 600;
   vertical-align: middle;
@@ -3069,13 +3133,13 @@ button.finding-link {
    the text, tints the row and fills the badge. */
 button.finding-link::after {
   content: "\2060\203A"; /* a word joiner first: the badge never wraps away from its last word */
-  display: inline; /* an inline box: padding paints a 20 px pill without a break before it */
+  display: inline; /* an inline box: padding paints a 24 px pill without a break before it */
   margin-left: 6px;
-  padding: 2px 7px 3px;
+  padding: 3px 8px 4px;
   border-radius: 999px;
   background: var(--accent-dim);
   color: var(--accent-text);
-  font-size: 16px;
+  font-size: 17px;
   line-height: 1;
   font-weight: 700;
   text-decoration: none;
@@ -3087,6 +3151,7 @@ button.finding-link::after {
   border-radius: 4px;
   margin-right: -4px;
   padding-right: 4px;
+  min-height: 24px; /* the whole line is the target, never under 24 px (round 12) */
 }
 .notice li:has(> button.finding-link):hover,
 .sw-checks li:has(> button.finding-link):hover {
