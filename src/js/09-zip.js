@@ -206,6 +206,7 @@ async function unzip(file) {
 async function run(fn) {
   if (busy) return;
   busy = true;
+  const opener = document.activeElement; // disabled below; focus goes back to it at the end
   document.querySelectorAll("input,select,textarea,button").forEach((el) => {
     el.dataset.beforeDisabled = el.disabled ? "1" : "0";
     el.disabled = true;
@@ -223,5 +224,9 @@ async function run(fn) {
       }
     });
     renderPreview();
+    // Re-enabling restored the states from before the run; let the rail and Cards view set the
+    // current ones (a now-empty "Changed and new only" turns off) before focus goes back.
+    if (typeof updateRail === "function") updateRail();
+    restoreFocus(opener);
   }
 }

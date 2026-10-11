@@ -456,8 +456,13 @@ async function restoreAutosaveRaw(raw, key, opts) {
         (key !== AUTOSAVE_KEY ? " (older storage key " + key + ")" : "") +
         ".\nThis page is v" +
         RELEASE +
-        ".",
-      { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples" },
+        "." +
+        (fromBackup
+          ? ""
+          : "\nRestore it opens that work. Start with the examples (or Esc) keeps a copy as an autosave backup," +
+            " which Save your work → Restore autosave backup brings back."),
+      // At boot the default is the user's own work, so Enter never hides it.
+      { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples", focusOk: !fromBackup },
     );
     if (!ok) return fail("declined", "you chose not to restore data saved by v" + meta.release);
   }
