@@ -14,6 +14,7 @@ const BUILD_SUBTITLE = [...$("viewSubtitle").childNodes].map((n) => n.cloneNode(
 const VIEW_SUBTITLES = {
   switches: "Empty cells use Device details from Build a card.",
   cards: "One SD-card ZIP per switch; Last export shows what changed since.",
+  manage: "Firmware baseline, recipes, templates and team rules. Recipe edits take effect after Apply recipe changes.",
 };
 // Shows one view. Leaving the recipe editor is refused while it holds an unapplied draft.
 function showView(name) {
@@ -54,9 +55,12 @@ function updateRail() {
   const res = rows.length ? checkSwitchRows(r, rows) : { rows: [] };
   // Team-policy hits block export, so they count as errors here too (fail closed).
   const bad = res.rows.filter((x) => x.errors.length || x.policy.length).length;
-  $("chipSwitches").textContent = rows.length + (bad ? " · " + bad + (bad === 1 ? " error" : " errors") : "");
+  $("chipSwitches").textContent = rows.length
+    ? rows.length + (bad ? " · " + bad + (bad === 1 ? " error" : " errors") : "")
+    : "no switches yet";
+  $("chipSwitches").classList.toggle("chip-bad", bad > 0);
   const up = res.rows.filter((x) => exportState(r, x.host, x.sha256).state === "current").length;
-  $("chipCards").textContent = up + " of " + rows.length + " up to date";
+  $("chipCards").textContent = rows.length ? up + " of " + rows.length + " up to date" : "nothing to export yet";
   $("chipManage").textContent = baseline ? baseline.version : "no baseline";
   // The open Cards view follows the same changes (recipe, switches, template, baseline, policies).
   if (currentView === "cards" && typeof renderCards === "function") renderCards();
@@ -77,29 +81,32 @@ function renderSwitches() {
   swGridKey = gridKey;
   patchSwitchGrid(r);
 }
+// Short column headers for the common fields, so headers stay on one line; the title has the rest.
+const SW_SHORT_LABELS = { MGMT_IP: "Mgmt IP", MGMT_MASK: "Mask", MGMT_VLAN: "VLAN", GATEWAY: "Gateway", MGMT_LOOPBACK: "Loopback" };
 function buildSwitchGrid(cols, rows) {
   $("swHead").replaceChildren(
     el("tr", {},
       el("th", {}, "#"),
-      cols.map((k) => el("th", { dataKey: k, title: "{{" + k + "}}" }, fieldLabel(k))),
-      el("th", {}, "Ports"), el("th", {}, "Status"),
+      el("th", {}, "Status"),
+      cols.map((k) => el("th", { dataKey: k, title: fieldLabel(k) + " {{" + k + "}}" }, SW_SHORT_LABELS[k] || fieldLabel(k))),
+      el("th", {}, "Ports"),
       el("th", {}, el("span", { className: "visually-hidden" }, "Copy")),
       el("th", {}, el("span", { className: "visually-hidden" }, "Remove"))),
   );
   const body = [
     el("tr", { className: "defaults" },
-      el("td", { title: "Device details on Build a card" }, "Defaults"),
+      el("td", { colSpan: 2, title: "Device details on Build a card" }, "Defaults"),
       cols.map((k) => el("td", { dataKey: k })),
-      el("td", { colSpan: 4 }, "from Build a card")),
+      el("td", { colSpan: 3 }, "from Build a card")),
   ];
   rows.forEach((row, i) => {
     body.push(
       el("tr", { dataRow: row.id },
         el("td", { className: "num" }, String(i + 1)),
+        el("td", { className: "status" }),
         cols.map((k) =>
           el("td", {}, el("input", { dataRow: row.id, dataKey: k, autocomplete: "off", ariaLabel: fieldLabel(k) + ", switch " + (i + 1) }))),
         el("td", {}, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" })),
-        el("td", { className: "status" }),
         el("td", {}, el("button", { type: "button", className: "sw-copy", title: "Copy this switch below itself" }, "Copy")),
         el("td", {}, el("button", { type: "button", className: "sw-remove danger" }, "Remove"))),
     );
@@ -130,6 +137,11 @@ function patchSwitchGrid(r) {
     const x = byId.get(tr.dataset.row);
     if (!x) continue;
     const vals = x.row.values || {};
+    // The cells a check is about (a field or a duplicate), outlined in red with the check as title.
+    const cellErrors = new Map();
+    for (const f of x.findings)
+      if (f.level === "error" && f.where && (f.where.kind === "field" || f.where.kind === "row") && !cellErrors.has(f.where.key))
+        cellErrors.set(f.where.key, f.text);
     for (const input of tr.querySelectorAll("input[data-key]")) {
       const k = input.dataset.key;
       const own = vals[k] == null ? "" : String(vals[k]);
@@ -137,14 +149,26 @@ function patchSwitchGrid(r) {
       const inherited = String(defs[k] || "");
       if (input.placeholder !== inherited) input.placeholder = inherited;
       input.classList.toggle("inherit", own === "");
+      const err = cellErrors.get(k);
+      input.classList.toggle("cell-bad", !!err);
+      if (err) {
+        input.setAttribute("aria-invalid", "true");
+        input.title = err;
+      } else if (input.hasAttribute("aria-invalid")) {
+        input.removeAttribute("aria-invalid");
+        input.removeAttribute("title");
+      }
     }
     const set = Object.values(x.row.ports || {}).filter((p) => p && Object.keys(p).length).length;
-    tr.querySelector("button.sw-ports").textContent = set ? set + " set" : "table";
+    const pb = tr.querySelector("button.sw-ports");
+    pb.textContent = set ? set + " set" : "table";
+    pb.classList.toggle("has-set", set > 0);
     const st = switchStatus(x);
     const td = tr.querySelector("td.status");
-    td.textContent = st.text;
+    td.replaceChildren(el("span", { className: "pill " + (st.bad ? "pill-bad" : "pill-quiet") }, st.text));
     td.title = st.title;
     td.className = "status " + (st.bad ? "bad" : "ok");
+    tr.classList.toggle("row-bad", st.bad);
     tr.classList.toggle("selected", tr.dataset.row === swSelectedId);
   }
   $("swEmpty").hidden = rows.length > 0;
@@ -159,6 +183,8 @@ function renderSwitchPanel(r, x) {
   const checks = $("swChecks");
   checks.replaceChildren();
   $("swDiffPanel").hidden = true;
+  $("swPanelEmpty").hidden = !!x;
+  $("swPreview").hidden = !x;
   if (!x) {
     $("swPanelTitle").textContent = "Selected switch";
     $("swPreview").textContent = "Select a row to see its checks and its editcontent.txt.";
@@ -284,14 +310,18 @@ function openImportDialog() {
       if (parsed.rows.length > room)
         p("warn", "Add after would pass " + CONFIG.MAX_FLEET_ROWS + " switches (the list has " + (r.switches || []).length + "); use Replace.");
       const have = (r.switches || []).length;
-      if (have) p("", "Replace drops the " + have + " switch" + (have === 1 ? "" : "es") + " in the list.");
+      if (have) p("notice warning", "Replace drops the " + have + " switch" + (have === 1 ? "" : "es") + " in the list.");
     }
     if (parsed && parsed.decodeProblems)
       p("bad", parsed.decodeProblems + (parsed.decodeProblems === 1 ? " cell" : " cells") + " could not be read as UTF-8 — save the CSV as UTF-8.");
     const btn = (label) => buttons.find((b) => b.textContent === label);
     if (buttons.length) {
-      btn("Add after").disabled = !ok || parsed.rows.length > room;
-      btn("Replace").disabled = !ok;
+      const add = btn("Add after"),
+        replace = btn("Replace");
+      add.disabled = !ok || parsed.rows.length > room;
+      replace.disabled = !ok;
+      // Replace drops the rows in the list: never the filled primary while it would.
+      replace.classList.toggle("danger", (r.switches || []).length > 0);
     }
   };
   file.addEventListener("change", async () => {
@@ -327,8 +357,8 @@ function openImportDialog() {
     body,
     actions: [
       { label: "Cancel", value: null },
-      { label: "Add after", value: "add", disabled: true },
-      { label: "Replace", value: "replace", primary: true, disabled: true },
+      { label: "Replace", value: "replace", disabled: true },
+      { label: "Add after", value: "add", primary: true, disabled: true },
     ],
     onOpen: (dlg) => {
       dlg.classList.add("dlg-wide");
@@ -454,6 +484,7 @@ function openPortsDialog(row, focus) {
             }, "Remove"))))
         : "",
     );
+    watchScrollHints(wrap);
     if (want) {
       const t = [...wrap.querySelectorAll("[data-port]")].find((n) => lower(n.dataset.port) === lower(want.name) && n.dataset.attr === want.attr);
       if (t) t.focus();
@@ -647,6 +678,32 @@ $("swCount").addEventListener("keydown", (e) => {
   }
 });
 $("swImport").onclick = () => openImportDialog();
+// The empty state's own buttons run the toolbar's actions.
+$("swEmptyAdd").onclick = () => $("swAdd").click();
+$("swEmptyImport").onclick = () => openImportDialog();
+
+// --- Tables that scroll sideways: .more-left / .more-right fade the side that has more ---
+function updateScrollHint(box) {
+  const max = box.scrollWidth - box.clientWidth;
+  box.classList.toggle("more-left", max > 1 && box.scrollLeft > 1);
+  box.classList.toggle("more-right", max > 1 && box.scrollLeft < max - 1);
+  const hint = box.nextElementSibling;
+  if (hint && hint.classList.contains("scroll-hint")) hint.hidden = !(max > 1 && box.scrollLeft < max - 1);
+}
+function watchScrollHints(root) {
+  for (const box of (root || document).querySelectorAll(".scroll")) {
+    if (box.__hint) continue;
+    box.__hint = true;
+    box.addEventListener("scroll", () => updateScrollHint(box), { passive: true });
+    if (typeof ResizeObserver === "function") {
+      const ro = new ResizeObserver(() => updateScrollHint(box));
+      ro.observe(box);
+      if (box.firstElementChild) ro.observe(box.firstElementChild);
+    }
+    updateScrollHint(box);
+  }
+}
+watchScrollHints();
 $("swExport").onclick = () => {
   const r = current();
   const rows = r.switches || [];

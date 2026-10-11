@@ -58,6 +58,7 @@ function renderPreview() {
     $("checks").append(statusNotice(notices.length ? "warning" : "ok", head, notices,
       "Cisco syntax and device behavior are not verified."));
   }
+  markInvalidFields(g);
   const sh = $("securityHints");
   if (sh) {
     sh.replaceChildren();
@@ -108,6 +109,44 @@ function renderPreview() {
   renderDiffPanel(r, g);
   scheduleRailUpdate();
 }
+// Inline error state on Build: a field or port cell named by an error check gets a red border
+// (aria-invalid) and, for Device details, the check's text under the field.
+function markInvalidFields(g) {
+  const lower = (t) => String(t).toLowerCase();
+  const bad = new Map();
+  for (const f of g.findings || []) {
+    if (f.level !== "error" || !f.where) continue;
+    let t = null;
+    if (f.where.kind === "field") t = $("value_" + f.where.key);
+    else if (f.where.kind === "port")
+      t = [...$("ports").querySelectorAll("[data-port][data-attr]")]
+        .find((n) => lower(n.dataset.port) === lower(f.where.name) && n.dataset.attr === f.where.attr) || null;
+    if (t && !bad.has(t)) bad.set(t, f.text);
+  }
+  for (const n of document.querySelectorAll("#fields input, #ports [data-port][data-attr]")) {
+    const text = bad.get(n);
+    const msgId = n.id ? n.id + "_error" : "";
+    let msg = msgId ? document.getElementById(msgId) : null;
+    if (text) {
+      n.setAttribute("aria-invalid", "true");
+      if (n.id) {
+        if (!msg) {
+          msg = document.createElement("small");
+          msg.id = msgId;
+          msg.className = "field-error";
+          n.after(msg);
+        }
+        msg.textContent = text;
+        n.setAttribute("aria-describedby", msgId);
+      } else n.title = text;
+    } else if (n.hasAttribute("aria-invalid")) {
+      n.removeAttribute("aria-invalid");
+      n.removeAttribute("aria-describedby");
+      if (!n.id) n.removeAttribute("title");
+      if (msg) msg.remove();
+    }
+  }
+}
 // One status box: a bold heading, an optional list of items and an optional muted footer.
 // An item is a string, or {text, where}: a button with the same text that runs
 // focusFinding(where, ctx) (ctx defaults to the Build page).
@@ -151,6 +190,8 @@ function loadEditor() {
   const r = current();
   ensureRoles(r);
   $("editRecipe").value = active;
+  // The "fictional examples" note only shows while an example recipe is selected.
+  $("exampleNote").hidden = !r.example;
   $("recipeName").value = r.name;
   $("recipeModel").value = r.model;
   $("firmwareRule").value = r.firmware.join("\n");

@@ -25,9 +25,26 @@
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
   --ease: 140ms ease;
   --font: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-  --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+  /* Consolas first: its hyphen is clearly shorter than a dash, so "ip default-gateway" never
+     reads as an em dash. Cascadia Mono (no ligatures) and ui-monospace/Menlo cover other systems. */
+  --mono: Consolas, "Cascadia Mono", ui-monospace, Menlo, "DejaVu Sans Mono", "Liberation Mono", monospace;
   /* Surfaces that were hard-coded before the light theme existed. */
-  --header-bg: rgba(14, 14, 18, 0.78);
+  --header-bg: #0e0e12;
+  --field-bg: #0f0f13;
+  --field-line: #33333e;
+  --on-accent: #04140f;
+  --primary-bg: var(--accent);
+  --primary-hover: #4fe0ba;
+  --err-bg: rgba(255, 107, 107, 0.08);
+  --err-line: rgba(255, 107, 107, 0.45);
+  --warn-bg: rgba(230, 184, 77, 0.1);
+  --warn-line: rgba(230, 184, 77, 0.45);
+  --ok-bg: rgba(62, 207, 142, 0.1);
+  --ok-line: rgba(62, 207, 142, 0.4);
+  --info-bg: rgba(125, 183, 255, 0.1);
+  --info-line: rgba(125, 183, 255, 0.4);
+  --backdrop: rgba(0, 0, 0, 0.72);
+  --header-h: 76px;
   --glow2: rgba(61, 139, 253, 0.055);
   --tab-hover: rgba(255, 255, 255, 0.03);
   --btn-hover: #26262f;
@@ -61,7 +78,21 @@
   --info: #2160b8;
   --shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 8px 24px rgba(20, 20, 10, 0.1);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
-  --header-bg: rgba(250, 249, 246, 0.82);
+  --header-bg: #faf9f6;
+  --field-bg: #ffffff;
+  --field-line: #bdb8ac;
+  --on-accent: #ffffff;
+  --primary-bg: #12805f;
+  --primary-hover: #0f6e52;
+  --err-bg: rgba(197, 48, 48, 0.07);
+  --err-line: rgba(197, 48, 48, 0.5);
+  --warn-bg: rgba(143, 100, 0, 0.08);
+  --warn-line: rgba(143, 100, 0, 0.45);
+  --ok-bg: rgba(30, 138, 92, 0.09);
+  --ok-line: rgba(30, 138, 92, 0.4);
+  --info-bg: rgba(33, 96, 184, 0.08);
+  --info-line: rgba(33, 96, 184, 0.4);
+  --backdrop: rgba(20, 20, 16, 0.5);
   --glow2: rgba(61, 139, 253, 0.06);
   --tab-hover: rgba(0, 0, 0, 0.04);
   --btn-hover: #e9e7e0;
@@ -92,7 +123,21 @@
     --info: #2160b8;
     --shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 8px 24px rgba(20, 20, 10, 0.1);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
-    --header-bg: rgba(250, 249, 246, 0.82);
+    --header-bg: #faf9f6;
+    --field-bg: #ffffff;
+    --field-line: #bdb8ac;
+    --on-accent: #ffffff;
+    --primary-bg: #12805f;
+    --primary-hover: #0f6e52;
+    --err-bg: rgba(197, 48, 48, 0.07);
+    --err-line: rgba(197, 48, 48, 0.5);
+    --warn-bg: rgba(143, 100, 0, 0.08);
+    --warn-line: rgba(143, 100, 0, 0.45);
+    --ok-bg: rgba(30, 138, 92, 0.09);
+    --ok-line: rgba(30, 138, 92, 0.4);
+    --info-bg: rgba(33, 96, 184, 0.08);
+    --info-line: rgba(33, 96, 184, 0.4);
+    --backdrop: rgba(20, 20, 16, 0.5);
     --glow2: rgba(61, 139, 253, 0.06);
     --tab-hover: rgba(0, 0, 0, 0.04);
     --btn-hover: #e9e7e0;
@@ -129,8 +174,8 @@ header {
   position: sticky;
   top: 0;
   z-index: 20;
-  backdrop-filter: blur(12px) saturate(1.2);
-  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  /* Opaque: scrolled content must never ghost through the header. */
+  min-height: var(--header-h);
 }
 header .brand {
   display: flex;
@@ -249,8 +294,10 @@ code {
   border-radius: var(--radius, 12px);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-sm);
+  /* Sticks just below the sticky header, so the current view stays marked while the page scrolls. */
   position: sticky;
-  top: 12px;
+  top: calc(var(--header-h) + 12px);
+  z-index: 10;
 }
 .rail button {
   display: flex;
@@ -272,14 +319,28 @@ code {
   font-weight: 600;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), inset 3px 0 0 var(--accent);
 }
+.rail button:disabled,
+.rail button:disabled:hover {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+}
+.rail button[aria-current="page"]:disabled {
+  background: var(--card);
+  color: var(--text);
+}
 .rail button:hover:not([aria-current="page"]) {
   color: var(--text);
   background: var(--tab-hover);
 }
 .rail .chip {
-  font-size: 11.5px;
-  font-weight: 400;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--muted);
+}
+.rail .chip.chip-bad {
+  color: var(--err);
+  font-weight: 600;
 }
 .rail .chip:empty {
   display: none;
@@ -337,8 +398,8 @@ input,
 select,
 textarea {
   width: 100%;
-  border: 1px solid var(--line);
-  background: var(--bg2);
+  border: 1px solid var(--field-line);
+  background: var(--field-bg);
   color: var(--text);
   padding: 10px 12px;
   border-radius: var(--radius-sm);
@@ -358,6 +419,7 @@ select {
 }
 textarea {
   font: 13px/1.55 var(--mono);
+  font-variant-ligatures: none;
   min-height: 160px;
   resize: vertical;
 }
@@ -382,10 +444,39 @@ button:focus-visible,
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-dim);
 }
+/* Disabled: a flat grey well with no border (editable fields are bordered, inherited ones dashed). */
 input:disabled,
 select:disabled,
-textarea:disabled {
-  opacity: 0.45;
+textarea:disabled,
+input:disabled:hover {
+  background: var(--bg2);
+  border-color: transparent;
+  color: var(--faint);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+input::placeholder,
+textarea::placeholder {
+  color: var(--faint);
+}
+/* An invalid field (from the checks): red border plus a short message under it. */
+input[aria-invalid="true"],
+select[aria-invalid="true"] {
+  border-color: var(--err);
+  background: var(--err-bg);
+}
+input[aria-invalid="true"]:focus,
+select[aria-invalid="true"]:focus {
+  border-color: var(--err);
+  box-shadow: 0 0 0 3px var(--err-bg);
+}
+.field-error {
+  display: block;
+  margin-top: 4px;
+  color: var(--err);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.4;
 }
 /* Checkboxes: a fixed 16px box. Without this the generic input rule above gives them a 40px
    min-height and padding, which pushes the visible box above its label text. */
@@ -449,27 +540,34 @@ button:active:not(:disabled),
 .filebutton:active {
   transform: translateY(1px);
 }
+/* One flat primary style in both themes. */
 button.primary {
-  background: linear-gradient(135deg, #5ee4c0 0%, var(--accent) 40%, var(--accent2) 100%);
-  color: #04140f;
-  border-color: transparent;
+  background: var(--primary-bg);
+  color: var(--on-accent);
+  border-color: var(--primary-bg);
   font-weight: 700;
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 4px 12px rgba(45, 212, 168, 0.24);
+  box-shadow: var(--shadow-sm);
 }
 button.primary:hover {
-  filter: brightness(1.06);
-  background: linear-gradient(135deg, #8af0d0 0%, #5ee4c0 45%, var(--accent) 100%);
-  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 6px 16px rgba(45, 212, 168, 0.28);
+  background: var(--primary-hover);
+  border-color: var(--primary-hover);
 }
 button.primary:active:not(:disabled) {
   filter: brightness(0.97);
   transform: translateY(1px);
 }
 button.primary:focus-visible {
-  box-shadow: 0 0 0 3px var(--accent-dim), 0 4px 12px rgba(45, 212, 168, 0.24);
+  box-shadow: 0 0 0 3px var(--accent-dim);
 }
-button:disabled {
-  opacity: 0.4;
+/* Disabled buttons are flat, dashed and muted in both themes, so none of them reads as live. */
+button:disabled,
+button:disabled:hover,
+button.primary:disabled,
+button.primary:disabled:hover {
+  background: transparent;
+  border: 1px dashed var(--line2);
+  color: var(--faint);
+  opacity: 1;
   cursor: not-allowed;
   filter: none;
   transform: none;
@@ -514,11 +612,44 @@ button:disabled {
   display: block;
   font-weight: 600;
 }
-.notice ul {
+/* Check lists: a drawn dot sits on the FIRST line of a wrapped item (a list marker would follow
+   the item's button and land on its last line). */
+.notice ul,
+.sw-checks {
+  list-style: none;
   margin: 6px 0 0;
-  padding-left: 18px;
+  padding: 0;
 }
-.notice li + li {
+.notice li,
+.sw-checks li {
+  position: relative;
+  padding-left: 16px;
+}
+.notice li::before,
+.sw-checks li::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0.62em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.notice.error li::before,
+.sw-checks li.bad::before {
+  background: var(--err);
+}
+.notice.warning li::before,
+.sw-checks li.warn::before {
+  background: var(--warn);
+}
+.notice.ok li::before,
+.sw-checks li.ok::before {
+  background: var(--ok);
+}
+.notice li + li,
+.sw-checks li + li {
   margin-top: 4px;
 }
 .notice-foot {
@@ -532,19 +663,28 @@ button:disabled {
   line-height: 1.5;
 }
 .warning {
-  background: rgba(245, 197, 66, 0.06);
-  border-color: rgba(245, 197, 66, 0.32);
+  background: var(--warn-bg);
+  border-color: var(--warn-line);
   border-left-color: var(--warn);
 }
 .error {
-  background: rgba(255, 107, 107, 0.07);
-  border-color: rgba(255, 107, 107, 0.32);
+  background: var(--err-bg);
+  border-color: var(--err-line);
   border-left-color: var(--err);
 }
+.error > .notice-head {
+  color: var(--err);
+}
 .ok {
-  background: rgba(62, 207, 142, 0.07);
-  border-color: rgba(62, 207, 142, 0.28);
+  background: var(--ok-bg);
+  border-color: var(--ok-line);
   border-left-color: var(--ok);
+}
+/* Notes in the checks are calm: a neutral box with an amber edge and amber dots; errors stay red. */
+#checks .notice.warning {
+  background: var(--card2);
+  border-color: var(--line);
+  border-left-color: var(--warn);
 }
 .hint {
   background: rgba(45, 212, 168, 0.05);
@@ -575,7 +715,8 @@ button:disabled {
   min-height: 1.2em;
 }
 pre {
-  font: 12.5px/1.65 var(--mono);
+  font: 13px/1.6 var(--mono);
+  font-variant-ligatures: none;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 0;
@@ -726,8 +867,9 @@ summary:hover {
 }
 .badge {
   display: inline-block;
-  background: var(--accent-dim);
-  color: var(--accent);
+  background: var(--card2);
+  color: var(--muted);
+  border: 1px solid var(--line);
   border-radius: 999px;
   padding: 3px 10px;
   font-size: 10.5px;
@@ -999,7 +1141,8 @@ td.muted-cell {
   .rail {
     flex-direction: row;
     flex-wrap: wrap;
-    position: static;
+    top: var(--header-h);
+    margin: 0 -2px;
   }
   .rail button {
     width: auto;
@@ -1042,7 +1185,7 @@ dialog.dlg {
   width: 100%;
 }
 dialog.dlg::backdrop {
-  background: rgba(0, 0, 0, 0.55);
+  background: var(--backdrop);
 }
 dialog.dlg h2 {
   margin: 0 0 10px;
@@ -1083,12 +1226,34 @@ button.primary.danger {
 }
 
 /* --- v0.8.0: Switches view (grid, side panel, Ports and Import dialogs) --- */
+/* Toolbars: labelled groups (add rows | CSV), the destructive action on its own at the far end. */
 .sw-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 10px 16px;
   align-items: center;
   margin-top: 12px;
+}
+.tool-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.tool-group + .tool-group {
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+.tool-label {
+  font-size: 11.5px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin: 0;
+}
+.tool-end {
+  margin-left: auto;
 }
 .sw-add,
 .sw-template {
@@ -1097,33 +1262,155 @@ button.primary.danger {
   align-items: center;
 }
 #swCount {
-  width: 80px;
+  width: 72px;
 }
 .sw-template select {
   width: auto;
 }
 .sw-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
   gap: calc(var(--space) * 2);
   align-items: start;
   margin-top: calc(var(--space) * 2);
 }
+/* Status pills: colour plus words, the same in the Switches grid and on Cards. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 9px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.pill::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  flex: none;
+}
+.pill-bad {
+  color: var(--err);
+  background: var(--err-bg);
+  border-color: var(--err-line);
+}
+.pill-ok {
+  color: var(--ok);
+  background: var(--ok-bg);
+  border-color: var(--ok-line);
+}
+.pill-warn {
+  color: var(--warn);
+  background: var(--warn-bg);
+  border-color: var(--warn-line);
+}
+.pill-new {
+  color: var(--info);
+  background: var(--info-bg);
+  border-color: var(--info-line);
+}
+.pill-muted {
+  color: var(--muted);
+  background: var(--card2);
+  border-color: var(--line);
+}
+/* Quiet: no box, a green dot and muted words (a clean row should not compete with errors). */
+.pill-quiet {
+  color: var(--muted);
+  padding-left: 0;
+  font-weight: 500;
+}
+.pill-quiet::before {
+  background: var(--ok);
+}
+/* The grid takes its natural width and scrolls inside its own box; Status sits right after #. */
+#swTable {
+  width: max-content;
+  min-width: 100%;
+}
+#swTable td,
+#swTable th {
+  padding: 5px 4px;
+}
+#swTable th {
+  white-space: nowrap;
+}
+#swTable th:first-child,
+#swTable td.num {
+  padding-left: 10px;
+  padding-right: 6px;
+}
 #swTable td input {
-  min-width: 96px;
+  width: 124px;
+  min-width: 0;
+  height: 32px;
+  min-height: 32px;
+}
+#swTable td input[data-key="HOSTNAME"] {
+  width: 150px;
+}
+#swTable td input[data-key="SITE"] {
+  width: 176px;
+}
+#swTable td input[data-key$="VLAN"],
+#swTable td input[data-key$="LOOPBACK"] {
+  width: 64px;
+}
+/* Typed values: solid field, normal text. Inherited values: dashed, transparent, italic grey. */
+#swTable input:not(.inherit) {
+  font-weight: 500;
+}
+#swTable input.inherit {
+  background: transparent;
+  border-style: dashed;
 }
 #swTable input.inherit::placeholder {
-  color: var(--faint);
+  color: var(--muted);
   font-style: italic;
+  font-weight: 400;
 }
 #swTable tr.defaults td {
   color: var(--muted);
   background: var(--thead-bg);
-  font-size: 12.5px;
+  font-size: 12px;
   font-style: italic;
+  white-space: nowrap;
+}
+#swTable tr.defaults td[data-key] {
+  padding-left: 13px;
 }
 #swTable tr.selected {
   background: var(--accent-glow);
+}
+#swTable tr.selected > td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+/* A row with an error: red tint, red edge, red number; the offending cell has a red border. */
+#swTable tr.row-bad {
+  background: var(--err-bg);
+}
+#swTable tr.row-bad.selected {
+  background: linear-gradient(var(--accent-glow), var(--accent-glow)), var(--err-bg);
+}
+#swTable tr.row-bad > td:first-child {
+  box-shadow: inset 3px 0 0 var(--err);
+  color: var(--err);
+  font-weight: 700;
+}
+#swTable input.cell-bad,
+#swTable input.cell-bad:hover {
+  border: 1px solid var(--err);
+  background: var(--err-bg);
+  color: var(--err);
+}
+#swTable input.cell-bad::placeholder {
+  color: var(--err);
 }
 #swTable td.num {
   color: var(--muted);
@@ -1131,37 +1418,84 @@ button.primary.danger {
 }
 #swTable td.status {
   white-space: nowrap;
+}
+#swTable button {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 10px;
   font-size: 12.5px;
 }
-#swTable td.status.ok,
+#swTable button.sw-ports:not(.has-set) {
+  color: var(--muted);
+  font-weight: 500;
+}
+#swTable button.sw-ports.has-set {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.sw-empty {
+  margin: 12px 0 0;
+  padding: 18px 20px;
+  border: 1px dashed var(--line2);
+  border-radius: var(--radius);
+  background: var(--card);
+}
+.sw-empty strong {
+  display: block;
+  margin-bottom: 2px;
+}
+.sw-empty p {
+  margin: 0;
+}
+.sw-empty .actions {
+  margin-top: 12px;
+}
+/* Side panel: errors in red, notes calm (muted text, amber dot). */
+#swPanel {
+  position: sticky;
+  top: calc(var(--header-h) + 12px);
+}
+#swPanel h2 {
+  margin-bottom: 10px;
+}
+.sw-checks {
+  margin: 0 0 12px;
+  font-size: 13px;
+}
+.sw-checks li.bad {
+  color: var(--err);
+  font-weight: 600;
+}
+.sw-checks li.warn {
+  color: var(--muted);
+}
 .sw-checks li.ok {
   color: var(--ok);
 }
-#swTable td.status.bad,
-.sw-checks li.bad,
-.sw-import-summary .bad {
-  color: var(--err);
-}
-.sw-checks li.warn,
-.sw-import-summary .warn {
-  color: var(--warn);
-}
-#swPanel {
-  position: sticky;
-  top: 12px;
-}
-.sw-checks {
-  margin: 0 0 10px;
-  padding-left: 18px;
-  font-size: 13px;
+/* Short enough that the export buttons under the Build preview stay above the fold at 900 px. */
+#preview {
+  max-height: 400px;
 }
 #swPreview {
   max-height: 420px;
   font-size: 12px;
 }
+#swPanelEmpty {
+  margin: 0;
+}
 .sw-import-summary p {
   margin: 4px 0;
   font-size: 13px;
+}
+.sw-import-summary .bad {
+  color: var(--err);
+}
+.sw-import-summary .warn {
+  color: var(--warn);
+}
+.sw-import-summary p.notice {
+  margin-top: 10px;
+  font-weight: 600;
 }
 dialog.dlg.dlg-wide {
   max-width: min(1040px, 96vw);
@@ -1169,9 +1503,39 @@ dialog.dlg.dlg-wide {
 dialog.dlg textarea {
   width: 100%;
 }
+.sw-ports-table {
+  min-width: 0;
+}
+.sw-ports-table td,
+.sw-ports-table th {
+  padding: 5px 6px;
+}
+.sw-ports-table td:first-child {
+  white-space: nowrap;
+}
+.sw-ports-table select {
+  min-width: 100px;
+}
+.sw-ports-table input {
+  min-width: 70px;
+}
+.sw-ports-table input[data-attr="description"] {
+  min-width: 150px;
+}
 .sw-ports-table select.inherit,
 .sw-ports-table input.inherit::placeholder {
-  color: var(--faint);
+  color: var(--muted);
+  font-style: italic;
+}
+.sw-ports-table input.inherit:not(:disabled) {
+  background: transparent;
+  border-style: dashed;
+}
+.sw-ports-table button.use-table {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: 12.5px;
 }
 .sw-unknown button {
   margin-left: 6px;
@@ -1184,50 +1548,307 @@ dialog.dlg textarea {
     position: static;
   }
 }
-#swTable td,
-#swTable th {
-  padding: 6px 5px;
+@media (max-width: 980px) {
+  .tool-group + .tool-group {
+    padding-left: 0;
+    border-left: 0;
+  }
+  .tool-end {
+    margin-left: 0;
+  }
 }
-.sw-ports-table select {
-  min-width: 108px;
+
+/* Build's port table fits its card: fixed narrow columns, Description takes the rest. */
+#portsTable {
+  min-width: 0;
 }
-#swTable td input[data-key="HOSTNAME"] {
-  min-width: 150px;
+#portsTable td,
+#portsTable th {
+  padding: 6px 6px;
+}
+#portsTable td:nth-child(2) {
+  white-space: nowrap;
+}
+#portsTable select[data-attr="role"] {
+  width: 100px;
+}
+#portsTable input[data-attr="vlan"],
+#portsTable input[data-attr="ip"],
+#portsTable input[data-attr="mask"] {
+  width: 112px;
+}
+#portsTable input[data-attr="description"] {
+  min-width: 130px;
+}
+#swTable td.status {
+  background: transparent;
+  border-color: var(--line);
+}
+/* --- Tables that scroll sideways: thin visible scrollbar, and a fade on the side with more --- */
+.scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line2) transparent;
+}
+.scroll.more-right {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
+  mask-image: linear-gradient(to right, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
+}
+.scroll.more-left {
+  -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.18), #000 40px);
+  mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.18), #000 40px);
+}
+.scroll.more-left.more-right {
+  -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.18), #000 40px, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
+  mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.18), #000 40px, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
+}
+.scroll-hint {
+  margin: 6px 2px 0;
+  font-size: 12px;
+  color: var(--muted);
+  text-align: right;
 }
 
 /* --- v0.8.0: Cards view --- */
 .cd-gates {
-  margin: 10px 0 0;
+  margin: 12px 0 0;
+  padding: 8px 12px;
   font-size: 13px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  border-left-width: 3px;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
-.cd-gates.cd-ok,
-#cdTable td.cd-last.cd-current,
-#cdTable button.cd-status.cd-ok {
+.cd-gates:empty {
+  display: none;
+}
+.cd-gates.cd-ok {
   color: var(--ok);
+  background: var(--ok-bg);
+  border-color: var(--ok-line);
+  border-left-color: var(--ok);
 }
-.cd-gates.cd-bad,
-#cdTable button.cd-status.cd-bad {
+.cd-gates.cd-bad {
   color: var(--err);
+  background: var(--err-bg);
+  border-color: var(--err-line);
+  border-left-color: var(--err);
+}
+#cdFixGate {
+  margin-top: 8px;
+}
+.cd-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.cd-summary:empty {
+  display: none;
+}
+.cd-summary span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cd-summary span::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+.cd-summary .sum-total::before {
+  display: none;
+}
+.cd-summary .sum-total {
+  color: var(--text);
+  font-weight: 650;
+}
+.cd-summary .sum-ok::before {
+  background: var(--ok);
+}
+.cd-summary .sum-warn::before {
+  background: var(--warn);
+}
+.cd-summary .sum-new::before {
+  background: var(--info);
+}
+.cd-summary .sum-bad {
+  color: var(--err);
+  font-weight: 600;
+}
+.cd-summary .sum-bad::before {
+  background: var(--err);
+}
+#cdTable {
+  table-layout: fixed;
+  min-width: 680px;
+}
+#cdTable th:nth-child(1) {
+  width: 46px;
+}
+#cdTable th:nth-child(2) {
+  width: 20%;
+}
+#cdTable th:nth-child(3) {
+  width: 14%;
+}
+#cdTable th:nth-child(4) {
+  width: 14%;
+}
+#cdTable th:nth-child(6) {
+  width: 104px;
 }
 #cdTable td,
 #cdTable th {
-  padding: 6px 5px;
+  padding: 7px 8px;
+}
+#cdTable td:first-child,
+#cdTable th:first-child {
+  padding-left: 12px;
+}
+#cdTable td:last-child {
+  text-align: right;
+  padding-right: 12px;
+}
+#cdTable td {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 #cdTable td.num {
   color: var(--muted);
   font-size: 12px;
 }
 #cdTable td.cd-last {
-  white-space: nowrap;
   font-size: 12.5px;
 }
-#cdTable button.cd-status,
+#cdTable .pill,
+#cdTable .cd-when,
 #cdTable button.cd-diff {
+  vertical-align: middle;
+}
+#cdTable .cd-when {
+  color: var(--muted);
+}
+#cdTable button.cd-card {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
   font-size: 12.5px;
-  white-space: nowrap;
+}
+/* Row status is a quiet link (it opens the switch in Switches); only errors get a red pill. */
+#cdTable button.cd-status {
+  min-height: 0;
+  height: auto;
+  border: 0;
+  background: none;
+  padding: 2px 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+  border-radius: 4px;
+}
+#cdTable button.cd-status::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 7px;
+  border-radius: 50%;
+  background: var(--ok);
+  vertical-align: 1px;
+}
+#cdTable button.cd-status:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  color: var(--text);
+}
+#cdTable button.cd-status.cd-bad {
+  color: var(--err);
+  background: var(--err-bg);
+  border: 1px solid var(--err-line);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-weight: 600;
+}
+#cdTable button.cd-status.cd-bad::before {
+  background: var(--err);
+}
+#cdTable.is-blocked button.cd-status:not(.cd-bad)::before {
+  background: var(--faint);
 }
 #cdTable button.cd-diff {
+  min-height: 0;
+  height: auto;
+  padding: 1px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.6;
   color: var(--warn);
+  background: var(--warn-bg);
+  border: 1px solid var(--warn-line);
+}
+#cdTable button.cd-diff::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-right: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+#cdTable button.cd-diff:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.dlg-summary .dlg-key {
+  color: var(--text);
+  font-weight: 700;
+  background: var(--accent-dim);
+  border-radius: 3px;
+}
+/* --- Write dialogs: the review tick is its own boxed safety step --- */
+.dlg-copy {
+  display: flex;
+  justify-content: flex-end;
+  margin: 8px 0 0;
+}
+.dlg-copy button {
+  height: 32px;
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: 12.5px;
+}
+label.review-tick {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border: 1px solid var(--warn-line);
+  border-left: 3px solid var(--warn);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--warn-bg);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+label.review-tick > input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+}
+label.review-tick small {
+  display: block;
+  font-weight: 500;
+  color: var(--muted);
+  font-size: 12.5px;
 }
 
 /* --- Clickable checks: items look like text (underlined on hover); the target flashes --- */
@@ -1246,10 +1867,25 @@ button.finding-link {
   white-space: normal;
   cursor: pointer;
 }
+button.finding-link::after {
+  content: "\203A";
+  display: inline-block;
+  margin-left: 6px;
+  color: var(--muted);
+  font-weight: 700;
+  opacity: 0.7;
+  transition: transform var(--ease), opacity var(--ease);
+}
 button.finding-link:hover {
   border: 0;
   background: none;
   text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+button.finding-link:hover::after {
+  opacity: 1;
+  transform: translateX(2px);
 }
 button.finding-link:active:not(:disabled) {
   transform: none;
