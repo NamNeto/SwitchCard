@@ -1658,6 +1658,12 @@
         margin: 0 0 10px;
         font-size: 1.1rem;
       }
+      /* The focused control of a dialog always shows its ring, whatever opened the dialog: a mouse
+         click leaves :focus-visible off, and the button Enter would press must be visible. */
+      dialog.dlg :is(button, input, select, textarea, a[href], summary):focus {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+      }
       .dialog-body {
         max-height: 60vh;
         overflow: auto;
@@ -2177,6 +2183,56 @@
       #swTable tr.sw-detail .sw-detail-actions button {
         height: 30px;
         min-height: 30px;
+      }
+      /* The row-actions button: a quiet "⋯" at the row end, drawn only on the selected or hovered row
+         (focus selects a row, so the row that has focus always shows it, and a Tab across the other
+         rows never lands on an invisible control). It opens a two-item menu for that row. */
+      #swTable td.c-more {
+        width: 36px;
+        padding-left: 2px;
+        padding-right: 6px;
+      }
+      #swTable th.c-more {
+        width: 36px;
+      }
+      #swTable button.sw-more {
+        width: 30px;
+        min-width: 30px;
+        padding: 0;
+        font-size: 17px;
+        line-height: 1;
+        color: var(--muted);
+        visibility: hidden;
+      }
+      #swTable tr.selected button.sw-more,
+      #swTable tr:hover button.sw-more,
+      #swTable tr:focus-within button.sw-more,
+      #swTable button.sw-more[aria-expanded="true"] {
+        visibility: visible;
+      }
+      #swTable button.sw-more[aria-expanded="true"] {
+        color: var(--accent-text);
+        border-color: var(--accent);
+      }
+      .sw-row-menu {
+        position: fixed;
+        z-index: 50;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 150px;
+        padding: 6px;
+        background: var(--card);
+        border: 1px solid var(--line2);
+        border-radius: var(--radius-sm);
+        box-shadow: var(--shadow);
+      }
+      .sw-row-menu button {
+        height: 32px;
+        min-height: 32px;
+        justify-content: flex-start;
+        text-align: left;
+        font-size: 13px;
       }
       #swTable button.sw-ports:not(.has-set) {
         color: var(--muted);
@@ -5325,17 +5381,52 @@
       // from anywhere, Esc cancels, focus that lands outside is brought back, and aria-modal says so
       // to assistive technology. The dialog keeps its open attribute (dialog[open]).
       const openDialogs = [];
+      let dialogSeq = 0;
+      // While any dialog is open the page behind it is hidden from assistive technology (aria-hidden on
+      // everything but the veils and the dialogs), and a click or an activation key (Enter, Space)
+      // whose target is outside the topmost dialog is swallowed in the capture phase: a screen reader
+      // or voice control cannot activate a background control, and neither can a synthetic click.
+      function setPageHidden(hidden) {
+        for (const n of document.body.children) {
+          if (n.matches("dialog, .dlg-veil")) continue;
+          if (hidden) n.setAttribute("aria-hidden", "true");
+          else n.removeAttribute("aria-hidden");
+        }
+      }
+      function topDialog() {
+        return openDialogs[openDialogs.length - 1] || null;
+      }
+      function outsideTopDialog(target) {
+        const top = topDialog();
+        return !!top && !(target instanceof Node && top.contains(target));
+      }
+      document.addEventListener("click", (e) => {
+        if (outsideTopDialog(e.target)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, true);
+      document.addEventListener("keydown", (e) => {
+        if ((e.key === "Enter" || e.key === " ") && outsideTopDialog(e.target)) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }, true);
       function showDialog({ title, body, actions, onOpen, note }) {
         return new Promise((resolve) => {
-          const dlg = el("dialog", { className: "dlg", ariaModal: "true" });
+          const titleId = "dlgTitle" + ++dialogSeq;
+          const dlg = el("dialog", { className: "dlg", ariaModal: "true", ariaLabelledby: titleId });
           const veil = el("div", { className: "dlg-veil" });
           const opener = document.activeElement;
           let done = false;
+          let lastInside = null; // the control that last had focus inside: where focus comes back to
           const controls = () => [...dlg.querySelectorAll("button, input, select, textarea, a[href], summary, [tabindex]:not([tabindex='-1'])")]
             .filter((n) => canFocus(n) && n.tabIndex >= 0);
           const topmost = () => openDialogs[openDialogs.length - 1] === dlg;
           const onKey = (e) => {
             if (!dlg.open || !topmost()) return;
+            // A key that ends an IME composition is not a command (Esc cancels the composition only).
+            if (e.isComposing || e.keyCode === 229) return;
             if (e.key === "Escape" && !e.altKey && !e.ctrlKey && !e.metaKey) {
               e.preventDefault();
               e.stopPropagation();
@@ -5354,9 +5445,14 @@
               (e.shiftKey ? last : first).focus();
             }
           };
-          // Focus that lands behind the veil (a click on it, a script) comes back to the dialog.
+          // Focus that lands behind the veil (a click on it, a script) comes back to the dialog; focus
+          // inside is remembered, so it comes back to the same control, not to the first one.
           const onFocus = (e) => {
-            if (dlg.open && topmost() && !dlg.contains(e.target)) keepInside();
+            if (!dlg.open || !topmost()) return;
+            // Only a control counts (the browser may first focus the scrolling body, see keepInside).
+            if (dlg.contains(e.target)) {
+              if (e.target.matches("button, input, select, textarea, a[href], summary, [tabindex]")) lastInside = e.target;
+            } else keepInside();
           };
           const finish = (value) => {
             if (done) return;
@@ -5365,6 +5461,7 @@
             document.removeEventListener("focusin", onFocus, true);
             const at = openDialogs.indexOf(dlg);
             if (at >= 0) openDialogs.splice(at, 1);
+            if (!openDialogs.length) setPageHidden(false);
             if (dlg.open) dlg.close();
             dlg.remove();
             veil.remove();
@@ -5385,18 +5482,21 @@
               onclick: () => finish(a.value),
             }));
           }
-          dlg.append(el("h2", {}, title), el("div", { className: "dialog-body" }, body), bar);
+          dlg.append(el("h2", { id: titleId }, title), el("div", { className: "dialog-body" }, body), bar);
           dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(null); });
           // A click on the veil is not a dismissal (Esc and Cancel are): focus just comes back.
           veil.addEventListener("mousedown", (e) => { e.preventDefault(); keepInside(); });
-          // Focus stays inside the open dialog. The browser may first focus the scrolling body, which
-          // stops being focusable once a wide layout no longer overflows; focus then falls to <body>.
+          // Focus stays inside the open (topmost) dialog: back to the control that last had it, else
+          // the first one. The browser may first focus the scrolling body, which stops being focusable
+          // once a wide layout no longer overflows; focus then falls to <body>.
           const keepInside = () => {
-            if (!dlg.open || (!focusLost() && dlg.contains(document.activeElement))) return;
-            const first = [...dlg.querySelectorAll("button, input, select, textarea")].find(canFocus);
-            if (first) first.focus({ preventScroll: true });
+            if (!dlg.open || !topmost() || (!focusLost() && dlg.contains(document.activeElement))) return;
+            const t = canFocus(lastInside) && dlg.contains(lastInside) ? lastInside
+              : [...dlg.querySelectorAll("button, input, select, textarea")].find(canFocus);
+            if (t) t.focus({ preventScroll: true });
           };
           document.body.append(veil, dlg);
+          if (!openDialogs.length) setPageHidden(true);
           openDialogs.push(dlg);
           document.addEventListener("keydown", onKey, true);
           document.addEventListener("focusin", onFocus, true);
@@ -5433,8 +5533,10 @@
       // A long list (200 switches) is built in chunks: the rows that fit the scrolling box come with
       // the dialog, the rest follow after its first paint, so opening stays quick.
       const DLG_ROWS_FIRST = 40, DLG_ROWS_CHUNK = 80;
-      function summaryRowsTable(rows) {
+      // onDone is called once every row is in the table (the table is aria-busy until then).
+      function summaryRowsTable(rows, onDone) {
         const tbody = el("tbody");
+        let table = null;
         const fill = (from, to) => {
           for (const x of rows.slice(from, to)) {
             const [cls, label] = EXPORT_STATE_PILL[x.state] || EXPORT_STATE_PILL.nohost;
@@ -5452,13 +5554,18 @@
               }, "Copy"))));
           }
           if (to < rows.length) setTimeout(() => fill(to, to + DLG_ROWS_CHUNK), 0);
+          else {
+            if (table) table.removeAttribute("aria-busy");
+            if (onDone) onDone();
+          }
         };
-        fill(0, DLG_ROWS_FIRST);
-        return el("table", { className: "dlg-rows" },
+        table = el("table", { className: "dlg-rows", ariaBusy: rows.length > DLG_ROWS_FIRST ? "true" : null },
           el("thead", {}, el("tr", {}, ["#", "Hostname", "Mgmt IP", "State", "Lines", "SHA-256", ""].map((h) => el("th", {}, h)))),
           tbody);
+        fill(0, DLG_ROWS_FIRST);
+        return table;
       }
-      function summaryView(text, rows) {
+      function summaryView(text, rows, onRowsDone) {
         const box = el("div", { className: "dlg-summary" });
         let kv = null,
           listDone = false;
@@ -5468,7 +5575,7 @@
             continue;
           }
           if (rows && /^\s*\d+\. /.test(line)) {
-            if (!listDone) box.append(summaryRowsTable(rows));
+            if (!listDone) box.append(summaryRowsTable(rows, onRowsDone));
             listDone = true;
             continue;
           }
@@ -5512,10 +5619,19 @@
             copy.textContent = ok ? "Copied" : "Copy failed";
           },
         });
+        // A long switch table is still filling in after the first paint: the primary waits for the
+        // last chunk, so what is downloaded is never more than what the table showed.
+        let filling = !!(rows && rows.length > DLG_ROWS_FIRST);
+        let btn = null;
+        const sync = () => {
+          if (!btn) return;
+          btn.disabled = !check.checked || filling;
+          btn.title = check.checked ? (filling ? "The switch list is still loading" : "") : "Tick the review box first";
+        };
         // The tick is a boxed safety step of its own, and gets the first focus.
         const body = el("div", {},
           warning ? el("p", { className: "dlg-warning", role: "note" }, el("strong", {}, "Review: "), warning) : null,
-          summaryView(text, rows),
+          summaryView(text, rows, () => { filling = false; sync(); }),
           el("div", { className: "dlg-copy" }, copy),
           el("label", { className: "review-tick" }, check,
             el("span", {}, "I reviewed this configuration and the baseline selection.",
@@ -5525,12 +5641,9 @@
           actions: [{ label: "Cancel", value: false }, { label: primary, value: true, primary: true, disabled: true }],
           onOpen: (dlg) => {
             dlg.classList.add("dlg-write");
-            const btn = dlg.querySelector(".dialog-actions button.primary");
-            btn.title = "Tick the review box first";
-            check.addEventListener("change", () => {
-              btn.disabled = !check.checked;
-              btn.title = check.checked ? "" : "Tick the review box first";
-            });
+            btn = dlg.querySelector(".dialog-actions button.primary");
+            check.addEventListener("change", sync);
+            sync();
             check.focus();
           },
         }).then((v) => v === true);
@@ -8965,11 +9078,12 @@
         return (rows || []).map((row) => ({ ...structuredClone(row), id: newSwitchId() }));
       }
       // --- Event wiring (buttons, inputs); the boot sequence is in 11-boot.js ---
-      $("setup").onclick = () => showView("manage");
-      $("railBuild").onclick = () => showView("build");
-      $("railSwitches").onclick = () => showView("switches");
-      $("railCards").onclick = () => showView("cards");
-      $("railManage").onclick = () => showView("manage");
+      // The rail and Build's Manage button are the user's own view changes (refused during an export).
+      $("setup").onclick = () => showView("manage", { user: true });
+      $("railBuild").onclick = () => showView("build", { user: true });
+      $("railSwitches").onclick = () => showView("switches", { user: true });
+      $("railCards").onclick = () => showView("cards", { user: true });
+      $("railManage").onclick = () => showView("manage", { user: true });
       // Hints are bounded to MAX_TEAM_HINTS lines of MAX_TEAM_HINT_CHARS, without control characters.
       function boundedHints(text) {
         const all = lines(text).filter((h) => !singleLineBad(h));
@@ -9522,8 +9636,10 @@
               "? This cannot be undone in the browser (Save project first if you need a backup).",
             { ok: "Delete recipe", danger: true },
           ))
-        )
+        ) {
+          message("Delete cancelled; the recipe is kept.");
           return;
+        }
         const deleted = active;
         recipes = recipes.filter((r) => r.id !== deleted);
         active = recipes[0].id;
@@ -9999,8 +10115,11 @@
         manage: "Firmware baseline, recipes, templates and team rules. Recipe edits take effect after Apply recipe changes.",
       };
       // Shows one view. Leaving the recipe editor is refused while it holds an unapplied draft.
-      function showView(name) {
+      // opts.user: the change comes from the rail (or Build's Manage button), not from the page's own
+      // code; only such a change is refused while an export runs (see below).
+      function showView(name, opts) {
         if (!VIEW_SECTIONS[name]) return false;
+        const byUser = !!(opts && opts.user);
         if (typeof cardRun !== "undefined" && cardRun && name !== currentView) {
           message("A card export is running (" + cardRun.step + "). Other views open again when it ends; use Cancel after this card to stop early.");
           // The next progress tick would replace that line within a moment: the reason also stays
@@ -10014,12 +10133,16 @@
           message("Apply your recipe changes before leaving the recipe editor.");
           return false;
         }
-        // run() disables the rail for the duration of an export; nothing else may change the view
-        // meanwhile either (the hidden Switches grid is left enabled on that promise).
-        if (typeof busy !== "undefined" && busy && name !== currentView) {
+        // run() disables the rail for the duration of an export, and a user's view change is refused
+        // meanwhile (the hidden Switches grid is left enabled on that promise). The page's own changes
+        // inside run() (opening a project that carries a draft lands in Manage) still go through.
+        if (byUser && typeof busy !== "undefined" && busy && name !== currentView) {
           message("An export is running. Other views open again when it ends.");
           return false;
         }
+        // A status line from another view is stale once the view changes: it goes (a message sent
+        // after the change, such as "Project opened", stays).
+        if (name !== currentView) $("status").hidden = true;
         currentView = name;
         for (const v of Object.keys(VIEW_SECTIONS)) {
           $(VIEW_SECTIONS[v]).hidden = v !== name;
@@ -10095,13 +10218,15 @@
             el("th", {}, "#"),
             el("th", {}, "Status"),
             cols.map((k) => el("th", { className: "c-" + k, dataKey: k, title: fieldLabel(k) + " {{" + k + "}}" }, SW_SHORT_LABELS[k] || fieldLabel(k))),
-            el("th", { className: "c-ports" }, "Ports")),
+            el("th", { className: "c-ports" }, "Ports"),
+            el("th", { className: "c-more" }, el("span", { className: "visually-hidden" }, "Row actions"))),
         );
         const body = [
           el("tr", { className: "defaults" },
             el("td", { colSpan: 2, title: "Device details and the port table on Build a card" }, "Defaults"),
             cols.map((k) => el("td", { className: "c-" + k, dataKey: k })),
-            el("td", { className: "c-ports", title: "The port table on Build a card" }, "Build")),
+            el("td", { className: "c-ports", title: "The port table on Build a card" }, "from Build a card"),
+            el("td", { className: "c-more" })),
         ];
         rows.forEach((row, i) => {
           body.push(
@@ -10111,7 +10236,14 @@
               cols.map((k) =>
                 // size 12: the cell's CSS width rules, not the input's 20-character default.
                 el("td", { className: "c-" + k }, el("input", { dataRow: row.id, dataKey: k, size: 12, autocomplete: "off", ariaLabel: fieldLabel(k) + ", switch " + (i + 1) }))),
-              el("td", { className: "c-ports" }, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" }))),
+              el("td", { className: "c-ports" }, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" })),
+              // One quiet tab stop at the row end: a menu with this row's Copy below and Remove, so the
+              // keyboard reaches a row's actions from the row itself (the side panel's buttons are the
+              // same actions, but Tab reaches them only across every later row).
+              el("td", { className: "c-more" }, el("button", {
+                type: "button", className: "sw-more", ariaLabel: "Row actions, switch " + (i + 1), ariaHaspopup: "menu", ariaExpanded: "false",
+                title: "Copy below or Remove this switch",
+              }, "\u22ef"))),
           );
         });
         $("swRows").replaceChildren(...body);
@@ -10183,8 +10315,8 @@
           }
           const set = Object.values(x.row.ports || {}).filter((p) => p && Object.keys(p).length).length;
           const pb = tr.querySelector("button.sw-ports");
-          pb.textContent = set ? set + " set" : "table";
-          const label = "Ports of switch " + x.n + ", " + (set ? set + " set for this switch" : "all from the port table");
+          pb.textContent = set ? set + (set === 1 ? " own setting" : " own settings") : "Port table";
+          const label = "Ports of switch " + x.n + ", " + (set ? set + (set === 1 ? " setting of its own" : " settings of its own") : "all from the port table");
           if (pb.getAttribute("aria-label") !== label) pb.setAttribute("aria-label", label);
           pb.classList.toggle("has-set", set > 0);
           const st = switchStatus(x);
@@ -10243,6 +10375,8 @@
         if (x) {
           $("swCopyRow").onclick = () => copySwitchRow(x.row.id);
           $("swRemoveRow").onclick = () => removeSwitchRow(x.row.id);
+          $("swCopyRow").title = "Copy switch " + x.n + " below itself";
+          $("swRemoveRow").title = "Remove switch " + x.n + (x.host ? " (" + x.host + ")" : "");
         }
         if (!x) {
           if (swPanelKeys.checks === "none") return;
@@ -10342,13 +10476,15 @@
           message("At most " + CONFIG.MAX_FLEET_ROWS + " switches per recipe.");
           return;
         }
+        const host = String((rows[i].values && rows[i].values.HOSTNAME) || (r.values && r.values.HOSTNAME) || "").trim();
         const copy = { ...structuredClone(rows[i]), id: newSwitchId() };
         rows.splice(i + 1, 0, copy);
         swSelectedId = copy.id;
         touch();
         renderSwitches();
         focusSwitchRow(copy.id);
-        message("Copied switch " + (i + 1) + ". The copy is flagged as a duplicate until you change its hostname and management IP.");
+        message("Copied switch " + (i + 1) + (host ? " (" + host + ")" : "") + " as switch " + (i + 2) +
+          ". The copy is flagged as a duplicate until you change its hostname and management IP.");
       }
       // Puts focus on a row's first cell and scrolls it to the middle of the list.
       function focusSwitchRow(id) {
@@ -10366,7 +10502,10 @@
         if (i < 0) return;
         const host = String((rows[i].values && rows[i].values.HOSTNAME) || (r.values && r.values.HOSTNAME) || "").trim();
         const what = "switch " + (i + 1) + (host ? " (" + host + ")" : "");
-        if (!(await confirmDialog("Remove this switch?", "Remove " + what + " from the list? This cannot be undone.", { ok: "Remove", danger: true }))) return;
+        if (!(await confirmDialog("Remove this switch?", "Remove " + what + " from the list? This cannot be undone.", { ok: "Remove", danger: true }))) {
+          message("Remove cancelled; " + what + " is kept.");
+          return;
+        }
         const j = rows.findIndex((x) => x.id === id);
         if (j >= 0) rows.splice(j, 1);
         touch();
@@ -10837,7 +10976,72 @@
         if (e.target.closest("button.sw-ports")) {
           const row = (current().switches || []).find((x) => x.id === id);
           if (row) openPortsDialog(row);
-        }
+        } else if (e.target.closest("button.sw-more")) openRowMenu(e.target.closest("button.sw-more"), id);
+      });
+      // The row's menu: Copy below and Remove for that row (the id is fixed when it opens). Arrow keys
+      // move, Enter or Space runs the item, Esc (or focus leaving) closes and puts focus back on the
+      // button. One menu at a time; a click elsewhere closes it.
+      let rowMenu = null;
+      function closeRowMenu(refocus) {
+        if (!rowMenu) return;
+        const { menu, button } = rowMenu;
+        rowMenu = null;
+        menu.remove();
+        button.setAttribute("aria-expanded", "false");
+        if (refocus && canFocus(button)) button.focus({ preventScroll: true });
+      }
+      function openRowMenu(button, id) {
+        if (rowMenu && rowMenu.button === button) return closeRowMenu(true);
+        closeRowMenu(false);
+        const r = current();
+        const i = (r.switches || []).findIndex((x) => x.id === id);
+        if (i < 0) return;
+        const host = String((r.switches[i].values && r.switches[i].values.HOSTNAME) || (r.values && r.values.HOSTNAME) || "").trim();
+        const who = "switch " + (i + 1) + (host ? " (" + host + ")" : "");
+        // Focus goes back to the button first: a confirm dialog opened by the item then returns to it.
+        const run = (fn) => () => { closeRowMenu(true); fn(id); };
+        const item = (label, cls, title, fn) =>
+          el("button", { type: "button", role: "menuitem", className: cls, title, tabIndex: -1, onclick: run(fn) }, label);
+        const menu = el("div", { className: "sw-row-menu", role: "menu", ariaLabel: "Actions for " + who },
+          item("Copy below", "", "Copy " + who + " below itself", copySwitchRow),
+          item("Remove", "danger", "Remove " + who, removeSwitchRow));
+        menu.addEventListener("keydown", (e) => {
+          const items = [...menu.querySelectorAll("[role=menuitem]")];
+          const at = items.indexOf(document.activeElement);
+          if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+            e.preventDefault();
+            items[(at + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length].focus();
+          } else if (e.key === "Escape" || e.key === "Tab") {
+            e.preventDefault();
+            closeRowMenu(true);
+          }
+        });
+        // Under the button, right-aligned to it (fixed, so the scrolling grid box never clips it; a
+        // scroll or resize closes it).
+        const at = button.getBoundingClientRect();
+        menu.style.top = Math.round(at.bottom + 4) + "px";
+        menu.style.right = Math.max(8, Math.round(window.innerWidth - at.right)) + "px";
+        document.body.append(menu);
+        rowMenu = { menu, button };
+        button.setAttribute("aria-expanded", "true");
+        menu.querySelector("[role=menuitem]").focus();
+      }
+      document.addEventListener("mousedown", (e) => {
+        if (rowMenu && !rowMenu.menu.contains(e.target) && e.target !== rowMenu.button) closeRowMenu(false);
+      });
+      document.addEventListener("focusin", (e) => {
+        if (rowMenu && !rowMenu.menu.contains(e.target)) closeRowMenu(false);
+      });
+      document.addEventListener("scroll", () => closeRowMenu(false), true);
+      window.addEventListener("resize", () => closeRowMenu(false));
+      // From any cell of a row, Shift+F10 or the Menu key opens that row's actions.
+      $("swRows").addEventListener("keydown", (e) => {
+        if (!(e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey))) return;
+        const tr = e.target.closest("tr[data-row]");
+        const b = tr && tr.querySelector("button.sw-more");
+        if (!b) return;
+        e.preventDefault();
+        openRowMenu(b, tr.dataset.row);
       });
       $("swAdd").onclick = () => {
         const r = current();
@@ -10936,7 +11140,10 @@
         if (!(await confirmDialog("Remove all switches?",
           "Remove all " + n + " switch" + (n === 1 ? "" : "es") + ' of recipe "' + r.name + '"? Device details on Build a card stay as they are.' +
             "\nThis cannot be undone. Save project first to keep a copy.",
-          { ok: "Remove all", danger: true }))) return;
+          { ok: "Remove all", danger: true }))) {
+          message("Remove all cancelled; the " + n + " switch" + (n === 1 ? " is" : "es are") + " kept.");
+          return;
+        }
         r.switches = [];
         swSelectedId = null;
         touch();
