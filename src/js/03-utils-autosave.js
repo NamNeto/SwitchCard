@@ -488,14 +488,15 @@ async function restoreAutosaveRaw(raw, key, opts) {
         el("table", { className: "dlg-kv dlg-kv-plain" }, kv("Holds", holds), kv("Baseline", base)),
         el("ul", { className: "dlg-choices" },
           el("li", {}, el("strong", {}, "Restore it"), " opens that work in this page."),
-          el("li", {}, el("strong", {}, "Start with the examples"), " (or Esc) keeps a copy as an autosave backup," +
-            " which Save your work → Restore autosave backup brings back. Nothing is deleted.")));
+          el("li", {}, el("strong", {}, "Not now"), " (or Esc) shows the example recipes and keeps that autosave as a backup," +
+            " which Save your work → Restore autosave backup brings back at any time. Nothing is deleted.")));
     }
     const ok = await confirmDialog(
       "Restore an autosave from v" + meta.release + "?",
       body,
       // At boot the default is the user's own work, so Enter never hides it.
-      { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples", focusOk: !fromBackup },
+      { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Not now", focusOk: !fromBackup,
+        note: fromBackup ? undefined : "Esc = Not now. Nothing is deleted." },
     );
     if (!ok) return fail("declined", "you chose not to restore data saved by v" + meta.release);
   }

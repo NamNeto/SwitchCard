@@ -62,7 +62,8 @@ function showDialog({ title, body, actions, onOpen, note }) {
     for (const a of actions) {
       bar.appendChild(el("button", {
         type: "button",
-        className: (a.primary ? "primary " : "") + (a.danger ? "danger" : ""),
+        // aside: a destructive secondary action set apart at the left end of the bar.
+        className: (a.primary ? "primary " : "") + (a.danger ? "danger " : "") + (a.aside ? "aside" : ""),
         disabled: !!a.disabled,
         textContent: a.label,
         onclick: () => finish(a.value),
@@ -103,7 +104,7 @@ function confirmDialog(title, textOrNode, opts) {
   const o = Object.assign({ ok: "OK", cancel: "Cancel", danger: false }, opts || {});
   const body = typeof textOrNode === "string" ? el("p", {}, textOrNode) : textOrNode;
   return showDialog({
-    title, body,
+    title, body, note: o.note,
     actions: [{ label: o.cancel, value: false }, { label: o.ok, value: true, primary: true, danger: o.danger }],
     // opts.focusOk: start on the OK button instead of Cancel (only where OK is the safe choice).
     onOpen: o.focusOk ? (dlg) => dlg.querySelector(".dialog-actions button.primary").focus() : undefined,

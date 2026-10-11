@@ -84,13 +84,16 @@ function insertAtCaret(ta, text) {
       onclick: () => insertAtCaret($("template"), "{{" + k + "}}"),
     }, "{{" + k + "}}"));
 })();
-// The Build pane (the sticky preview card) never runs past the bottom of the window: its
-// height limit follows its position, so at the top of the page it ends above the fold and,
-// once pinned under the header, it may use the whole window. Below 981 px it is not sticky.
-// The preview box takes all the height the rest of the pane leaves, snapped to whole lines
-// (n lines of 20 px + the 18 px of border and top band, never half-way through one) and never
-// taller than its text; at least 2 lines, below which the pane scrolls and its footer stays put.
+// The Build pane (the sticky preview card): once pinned under the header it may use the whole
+// window; at the top of the page it ends above the fold when it can. Below 981 px it is not
+// sticky. The preview box takes all the height the rest of the pane leaves, snapped to whole
+// lines (n lines of 20 px + the 18 px of border and top band, never half-way through one) and
+// never taller than its text. It keeps at least 12 lines while the pane is still unpinned (the
+// pane then runs below the fold and the page scrolls to it) and at least 8 once pinned (the
+// pane then scrolls inside, with its footer kept in view). The tips banner, a notice or a long
+// list of checks never squeeze the box: its height is set here and is final.
 const buildPane = document.querySelector("#build .card.pane");
+const PREVIEW_MIN_LINES = 12, PREVIEW_MIN_LINES_PINNED = 8;
 function sizeBuildPane() {
   if (!buildPane) return;
   const preview = $("preview");
@@ -101,31 +104,58 @@ function sizeBuildPane() {
     return;
   }
   const header = document.querySelector("header");
-  const pinned = (header ? header.offsetHeight : 0) + 12;
-  const top = Math.max(buildPane.getBoundingClientRect().top, pinned);
-  const limit = Math.max(280, window.innerHeight - top - 12);
-  buildPane.style.maxHeight = limit + "px";
-  if (!preview) return;
-  // The text's own height is its scroll height (the box may be squeezed by the pane right now);
-  // the rest of the pane is everything else in it (the pane's own padding included).
+  const pinnedAt = (header ? header.offsetHeight : 0) + 12;
+  const top = buildPane.getBoundingClientRect().top;
+  const pinned = top <= pinnedAt + 1;
+  const limit = Math.max(280, window.innerHeight - Math.max(top, pinnedAt) - 12);
+  if (!preview) {
+    buildPane.style.maxHeight = limit + "px";
+    return;
+  }
+  // The rest of the pane: every other child with its margins, plus the pane's own padding and
+  // border, measured one by one (the box itself may be squeezed or overflowing right now).
+  const px = (v) => parseFloat(v) || 0;
+  let rest = 0;
+  for (const c of buildPane.children) {
+    if (c === preview || c.hidden) continue;
+    const cs = getComputedStyle(c);
+    rest += c.getBoundingClientRect().height + px(cs.marginTop) + px(cs.marginBottom);
+  }
+  const ps = getComputedStyle(buildPane);
+  rest += px(ps.paddingTop) + px(ps.paddingBottom) + px(ps.borderTopWidth) + px(ps.borderBottomWidth);
+  // The text's own height in lines (a wrapped line counts as the rows it takes).
   const total = Math.max(1, Math.round((preview.scrollHeight - 36) / 20));
-  const rest = buildPane.scrollHeight - preview.getBoundingClientRect().height;
-  const lines = Math.min(total, Math.max(2, Math.floor((limit - 2 - rest - 18) / 20)));
+  const fit = Math.floor((limit - rest - 18) / 20);
+  const floor = Math.min(total, pinned ? PREVIEW_MIN_LINES_PINNED : PREVIEW_MIN_LINES);
+  let lines = Math.min(total, Math.max(fit, floor));
+  // One line less when that alone keeps the unpinned pane above the fold.
+  if (!pinned && lines > fit && lines === fit + 1 && lines > 2) lines = fit;
   preview.style.height = lines * 20 + 18 + "px";
+  // Unpinned, the pane grows to hold the floor; pinned, it never exceeds the window.
+  const need = rest + lines * 20 + 18;
+  buildPane.style.maxHeight = (pinned ? limit : Math.max(limit, need)) + "px";
   updatePreviewCue();
 }
-// "Lines 1–20 of 76 · scroll for more" under the box while it scrolls; nothing when it all fits.
+// "Showing lines 1–20 of 76 · scroll for more" under the box while it scrolls; nothing when it all
+// fits. Measured from the line blocks that are inside the box now, so it is never a guess: a
+// ResizeObserver on the box runs it again whenever the box changes size for any reason.
 function updatePreviewCue() {
   const pre = $("preview"), cue = $("previewCue");
   if (!pre || !cue) return;
-  const blocks = pre.querySelectorAll(".pl");
-  const total = blocks.length;
-  if (!total || pre.scrollHeight <= pre.clientHeight + 1) {
+  const range = visiblePreviewLines(pre);
+  if (!range) {
     cue.textContent = "";
     return;
   }
-  // The first and last line blocks that are at least half inside the box (a long line wraps,
-  // so this is measured, not counted).
+  cue.textContent = "Showing lines " + range.first + "–" + range.last + " of " + range.total +
+    (range.last < range.total ? " · scroll for more" : "");
+}
+// The first and last line blocks that are at least half inside the box, or null when the whole
+// text fits. A long line wraps, so this is measured, not counted.
+function visiblePreviewLines(pre) {
+  const blocks = pre.querySelectorAll(".pl");
+  const total = blocks.length;
+  if (!total || pre.scrollHeight <= pre.clientHeight + 1) return null;
   const box = pre.getBoundingClientRect();
   const top = box.top + 1 + 16, bottom = box.top + pre.clientHeight + 1;
   let first = 0, last = 0;
@@ -138,7 +168,7 @@ function updatePreviewCue() {
     }
   });
   if (!first) first = last = Math.min(total, Math.floor(pre.scrollTop / 20) + 1);
-  cue.textContent = "Showing lines " + first + "–" + last + " of " + total + (last < total ? " · scroll for more" : "");
+  return { first, last, total };
 }
 if ($("preview")) $("preview").addEventListener("scroll", updatePreviewCue, { passive: true });
 window.addEventListener("scroll", sizeBuildPane, { passive: true });
@@ -149,6 +179,10 @@ if (buildPane && typeof ResizeObserver === "function") {
   ro.observe(buildPane.parentElement);
   const onboard = $("onboarding");
   if (onboard) ro.observe(onboard);
+  // The checks above the box and the gate under it change height with the findings.
+  for (const id of ["checks", "exportWhy"]) if ($(id)) ro.observe($(id));
+  // The cue follows the box itself, whatever changed its size.
+  if ($("preview")) new ResizeObserver(() => requestAnimationFrame(updatePreviewCue)).observe($("preview"));
 }
 // Theme picker (header).
 $("themeSelect").onchange = () => {

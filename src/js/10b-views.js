@@ -95,8 +95,6 @@ function renderSwitches() {
   if (gridKey !== swGridKey) buildSwitchGrid(cols, rows);
   swGridKey = gridKey;
   patchSwitchGrid(r);
-  // The view may have been hidden when the preview text was set: measure its width again.
-  scheduleSwPreviewWide();
 }
 // Short column headers for the common fields, so headers stay on one line; the title has the rest.
 const SW_SHORT_LABELS = { MGMT_IP: "Mgmt IP", MGMT_MASK: "Mask", MGMT_VLAN: "VLAN", GATEWAY: "Gateway", MGMT_LOOPBACK: "Loopback" };
@@ -260,7 +258,6 @@ function renderSwitchPanel(r, x) {
     if (old) old.remove();
     $("swPanelTitle").textContent = "Selected switch";
     $("swPreview").textContent = "Select a row to see its checks and its editcontent.txt.";
-    $("swPreview").classList.remove("wide");
     return;
   }
   const title = "Switch " + x.n + (x.host ? " · " + x.host : "");
@@ -304,14 +301,13 @@ function renderSwitchPanel(r, x) {
             el("button", { type: "button", className: "danger", title: "Remove this switch", onclick: () => removeSwitchRow(x.row.id) }, "Remove")))));
     }
   }
-  // The text as it is, one whole line per line (the box scrolls sideways for a wide comment, and
-  // fades at that edge to say so; measured with the next frame's layout, not forced here).
+  // The text as it is, one block per line (as Build's preview), so a line wider than the panel
+  // wraps with a hanging indent and the box's textContent stays the text itself.
   const pre = $("swPreview");
   const shown = x.text || "No output: fix the errors above.";
   if (swPanelKeys.text !== shown) {
     swPanelKeys.text = shown;
-    pre.textContent = shown;
-    scheduleSwPreviewWide();
+    fillLines(pre, shown);
   }
   const prev = lastExport(r, x.host);
   const diffKey = prev && !x.errors.length ? JSON.stringify([prev.at, prev.sha256, x.text]) : "";
@@ -320,15 +316,6 @@ function renderSwitchPanel(r, x) {
     $("swDiffPanel").hidden = !diffKey;
     if (diffKey) fillDiff($("swDiffSummary"), $("swDiff"), prev, x.text);
   }
-}
-let swWideFrame = 0;
-function scheduleSwPreviewWide() {
-  if (swWideFrame) return;
-  swWideFrame = requestAnimationFrame(() => {
-    swWideFrame = 0;
-    const pre = $("swPreview");
-    if (!pre.hidden) pre.classList.toggle("wide", pre.scrollWidth > pre.clientWidth + 1);
-  });
 }
 function selectSwitch(id) {
   if (id === swSelectedId) return;
@@ -473,14 +460,15 @@ function openImportDialog() {
   }, "Start from template");
   const body = el("div", {},
     columns, box,
-    el("div", { className: "actions even" }, el("label", { className: "filebutton" }, "Load file", file), fromTemplate),
+    el("div", { className: "actions" }, el("label", { className: "filebutton" }, "Load file", file), fromTemplate),
     summary);
   return showDialog({
     title: "Import CSV",
     body,
+    // Replace (drops the list) stands apart at the left; Cancel and the primary Add after at the right.
     actions: [
+      { label: "Replace", value: "replace", disabled: true, aside: true },
       { label: "Cancel", value: null },
-      { label: "Replace", value: "replace", disabled: true },
       { label: "Add after", value: "add", primary: true, disabled: true },
     ],
     onOpen: (dlg) => {
@@ -655,7 +643,8 @@ function openPortsDialog(row, focus) {
     actions: [{ label: "Cancel", value: false }, { label: "Done", value: true, primary: true }],
     note: "Changes apply as you type and are kept (and autosaved) only when you press Done; Cancel or Esc puts the ports back as they were.",
     onOpen: (dlg) => {
-      dlg.classList.add("dlg-wide");
+      // dlg-ports: beside the side panel (not over it) from 1300 px, so its preview stays in view.
+      dlg.classList.add("dlg-wide", "dlg-ports");
       if (focus) draw(focus);
     },
   }).then((v) => {

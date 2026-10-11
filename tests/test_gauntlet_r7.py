@@ -1,0 +1,141 @@
+"""Gauntlet round 7 (visual, ab-r6): the preview cue counts what is on screen, the preview keeps a
+useful height with the tips banner, the side-panel preview never cuts a line, the restore dialog
+names its safe escape, Replace stands apart, the baseline-labels box shows three lines, and the
+grid's Copy and Remove columns fit at 900 px."""
+from helpers import ev, click_dialog
+
+HEADER = "! EXAMPLE ONLY - replace with your tested configuration"
+
+# The first and last line blocks at least half inside the preview box, measured on screen.
+VISIBLE = """(id) => { const pre = $(id); const box = pre.getBoundingClientRect();
+    const top = box.top + 17, bottom = box.top + pre.clientHeight + 1;
+    const vis = [...pre.querySelectorAll('.pl')].map((b, i) => [i + 1, b.getBoundingClientRect()])
+      .filter(([i, r]) => { const m = (r.top + r.bottom) / 2; return m >= top && m <= bottom; }).map((x) => x[0]);
+    return [vis[0], vis[vis.length - 1], pre.querySelectorAll('.pl').length]; }"""
+
+
+def _cue(page):
+    t = page.text_content("#previewCue")
+    m = __import__("re").match(r"Showing lines (\d+)–(\d+) of (\d+)", t)
+    return [int(m.group(1)), int(m.group(2)), int(m.group(3))] if m else None
+
+
+def _real(page, bad_ip=False):
+    return ev(page, """([header, bad]) => { const r = current(); r.example = false;
+        r.template = r.template.replace(header, '! Packaging hall access switches - tested 2026-10-01');
+        if (bad) r.values.MGMT_IP = '10.20.30.300';
+        renderAll(); renderPreview(); showView('build'); }""", [HEADER, bad_ip])
+
+
+# --- (1) the cue is computed from what the box shows, in every state ---
+def test_preview_cue_matches_the_visible_lines(page):
+    page.set_viewport_size({"width": 1440, "height": 900})
+    page.click("#dismissOnboarding")
+    _real(page, bad_ip=True)
+    # Scrolled to the checks (the pane pins under the header), then at the page top, then in a
+    # shorter window, then after scrolling the box itself: the cue follows each time.
+    for step in ("checks", "top", "short", "scrolled"):
+        if step == "checks":
+            ev(page, "() => { const c = $('checks').closest('.card'); window.scrollTo(0, c.getBoundingClientRect().top + window.scrollY - 100); }")
+        elif step == "top":
+            ev(page, "() => window.scrollTo(0, 0)")
+        elif step == "short":
+            page.set_viewport_size({"width": 1440, "height": 700})
+        else:
+            ev(page, "() => { $('preview').scrollTop = 130; }")
+        page.wait_for_timeout(150)
+        first, last, total = ev(page, VISIBLE, "preview")
+        assert _cue(page) == [first, last, total], (step, page.text_content("#previewCue"))
+        assert last - first >= 7, (step, first, last)
+    assert page.problems == []
+
+
+# --- (2) the tips banner never squeezes the preview ---
+def test_preview_keeps_twelve_lines_with_the_tips_banner(page):
+    page.set_viewport_size({"width": 1440, "height": 900})
+    ev(page, "() => { showView('build'); window.scrollTo(0, 0); }")
+    page.wait_for_timeout(150)
+    assert ev(page, "() => !$('onboarding').hidden")
+    first, last, total = ev(page, VISIBLE, "preview")
+    assert last - first + 1 >= 11, (first, last)
+    rows = ev(page, "() => Math.round(($('preview').clientHeight - 16) / 20)")
+    assert rows >= 11
+    # The export button is in view at the top of the page, with the banner showing.
+    assert ev(page, "() => $('downloadCard').getBoundingClientRect().bottom <= innerHeight")
+    assert page.problems == []
+
+
+# --- (4) the side-panel preview wraps a wide line instead of cutting it ---
+def test_side_preview_wraps_without_cutting(page):
+    page.set_viewport_size({"width": 1440, "height": 900})
+    _real(page)
+    text = ev(page, """() => { const r = current(); r.switches = countedUpRows(r, [], 3).rows;
+        renderAll(); showView('switches'); selectSwitch(r.switches[0].id);
+        return checkSwitchRows(r, r.switches).rows[0].text; }""")
+    assert ev(page, "() => $('swPreview').textContent") == text
+    pre = ev(page, "() => { const p = $('swPreview'); return { wide: p.scrollWidth > p.clientWidth + 1,"
+                   " wrapped: [...p.querySelectorAll('.pl')].filter((b) => b.getBoundingClientRect().height > 19).length,"
+                   " longest: Math.max(...[...p.querySelectorAll('.pl')].map((b) => b.textContent.length)) }; }")
+    assert pre["longest"] > 40, "a line wider than the panel"
+    assert pre["wrapped"] >= 1 and not pre["wide"], pre
+    assert page.problems == []
+
+
+# --- (8) the restore dialog names its safe escape; Esc is that escape ---
+def test_restore_dialog_names_not_now_and_esc_means_it(page):
+    ev(page, """() => { const p = JSON.parse(JSON.stringify(projectPayload())); p.recipes[0].name = 'Seeded recipe';
+        localStorage.setItem(AUTOSAVE_KEY, JSON.stringify({ format: CONFIG.AUTOSAVE_FORMAT, release: '0.7.2',
+          savedAt: new Date().toISOString(), project: p, draft: null })); }""")
+    page.reload(wait_until="domcontentloaded")
+    page.wait_for_selector("dialog[open]")
+    text = page.inner_text("dialog[open]")
+    assert "Not now" in text and "Esc = Not now. Nothing is deleted." in text
+    labels = [b.inner_text().strip() for b in page.locator("dialog[open] .dialog-actions button").all()]
+    assert labels == ["Not now", "Restore it"]
+    page.keyboard.press("Escape")
+    page.wait_for_function("bootDone === true")
+    assert ev(page, "() => recipes.length") == 4
+    assert ev(page, "() => listAutosaveBackups().length") >= 1
+    assert page.problems == []
+
+
+# --- (9, 10) Replace stands apart from Cancel and Add after; the helpers are normal buttons ---
+def test_import_dialog_replace_stands_apart(page):
+    _real(page)
+    ev(page, "() => { const r = current(); r.switches = countedUpRows(r, [], 2).rows; renderAll(); showView('switches'); $('swImport').click(); }")
+    page.wait_for_selector("dialog[open] textarea")
+    page.fill("dialog[open] textarea", "HOSTNAME,MGMT_IP\nPKG-01,10.20.30.41\n")
+    labels = [b.inner_text().strip() for b in page.locator("dialog[open] .dialog-actions button").all()]
+    assert labels == ["Replace", "Cancel", "Add after"]
+    cls = ev(page, "() => [...document.querySelectorAll('dialog[open] .dialog-actions button')].map((b) => b.className.trim())")
+    assert "aside" in cls[0] and "danger" in cls[0] and "primary" in cls[2]
+    # Replace sits at the left end, Cancel and Add after at the right, with a clear gap between.
+    x = ev(page, "() => [...document.querySelectorAll('dialog[open] .dialog-actions button')].map((b) => b.getBoundingClientRect())")
+    assert x[1]["x"] - (x[0]["x"] + x[0]["width"]) > 100
+    helpers = ev(page, "() => { const row = document.querySelector('dialog[open] .filebutton').parentElement;"
+                       " return { even: row.classList.contains('even'), w: document.querySelector('dialog[open] .filebutton').getBoundingClientRect().width }; }")
+    assert not helpers["even"] and helpers["w"] < 200
+    click_dialog(page, "Cancel")
+    assert page.problems == []
+
+
+# --- (6) Allowed baseline labels shows three lines ---
+def test_allowed_baseline_labels_is_three_lines(page):
+    ev(page, "() => showView('manage')")
+    assert ev(page, "() => $('firmwareRule').rows") == 3
+    assert ev(page, "() => $('firmwareRule').clientHeight") >= 76
+    assert ev(page, "() => getComputedStyle($('firmwareRule')).resize") == "vertical"
+
+
+# --- (5) at 900 px the row's Copy and Remove columns are in the box ---
+def test_grid_row_actions_fit_at_900(page):
+    page.set_viewport_size({"width": 900, "height": 900})
+    _real(page)
+    ev(page, "() => { const r = current(); r.switches = countedUpRows(r, [], 12).rows; renderAll(); showView('switches'); }")
+    page.wait_for_timeout(150)
+    m = ev(page, """() => { const box = document.querySelector('#switches .scroll'); const t = $('swTable');
+        const c = t.querySelector('td.c-copy button'), x = t.querySelector('td.c-remove button');
+        return { over: box.scrollWidth - box.clientWidth, copy: c.getBoundingClientRect().width, remove: x.getBoundingClientRect().width,
+          inside: x.getBoundingClientRect().right <= box.getBoundingClientRect().right }; }""")
+    assert m["over"] <= 0 and m["copy"] >= 28 and m["remove"] >= 28 and m["inside"], m
+    assert page.problems == []

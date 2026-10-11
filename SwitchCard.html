@@ -39,9 +39,10 @@
         --line: #2a2a34;
         --line2: #363642;
         --text: #f3f0ea;
-        --muted: #9e998f;
-        --faint: #958f86; /* 5.6:1 on a card, 4.7:1 on a selected row: headers, footers, note counts */
+        --muted: #aaa59b; /* 7.3:1 on a card, 6.1:1 on an amber notice */
+        --faint: #9f998f; /* 6.4:1 on a card, 5.3:1 on an amber notice: headers, footers, note counts */
         --inherit: #a39d93; /* inherited (placeholder) grid values, italic: 7:1 on the table background */
+        --disabled-text: #6f6a63; /* text of a disabled button: 3.2:1 on a card, clearly dimmer than any live label */
         --accent: #2dd4a8;
         --accent2: #1fb88a;
         --accent-text: #2dd4a8; /* accent used as text (code, step badges): AA on every surface */
@@ -81,6 +82,7 @@
         --info-bg: rgba(125, 183, 255, 0.1);
         --info-line: rgba(125, 183, 255, 0.4);
         --backdrop: rgba(0, 0, 0, 0.72);
+        --backdrop-light: rgba(0, 0, 0, 0.4); /* the Ports dialog: the side panel stays readable */
         --header-h: 76px;
         --glow2: rgba(61, 139, 253, 0.055);
         --tab-hover: rgba(255, 255, 255, 0.03);
@@ -106,6 +108,7 @@
         --muted: #56524a; /* 7.8:1 on white, 6.5:1 on the table background */
         --faint: #666157; /* 6.2:1 on white, 5.1:1 on the table background */
         --inherit: #45413a; /* inherited (placeholder) grid values, italic: 8.6:1 on the table background */
+        --disabled-text: #908a80; /* text of a disabled button: 3.1:1 on white, clearly dimmer than any live label */
         --accent: #179c74;
         --accent2: #12805f;
         --accent-text: #0f6e52;
@@ -134,6 +137,7 @@
         --info-bg: rgba(30, 88, 168, 0.08);
         --info-line: rgba(30, 88, 168, 0.4);
         --backdrop: rgba(20, 20, 16, 0.5);
+        --backdrop-light: rgba(20, 20, 16, 0.28);
         --glow2: rgba(61, 139, 253, 0.06);
         --tab-hover: rgba(0, 0, 0, 0.04);
         --btn-hover: #e9e7e0;
@@ -156,6 +160,7 @@
           --muted: #56524a; /* 7.8:1 on white, 6.5:1 on the table background */
           --faint: #666157; /* 6.2:1 on white, 5.1:1 on the table background */
           --inherit: #45413a; /* inherited (placeholder) grid values, italic: 8.6:1 on the table background */
+          --disabled-text: #908a80;
           --accent: #179c74;
           --accent2: #12805f;
           --accent-text: #0f6e52;
@@ -184,6 +189,7 @@
           --info-bg: rgba(30, 88, 168, 0.08);
           --info-line: rgba(30, 88, 168, 0.4);
           --backdrop: rgba(20, 20, 16, 0.5);
+          --backdrop-light: rgba(20, 20, 16, 0.28);
           --glow2: rgba(61, 139, 253, 0.06);
           --tab-hover: rgba(0, 0, 0, 0.04);
           --btn-hover: #e9e7e0;
@@ -439,7 +445,7 @@
           flex: none;
         }
         #build .card.pane > #preview {
-          flex: 0 1 auto;
+          flex: none; /* its height is set by sizeBuildPane and is final: never squeezed */
           max-height: none;
           min-height: 58px; /* 2 lines */
         }
@@ -669,8 +675,8 @@
       button.primary:disabled:hover {
         background: transparent;
         border: 1px dashed var(--line2);
-        color: var(--faint);
-        font-weight: 600;
+        color: var(--disabled-text);
+        font-weight: 500;
         opacity: 1;
         cursor: not-allowed;
         filter: none;
@@ -1164,6 +1170,13 @@
       .actions.even > * {
         flex: 1 1 0;
       }
+      /* A destructive action at the far end of its row, apart from the safe ones. */
+      .actions > .aside {
+        margin-left: auto;
+      }
+      .dialog-actions > .aside {
+        margin-right: auto;
+      }
       .hidden,
       [hidden] {
         display: none !important;
@@ -1318,16 +1331,17 @@
         resize: vertical;
         font-size: 0.92em;
       }
-      /* Allowed baseline labels sits beside a 40 px select: one line tall like it, and it grows a line
-         per label typed (up to 120 px, then scrolls). */
+      /* Allowed baseline labels: three lines tall ("one per line" is visible as such), grows a line per
+         label typed (up to 180 px, then scrolls), and can be dragged taller. */
       #firmwareRule {
-        height: 40px;
-        min-height: 40px;
+        height: 80px;
+        min-height: 80px;
+        max-height: 180px;
         field-sizing: content;
         padding-top: 9px;
         padding-bottom: 9px;
         line-height: 20px;
-        resize: none;
+        resize: vertical;
       }
       .recipe-sku-row {
         margin-bottom: 8px;
@@ -1633,7 +1647,7 @@
       button.danger:disabled,
       button.danger:disabled:hover {
         border-color: var(--line2);
-        color: var(--faint);
+        color: var(--disabled-text);
       }
       /* The red buttons keep a ring of their own when focused (box-shadow is reset above). */
       button.danger:focus-visible,
@@ -2099,7 +2113,8 @@
         font-size: 12.5px;
         font-weight: 650;
       }
-      /* Below 1000 px the row's Copy and Remove live here (the icon columns are hidden). */
+      /* The row's own Copy and Remove columns are there at every width, so the detail row does not
+         repeat them. */
       #swTable tr.sw-detail .sw-detail-actions {
         display: none;
         gap: 8px;
@@ -2200,25 +2215,37 @@
       #preview {
         max-height: 338px; /* 16 lines */
       }
-      /* IOS lines in the side panel never wrap (a wrapped command could read as two): every line is
-         whole, and the box scrolls sideways for the few comment lines wider than the panel. 12 px
-         gives 40 characters across, so "ip address a.b.c.d m.m.m.m" fits. */
+      /* The side panel's text is never cut: a line wider than the panel wraps at a space, its
+         continuation rows hang 3 characters in with a tick in that gutter, so one command never reads
+         as two. 12 px gives 40 characters across, so "ip address a.b.c.d m.m.m.m" stays on one row. */
       #swPreview {
         max-height: 378px; /* 20 lines of 18 px */
         font-size: 12px;
         line-height: 18px;
-        white-space: pre;
-        overflow-wrap: normal;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
         padding: 0 10px;
       }
       #swPreview::before,
       #swPreview::after {
         margin: 0 -10px;
       }
-      /* A wide line fades out at the right edge: there is more, and the box scrolls that way. */
-      #swPreview.wide {
-        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), rgba(0, 0, 0, 0.2));
-        mask-image: linear-gradient(to right, #000 calc(100% - 36px), rgba(0, 0, 0, 0.2));
+      #swPreview .pl {
+        display: block;
+        position: relative;
+        padding-left: 3ch;
+        text-indent: -3ch;
+      }
+      /* The tick: a bar beside every row after the first (a one-row block gives it no height). */
+      #swPreview .pl::before {
+        content: "";
+        position: absolute;
+        left: 0.5ch;
+        top: 20px;
+        bottom: 3px;
+        width: 2px;
+        border-radius: 1px;
+        background: var(--cell-line);
       }
       #swPanelEmpty {
         margin: 0;
@@ -2248,6 +2275,18 @@
       }
       dialog.dlg textarea {
         width: 100%;
+      }
+      /* The Ports dialog keeps the side panel in view: it sits to the left and its veil is lighter, so
+         the panel's preview (which follows every keystroke) can be read while typing. */
+      @media (min-width: 1300px) {
+        dialog.dlg.dlg-ports {
+          margin-left: 24px;
+          margin-right: auto;
+          max-width: min(920px, 100vw - 24px - 356px);
+        }
+        dialog.dlg.dlg-ports::backdrop {
+          background: var(--backdrop-light);
+        }
       }
       .sw-ports-table {
         min-width: 0;
@@ -2332,22 +2371,9 @@
           display: table-row;
         }
       }
-      /* A half-screen window: the row fits without sideways scrolling once the two icon columns
-         fold into the selected row's detail line. */
-      @media (max-width: 1000px) {
-        #swTable .c-copy,
-        #swTable .c-remove {
-          display: none;
-        }
-        #swTable tr.sw-detail .sw-detail-actions {
-          display: flex;
-        }
-        /* Ports is now the last column: a little room before the box's rounded edge. */
-        #swTable td.c-ports,
-        #swTable th.c-ports {
-          padding-right: 10px;
-        }
-      }
+      /* A half-screen window (900 px): the whole row, Copy and Remove included, still fits the box
+         (Site gives up its spare width first); narrower than that, the box scrolls sideways with its
+         edge fades and the hint above it. */
       /* No switches yet: the empty state alone, no placeholder panel beside it. */
       .sw-layout.sw-none {
         grid-template-columns: minmax(0, 1fr);
@@ -2944,25 +2970,26 @@
       </div>
       <!-- ===== Build workspace ===== -->
       <section id="build">
-        <!-- Quick-start tip. "Got it" hides it for good (flag stored under CONFIG.ONBOARD_KEY). -->
-        <div id="onboarding" class="onboard" hidden>
-          <div class="onboard-head">
-            <div>
-              <strong>Quick start</strong>
-              <ol>
-                <li>
-                  First time: <strong>Manage recipes &amp; baseline</strong> → load sync-export,
-                  shape recipes.
-                </li>
-                <li>Build → device + ports → review → <strong>Export SD-card ZIP</strong>.</li>
-                <li>Extract ZIP contents to the card <strong>root</strong> (examples block export).</li>
-              </ol>
-            </div>
-            <button type="button" id="dismissOnboarding">Got it</button>
-          </div>
-        </div>
         <div class="grid">
           <div>
+            <!-- Quick-start tip, first in the task column so it never takes height from the
+                 preview pane beside it. "Got it" hides it for good (CONFIG.ONBOARD_KEY). -->
+            <div id="onboarding" class="onboard" hidden>
+              <div class="onboard-head">
+                <div>
+                  <strong>Quick start</strong>
+                  <ol>
+                    <li>
+                      First time: <strong>Manage recipes &amp; baseline</strong> → load sync-export,
+                      shape recipes.
+                    </li>
+                    <li>Build → device + ports → review → <strong>Export SD-card ZIP</strong>.</li>
+                    <li>Extract ZIP contents to the card <strong>root</strong> (examples block export).</li>
+                  </ol>
+                </div>
+                <button type="button" id="dismissOnboarding">Got it</button>
+              </div>
+            </div>
             <div class="card">
               <!-- Step 1: recipe picker -->
               <h2><span class="step">1</span>Choose a configuration</h2>
@@ -3239,9 +3266,10 @@
                 <label for="editRecipe">Recipe to edit</label
                 ><select id="editRecipe"></select>
               </div>
-              <div class="actions even">
+              <!-- Delete stands apart at the far end: a destructive action never reads as a pair with a safe one. -->
+              <div class="actions">
                 <button id="duplicate">Duplicate recipe</button
-                ><button id="deleteRecipe" type="button" class="danger">Delete recipe</button>
+                ><button id="deleteRecipe" type="button" class="danger aside">Delete recipe</button>
               </div>
               <div class="notice warning" id="exampleNote">
                 Included recipes are fictional examples, not approved Cisco configurations. Replace
@@ -3347,7 +3375,7 @@
                 ><textarea
                   id="firmwareRule"
                   class="compact-xs"
-                  rows="2"
+                  rows="3"
                   placeholder="One per line; blank = any"
                 ></textarea>
               </div>
@@ -4534,14 +4562,15 @@
               el("table", { className: "dlg-kv dlg-kv-plain" }, kv("Holds", holds), kv("Baseline", base)),
               el("ul", { className: "dlg-choices" },
                 el("li", {}, el("strong", {}, "Restore it"), " opens that work in this page."),
-                el("li", {}, el("strong", {}, "Start with the examples"), " (or Esc) keeps a copy as an autosave backup," +
-                  " which Save your work → Restore autosave backup brings back. Nothing is deleted.")));
+                el("li", {}, el("strong", {}, "Not now"), " (or Esc) shows the example recipes and keeps that autosave as a backup," +
+                  " which Save your work → Restore autosave backup brings back at any time. Nothing is deleted.")));
           }
           const ok = await confirmDialog(
             "Restore an autosave from v" + meta.release + "?",
             body,
             // At boot the default is the user's own work, so Enter never hides it.
-            { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples", focusOk: !fromBackup },
+            { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Not now", focusOk: !fromBackup,
+              note: fromBackup ? undefined : "Esc = Not now. Nothing is deleted." },
           );
           if (!ok) return fail("declined", "you chose not to restore data saved by v" + meta.release);
         }
@@ -5243,7 +5272,8 @@
           for (const a of actions) {
             bar.appendChild(el("button", {
               type: "button",
-              className: (a.primary ? "primary " : "") + (a.danger ? "danger" : ""),
+              // aside: a destructive secondary action set apart at the left end of the bar.
+              className: (a.primary ? "primary " : "") + (a.danger ? "danger " : "") + (a.aside ? "aside" : ""),
               disabled: !!a.disabled,
               textContent: a.label,
               onclick: () => finish(a.value),
@@ -5284,7 +5314,7 @@
         const o = Object.assign({ ok: "OK", cancel: "Cancel", danger: false }, opts || {});
         const body = typeof textOrNode === "string" ? el("p", {}, textOrNode) : textOrNode;
         return showDialog({
-          title, body,
+          title, body, note: o.note,
           actions: [{ label: o.cancel, value: false }, { label: o.ok, value: true, primary: true, danger: o.danger }],
           // opts.focusOk: start on the OK button instead of Cancel (only where OK is the safe choice).
           onOpen: o.focusOk ? (dlg) => dlg.querySelector(".dialog-actions button.primary").focus() : undefined,
@@ -8902,13 +8932,16 @@
             onclick: () => insertAtCaret($("template"), "{{" + k + "}}"),
           }, "{{" + k + "}}"));
       })();
-      // The Build pane (the sticky preview card) never runs past the bottom of the window: its
-      // height limit follows its position, so at the top of the page it ends above the fold and,
-      // once pinned under the header, it may use the whole window. Below 981 px it is not sticky.
-      // The preview box takes all the height the rest of the pane leaves, snapped to whole lines
-      // (n lines of 20 px + the 18 px of border and top band, never half-way through one) and never
-      // taller than its text; at least 2 lines, below which the pane scrolls and its footer stays put.
+      // The Build pane (the sticky preview card): once pinned under the header it may use the whole
+      // window; at the top of the page it ends above the fold when it can. Below 981 px it is not
+      // sticky. The preview box takes all the height the rest of the pane leaves, snapped to whole
+      // lines (n lines of 20 px + the 18 px of border and top band, never half-way through one) and
+      // never taller than its text. It keeps at least 12 lines while the pane is still unpinned (the
+      // pane then runs below the fold and the page scrolls to it) and at least 8 once pinned (the
+      // pane then scrolls inside, with its footer kept in view). The tips banner, a notice or a long
+      // list of checks never squeeze the box: its height is set here and is final.
       const buildPane = document.querySelector("#build .card.pane");
+      const PREVIEW_MIN_LINES = 12, PREVIEW_MIN_LINES_PINNED = 8;
       function sizeBuildPane() {
         if (!buildPane) return;
         const preview = $("preview");
@@ -8919,31 +8952,58 @@
           return;
         }
         const header = document.querySelector("header");
-        const pinned = (header ? header.offsetHeight : 0) + 12;
-        const top = Math.max(buildPane.getBoundingClientRect().top, pinned);
-        const limit = Math.max(280, window.innerHeight - top - 12);
-        buildPane.style.maxHeight = limit + "px";
-        if (!preview) return;
-        // The text's own height is its scroll height (the box may be squeezed by the pane right now);
-        // the rest of the pane is everything else in it (the pane's own padding included).
+        const pinnedAt = (header ? header.offsetHeight : 0) + 12;
+        const top = buildPane.getBoundingClientRect().top;
+        const pinned = top <= pinnedAt + 1;
+        const limit = Math.max(280, window.innerHeight - Math.max(top, pinnedAt) - 12);
+        if (!preview) {
+          buildPane.style.maxHeight = limit + "px";
+          return;
+        }
+        // The rest of the pane: every other child with its margins, plus the pane's own padding and
+        // border, measured one by one (the box itself may be squeezed or overflowing right now).
+        const px = (v) => parseFloat(v) || 0;
+        let rest = 0;
+        for (const c of buildPane.children) {
+          if (c === preview || c.hidden) continue;
+          const cs = getComputedStyle(c);
+          rest += c.getBoundingClientRect().height + px(cs.marginTop) + px(cs.marginBottom);
+        }
+        const ps = getComputedStyle(buildPane);
+        rest += px(ps.paddingTop) + px(ps.paddingBottom) + px(ps.borderTopWidth) + px(ps.borderBottomWidth);
+        // The text's own height in lines (a wrapped line counts as the rows it takes).
         const total = Math.max(1, Math.round((preview.scrollHeight - 36) / 20));
-        const rest = buildPane.scrollHeight - preview.getBoundingClientRect().height;
-        const lines = Math.min(total, Math.max(2, Math.floor((limit - 2 - rest - 18) / 20)));
+        const fit = Math.floor((limit - rest - 18) / 20);
+        const floor = Math.min(total, pinned ? PREVIEW_MIN_LINES_PINNED : PREVIEW_MIN_LINES);
+        let lines = Math.min(total, Math.max(fit, floor));
+        // One line less when that alone keeps the unpinned pane above the fold.
+        if (!pinned && lines > fit && lines === fit + 1 && lines > 2) lines = fit;
         preview.style.height = lines * 20 + 18 + "px";
+        // Unpinned, the pane grows to hold the floor; pinned, it never exceeds the window.
+        const need = rest + lines * 20 + 18;
+        buildPane.style.maxHeight = (pinned ? limit : Math.max(limit, need)) + "px";
         updatePreviewCue();
       }
-      // "Lines 1–20 of 76 · scroll for more" under the box while it scrolls; nothing when it all fits.
+      // "Showing lines 1–20 of 76 · scroll for more" under the box while it scrolls; nothing when it all
+      // fits. Measured from the line blocks that are inside the box now, so it is never a guess: a
+      // ResizeObserver on the box runs it again whenever the box changes size for any reason.
       function updatePreviewCue() {
         const pre = $("preview"), cue = $("previewCue");
         if (!pre || !cue) return;
-        const blocks = pre.querySelectorAll(".pl");
-        const total = blocks.length;
-        if (!total || pre.scrollHeight <= pre.clientHeight + 1) {
+        const range = visiblePreviewLines(pre);
+        if (!range) {
           cue.textContent = "";
           return;
         }
-        // The first and last line blocks that are at least half inside the box (a long line wraps,
-        // so this is measured, not counted).
+        cue.textContent = "Showing lines " + range.first + "–" + range.last + " of " + range.total +
+          (range.last < range.total ? " · scroll for more" : "");
+      }
+      // The first and last line blocks that are at least half inside the box, or null when the whole
+      // text fits. A long line wraps, so this is measured, not counted.
+      function visiblePreviewLines(pre) {
+        const blocks = pre.querySelectorAll(".pl");
+        const total = blocks.length;
+        if (!total || pre.scrollHeight <= pre.clientHeight + 1) return null;
         const box = pre.getBoundingClientRect();
         const top = box.top + 1 + 16, bottom = box.top + pre.clientHeight + 1;
         let first = 0, last = 0;
@@ -8956,7 +9016,7 @@
           }
         });
         if (!first) first = last = Math.min(total, Math.floor(pre.scrollTop / 20) + 1);
-        cue.textContent = "Showing lines " + first + "–" + last + " of " + total + (last < total ? " · scroll for more" : "");
+        return { first, last, total };
       }
       if ($("preview")) $("preview").addEventListener("scroll", updatePreviewCue, { passive: true });
       window.addEventListener("scroll", sizeBuildPane, { passive: true });
@@ -8967,6 +9027,10 @@
         ro.observe(buildPane.parentElement);
         const onboard = $("onboarding");
         if (onboard) ro.observe(onboard);
+        // The checks above the box and the gate under it change height with the findings.
+        for (const id of ["checks", "exportWhy"]) if ($(id)) ro.observe($(id));
+        // The cue follows the box itself, whatever changed its size.
+        if ($("preview")) new ResizeObserver(() => requestAnimationFrame(updatePreviewCue)).observe($("preview"));
       }
       // Theme picker (header).
       $("themeSelect").onchange = () => {
@@ -9880,8 +9944,6 @@
         if (gridKey !== swGridKey) buildSwitchGrid(cols, rows);
         swGridKey = gridKey;
         patchSwitchGrid(r);
-        // The view may have been hidden when the preview text was set: measure its width again.
-        scheduleSwPreviewWide();
       }
       // Short column headers for the common fields, so headers stay on one line; the title has the rest.
       const SW_SHORT_LABELS = { MGMT_IP: "Mgmt IP", MGMT_MASK: "Mask", MGMT_VLAN: "VLAN", GATEWAY: "Gateway", MGMT_LOOPBACK: "Loopback" };
@@ -10045,7 +10107,6 @@
           if (old) old.remove();
           $("swPanelTitle").textContent = "Selected switch";
           $("swPreview").textContent = "Select a row to see its checks and its editcontent.txt.";
-          $("swPreview").classList.remove("wide");
           return;
         }
         const title = "Switch " + x.n + (x.host ? " · " + x.host : "");
@@ -10089,14 +10150,13 @@
                   el("button", { type: "button", className: "danger", title: "Remove this switch", onclick: () => removeSwitchRow(x.row.id) }, "Remove")))));
           }
         }
-        // The text as it is, one whole line per line (the box scrolls sideways for a wide comment, and
-        // fades at that edge to say so; measured with the next frame's layout, not forced here).
+        // The text as it is, one block per line (as Build's preview), so a line wider than the panel
+        // wraps with a hanging indent and the box's textContent stays the text itself.
         const pre = $("swPreview");
         const shown = x.text || "No output: fix the errors above.";
         if (swPanelKeys.text !== shown) {
           swPanelKeys.text = shown;
-          pre.textContent = shown;
-          scheduleSwPreviewWide();
+          fillLines(pre, shown);
         }
         const prev = lastExport(r, x.host);
         const diffKey = prev && !x.errors.length ? JSON.stringify([prev.at, prev.sha256, x.text]) : "";
@@ -10105,15 +10165,6 @@
           $("swDiffPanel").hidden = !diffKey;
           if (diffKey) fillDiff($("swDiffSummary"), $("swDiff"), prev, x.text);
         }
-      }
-      let swWideFrame = 0;
-      function scheduleSwPreviewWide() {
-        if (swWideFrame) return;
-        swWideFrame = requestAnimationFrame(() => {
-          swWideFrame = 0;
-          const pre = $("swPreview");
-          if (!pre.hidden) pre.classList.toggle("wide", pre.scrollWidth > pre.clientWidth + 1);
-        });
       }
       function selectSwitch(id) {
         if (id === swSelectedId) return;
@@ -10258,14 +10309,15 @@
         }, "Start from template");
         const body = el("div", {},
           columns, box,
-          el("div", { className: "actions even" }, el("label", { className: "filebutton" }, "Load file", file), fromTemplate),
+          el("div", { className: "actions" }, el("label", { className: "filebutton" }, "Load file", file), fromTemplate),
           summary);
         return showDialog({
           title: "Import CSV",
           body,
+          // Replace (drops the list) stands apart at the left; Cancel and the primary Add after at the right.
           actions: [
+            { label: "Replace", value: "replace", disabled: true, aside: true },
             { label: "Cancel", value: null },
-            { label: "Replace", value: "replace", disabled: true },
             { label: "Add after", value: "add", primary: true, disabled: true },
           ],
           onOpen: (dlg) => {
@@ -10440,7 +10492,8 @@
           actions: [{ label: "Cancel", value: false }, { label: "Done", value: true, primary: true }],
           note: "Changes apply as you type and are kept (and autosaved) only when you press Done; Cancel or Esc puts the ports back as they were.",
           onOpen: (dlg) => {
-            dlg.classList.add("dlg-wide");
+            // dlg-ports: beside the side panel (not over it) from 1300 px, so its preview stays in view.
+            dlg.classList.add("dlg-wide", "dlg-ports");
             if (focus) draw(focus);
           },
         }).then((v) => {
