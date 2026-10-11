@@ -8,7 +8,7 @@
   --line2: #363642;
   --text: #f3f0ea;
   --muted: #9e998f;
-  --faint: #8a857c; /* 4.8:1 on a card: table headers and footers stay readable */
+  --faint: #958f86; /* 5.6:1 on a card, 4.7:1 on a selected row: headers, footers, note counts */
   --accent: #2dd4a8;
   --accent2: #1fb88a;
   --accent-text: #2dd4a8; /* accent used as text (code, step badges): AA on every surface */
@@ -35,6 +35,7 @@
   --header-bg: #0e0e12;
   --field-bg: #0f0f13;
   --field-line: #33333e;
+  --cell-line: #6a6a78; /* grid cell borders (solid typed, dashed inherited): 3.4:1 on the table */
   --on-accent: #04140f;
   --primary-bg: var(--accent);
   --primary-hover: #4fe0ba;
@@ -69,33 +70,35 @@
   --line: #d8d5cc;
   --line2: #c6c2b7;
   --text: #1c1b18;
-  --muted: #5d594f;
-  --faint: #6f6a60;
+  --muted: #56524a; /* 7.8:1 on white, 6.5:1 on the table background */
+  --faint: #666157; /* 6.2:1 on white, 5.1:1 on the table background */
   --accent: #179c74;
   --accent2: #12805f;
   --accent-text: #0f6e52;
   --accent-dim: rgba(23, 156, 116, 0.16);
   --accent-glow: rgba(23, 156, 116, 0.1);
-  --ok: #1a7a52;
-  --warn: #8f6400;
-  --err: #c53030;
-  --info: #2160b8;
+  /* Status colours hold 4.5:1 as pill text on their own tint over the table background. */
+  --ok: #156644;
+  --warn: #7a5500;
+  --err: #a82424;
+  --info: #1e58a8;
   --shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 8px 24px rgba(20, 20, 10, 0.1);
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
   --header-bg: #faf9f6;
   --field-bg: #ffffff;
   --field-line: #bdb8ac;
+  --cell-line: #807b72; /* grid cell borders: 3.5:1 on the table background */
   --on-accent: #ffffff;
   --primary-bg: #12805f;
   --primary-hover: #0f6e52;
-  --err-bg: rgba(197, 48, 48, 0.07);
-  --err-line: rgba(197, 48, 48, 0.5);
-  --warn-bg: rgba(143, 100, 0, 0.08);
-  --warn-line: rgba(143, 100, 0, 0.45);
-  --ok-bg: rgba(26, 122, 82, 0.09);
-  --ok-line: rgba(26, 122, 82, 0.4);
-  --info-bg: rgba(33, 96, 184, 0.08);
-  --info-line: rgba(33, 96, 184, 0.4);
+  --err-bg: rgba(168, 36, 36, 0.07);
+  --err-line: rgba(168, 36, 36, 0.5);
+  --warn-bg: rgba(122, 85, 0, 0.08);
+  --warn-line: rgba(122, 85, 0, 0.45);
+  --ok-bg: rgba(21, 102, 68, 0.09);
+  --ok-line: rgba(21, 102, 68, 0.4);
+  --info-bg: rgba(30, 88, 168, 0.08);
+  --info-line: rgba(30, 88, 168, 0.4);
   --backdrop: rgba(20, 20, 16, 0.5);
   --glow2: rgba(61, 139, 253, 0.06);
   --tab-hover: rgba(0, 0, 0, 0.04);
@@ -108,6 +111,7 @@
 }
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
+    /* The same tokens as the Light block above (Auto on a light OS); keep the two identical. */
     --bg: #f4f3ef;
     --bg2: #eceae4;
     --card: #ffffff;
@@ -115,32 +119,35 @@
     --line: #d8d5cc;
     --line2: #c6c2b7;
     --text: #1c1b18;
-    --muted: #5d594f;
-    --faint: #8b867b;
+    --muted: #56524a; /* 7.8:1 on white, 6.5:1 on the table background */
+    --faint: #666157; /* 6.2:1 on white, 5.1:1 on the table background */
     --accent: #179c74;
     --accent2: #12805f;
+    --accent-text: #0f6e52;
     --accent-dim: rgba(23, 156, 116, 0.16);
     --accent-glow: rgba(23, 156, 116, 0.1);
-    --ok: #1e8a5c;
-    --warn: #8f6400;
-    --err: #c53030;
-    --info: #2160b8;
+    /* Status colours hold 4.5:1 as pill text on their own tint over the table background. */
+    --ok: #156644;
+    --warn: #7a5500;
+    --err: #a82424;
+    --info: #1e58a8;
     --shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 8px 24px rgba(20, 20, 10, 0.1);
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
     --header-bg: #faf9f6;
     --field-bg: #ffffff;
     --field-line: #bdb8ac;
+    --cell-line: #807b72; /* grid cell borders: 3.5:1 on the table background */
     --on-accent: #ffffff;
     --primary-bg: #12805f;
     --primary-hover: #0f6e52;
-    --err-bg: rgba(197, 48, 48, 0.07);
-    --err-line: rgba(197, 48, 48, 0.5);
-    --warn-bg: rgba(143, 100, 0, 0.08);
-    --warn-line: rgba(143, 100, 0, 0.45);
-    --ok-bg: rgba(30, 138, 92, 0.09);
-    --ok-line: rgba(30, 138, 92, 0.4);
-    --info-bg: rgba(33, 96, 184, 0.08);
-    --info-line: rgba(33, 96, 184, 0.4);
+    --err-bg: rgba(168, 36, 36, 0.07);
+    --err-line: rgba(168, 36, 36, 0.5);
+    --warn-bg: rgba(122, 85, 0, 0.08);
+    --warn-line: rgba(122, 85, 0, 0.45);
+    --ok-bg: rgba(21, 102, 68, 0.09);
+    --ok-line: rgba(21, 102, 68, 0.4);
+    --info-bg: rgba(30, 88, 168, 0.08);
+    --info-line: rgba(30, 88, 168, 0.4);
     --backdrop: rgba(20, 20, 16, 0.5);
     --glow2: rgba(61, 139, 253, 0.06);
     --tab-hover: rgba(0, 0, 0, 0.04);
@@ -354,6 +361,32 @@ code {
   grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
   gap: calc(var(--space) * 2.5);
   align-items: start;
+}
+/* Build's preview card is a pane: it stays under the header while the steps on the left scroll,
+   so the checks, the preview and the export buttons are always beside the field being edited.
+   Taller than the window (long checks on a short screen), it scrolls inside itself. */
+@media (min-width: 981px) {
+  /* The right column spans the whole row, so the pane can stay pinned all the way down. */
+  #build .grid {
+    align-items: stretch;
+  }
+  #build .card.pane {
+    position: sticky;
+    top: calc(var(--header-h) + 12px);
+    max-height: calc(100vh - var(--header-h) - 24px);
+    overflow: auto;
+    /* A column: when the pane would be taller than the window, the preview gives up height
+       first (down to 8 lines), so the checks, the buttons and the gate stay in view. */
+    display: flex;
+    flex-direction: column;
+  }
+  #build .card.pane > * {
+    flex: none;
+  }
+  #build .card.pane > #preview {
+    flex: 0 1 auto;
+    min-height: 190px; /* 8 lines */
+  }
 }
 
 /* --- Components: cards, steps, badges, actions --- */
@@ -737,8 +770,10 @@ h1:focus {
   /* Stay display:block so the ::before placeholder shows when there are no team hints. */
   min-height: 1.2em;
 }
-/* Whole-pixel line boxes (20 px) and heights of (lines * 20 + 2 * 16 padding + 2 border) px, so a
-   scrolling box never cuts a line of config in half at its bottom edge. */
+/* Whole-pixel line boxes (20 px). The visible area of a scrolling box is (lines * 20 + 30) px:
+   2 px border, a 16 px top band and 12 px of the next line. The bands are sticky fades drawn
+   over the text at both edges, so a line cut by the edge fades out instead of reading as
+   truncated config; at either end of the scroll they sit in the blank padding and show nothing. */
 pre {
   font: 13px/20px var(--mono);
   font-variant-ligatures: none;
@@ -748,10 +783,28 @@ pre {
   color: var(--pre-text);
   background: var(--pre-bg);
   border: 1px solid var(--line);
-  padding: calc(var(--space) * 2);
+  padding: 0 calc(var(--space) * 2);
   border-radius: var(--radius);
-  max-height: 454px; /* 21 lines */
+  max-height: 450px; /* 21 lines */
   overflow: auto;
+}
+pre::before,
+pre::after {
+  content: "";
+  display: block;
+  position: sticky;
+  height: 16px;
+  margin: 0 calc(var(--space) * -2);
+  pointer-events: none;
+}
+pre::before {
+  top: 0;
+  background: linear-gradient(var(--pre-bg) 25%, transparent);
+}
+pre::after {
+  bottom: 0;
+  height: 20px;
+  background: linear-gradient(transparent, var(--pre-bg) 80%);
 }
 
 /* --- Ports table --- */
@@ -1004,7 +1057,7 @@ h3.ed-group:first-of-type {
   width: auto;
 }
 pre.diff {
-  max-height: 322px; /* 16 lines of 18 px */
+  max-height: 318px; /* 16 lines of 18 px */
   font-size: 12px;
   line-height: 18px;
 }
@@ -1025,17 +1078,47 @@ pre.diff .del {
 .fleet-columns code {
   font-size: 12px;
 }
+/* The status message is a toast: bottom right, at most half the width, with a close control,
+   so it never hides a whole table row and can be put away. Its text is the message alone. */
 #status {
   position: sticky;
   bottom: 12px;
-  padding: 12px 16px;
+  margin-left: auto;
+  width: fit-content;
+  max-width: min(560px, 100%);
+  padding: 10px 40px 10px 14px;
+  font-size: 13.5px;
+  line-height: 1.45;
   background: var(--status-bg);
   color: var(--text);
   border: 1px solid var(--line2);
-  border-radius: var(--radius);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
   z-index: 5;
   box-shadow: var(--shadow);
   backdrop-filter: blur(8px);
+}
+#statusClose {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 26px;
+  height: 26px;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  border-radius: 6px;
+}
+#statusClose::before {
+  content: "\00d7";
+}
+#statusClose:hover {
+  color: var(--text);
+  background: var(--tab-hover);
 }
 footer {
   font-size: 12.5px;
@@ -1057,6 +1140,22 @@ footer {
 }
 .compact {
   min-height: 88px;
+}
+/* The template holds a whole config: at least 24 lines, and it grows with its text (up to
+   most of the window; the handle still resizes it). The two team lists and the interface
+   list start at 4-6 lines and grow the same way. */
+#template {
+  min-height: 506px; /* 24 lines of 20.15 px + padding */
+  max-height: 80vh;
+}
+#interfaces {
+  min-height: 130px; /* 5 lines */
+  max-height: 50vh;
+}
+#teamHintsEditor,
+#teamPoliciesEditor {
+  min-height: 110px; /* 4 lines */
+  max-height: 50vh;
 }
 .compact-xs {
   min-height: 44px;
@@ -1230,6 +1329,10 @@ td.muted-cell {
   .rail button {
     width: auto;
     flex: 1 1 auto;
+    flex-direction: row;
+    align-items: baseline;
+    gap: 8px;
+    padding: 8px 12px;
   }
   .grid {
     /* minmax(0, ...) lets the column shrink below the ports table's min-width, so the
@@ -1358,7 +1461,7 @@ button.primary.danger:focus-visible {
   vertical-align: top;
 }
 .dlg-kv th {
-  width: 36%;
+  width: 30%;
   padding-right: 12px;
   color: var(--muted);
   font-size: 12.5px;
@@ -1374,6 +1477,24 @@ button.primary.danger:focus-visible {
 }
 .dlg-kv td {
   overflow-wrap: anywhere;
+}
+/* A SHA-256 stays one line (it is compared with a manifest by eye); it scrolls if the dialog is
+   narrower than 64 hex characters. */
+.dlg-kv td.dlg-hash {
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-wrap: normal;
+  padding-bottom: 4px;
+}
+/* A per-row copy of the full hash in the bulk table. */
+.dlg-rows button.dlg-copy-sha {
+  min-height: 0;
+  height: 22px;
+  margin-left: 6px;
+  padding: 0 7px;
+  font-size: 11px;
+  font-weight: 600;
+  vertical-align: middle;
 }
 .dlg-kv tr.dlg-key th,
 .dlg-kv tr.dlg-key td {
@@ -1429,7 +1550,7 @@ button.primary.danger:focus-visible {
 .sw-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 16px;
+  gap: 10px 12px;
   align-items: center;
   margin-top: 12px;
 }
@@ -1440,7 +1561,7 @@ button.primary.danger:focus-visible {
   align-items: center;
 }
 .tool-group + .tool-group {
-  padding-left: 16px;
+  padding-left: 12px;
   border-left: 1px solid var(--line);
 }
 .tool-label {
@@ -1461,7 +1582,7 @@ button.primary.danger:focus-visible {
   align-items: center;
 }
 #swCount {
-  width: 72px;
+  width: 58px;
 }
 .sw-template select {
   width: auto;
@@ -1543,35 +1664,57 @@ button.primary.danger:focus-visible {
 }
 #swTable td,
 #swTable th {
-  padding: 5px 4px;
+  padding: 5px 3px;
 }
 #swTable th {
   white-space: nowrap;
 }
 #swTable th:first-child,
 #swTable td.num {
-  padding-left: 10px;
+  padding-left: 9px;
+  padding-right: 5px;
+}
+#swTable th.c-copy,
+#swTable th.c-remove,
+#swTable td.c-copy,
+#swTable td.c-remove {
+  padding-left: 2px;
+  padding-right: 2px;
+}
+#swTable td.c-remove {
   padding-right: 6px;
 }
-/* Cell widths: the whole row up to Ports fits beside the side panel at 1440 px (and alone at
-   900 px); only Copy and Remove scroll. An address (255.255.255.0) fits an address cell. */
+/* Cell widths: the whole row fits beside the side panel at 1440 px and alone at 900 px. An
+   address (255.255.255.0) fits an address cell; Site takes whatever width is left (at least
+   160 px) because it holds free text; a value longer than its cell ends in an ellipsis and the
+   whole value is in the cell's title. */
 #swTable td input {
-  width: 104px;
+  width: 100px;
   min-width: 0;
   height: 32px;
   min-height: 32px;
   padding: 0 7px;
   font-size: 12.5px;
+  text-overflow: ellipsis;
+  border-color: var(--cell-line); /* the solid/dashed cue holds 3:1 on the table background */
 }
 #swTable td input[data-key="HOSTNAME"] {
-  width: 114px;
+  width: 112px;
+}
+#swTable td.c-SITE {
+  width: 100%;
 }
 #swTable td input[data-key="SITE"] {
-  width: 114px;
+  width: 100%;
+  min-width: 150px;
 }
 #swTable td input[data-key$="VLAN"],
 #swTable td input[data-key$="LOOPBACK"] {
   width: 50px;
+}
+#swTable td.c-SITE,
+#swTable th.c-SITE {
+  min-width: 160px;
 }
 /* Typed values: solid field, normal text. Inherited values: dashed, transparent, italic grey. */
 #swTable input:not(.inherit) {
@@ -1600,7 +1743,7 @@ button.primary.danger:focus-visible {
   background: var(--accent-glow);
 }
 #swTable tr.selected > td:first-child {
-  box-shadow: inset 3px 0 0 var(--accent);
+  box-shadow: inset 3px 0 0 var(--accent-text); /* the accent as text: 5:1 on the table in light */
 }
 /* A row with an error: red tint, red edge, red number; the offending cell has a red border. */
 #swTable tr.row-bad {
@@ -1657,6 +1800,16 @@ button.primary.danger:focus-visible {
   margin-bottom: 4px;
   font-size: 12.5px;
   font-weight: 650;
+}
+/* Below 1000 px the row's Copy and Remove live here (the icon columns are hidden). */
+#swTable tr.sw-detail .sw-detail-actions {
+  display: none;
+  gap: 8px;
+  margin-top: 8px;
+}
+#swTable tr.sw-detail .sw-detail-actions button {
+  height: 30px;
+  min-height: 30px;
 }
 #swTable button.sw-ports:not(.has-set) {
   color: var(--muted);
@@ -1744,10 +1897,10 @@ button.primary.danger:focus-visible {
 }
 /* Short enough that the export buttons under the Build preview stay above the fold at 900 px. */
 #preview {
-  max-height: 354px; /* 16 lines */
+  max-height: 350px; /* 16 lines */
 }
 #swPreview {
-  max-height: 394px; /* 20 lines of 18 px */
+  max-height: 390px; /* 20 lines of 18 px */
   font-size: 12px;
   line-height: 18px;
 }
@@ -1861,6 +2014,29 @@ dialog.dlg textarea {
     display: table-row;
   }
 }
+/* A half-screen window: the row fits without sideways scrolling once the two icon columns
+   fold into the selected row's detail line. */
+@media (max-width: 1000px) {
+  #swTable .c-copy,
+  #swTable .c-remove {
+    display: none;
+  }
+  #swTable tr.sw-detail .sw-detail-actions {
+    display: flex;
+  }
+}
+/* No switches yet: the empty state alone, no placeholder panel beside it. */
+.sw-layout.sw-none {
+  grid-template-columns: minmax(0, 1fr);
+}
+.sw-layout.sw-none #swPanel,
+.sw-layout.sw-none .sw-main > .scroll,
+.sw-layout.sw-none .sw-main > .scroll-hint {
+  display: none;
+}
+.sw-layout.sw-none .sw-empty {
+  margin-top: 0;
+}
 @media (max-width: 980px) {
   .tool-group + .tool-group {
     padding-left: 0;
@@ -1897,21 +2073,36 @@ dialog.dlg textarea {
   background: transparent;
   border-color: var(--line);
 }
-/* --- Tables that scroll sideways: a drawn scrollbar (always visible, also in headless capture),
-   and a fade on the side with more --- */
-.scroll::-webkit-scrollbar {
+/* --- Scrolling boxes (tables that scroll sideways, previews, the Build pane): a drawn 10 px
+   scrollbar, always visible when there is more (also in headless capture), with a fade on the
+   side of a table that has more --- */
+.scroll::-webkit-scrollbar,
+pre::-webkit-scrollbar,
+.pane::-webkit-scrollbar {
   height: 10px;
   width: 10px;
 }
-.scroll::-webkit-scrollbar-track {
+.scroll::-webkit-scrollbar-track,
+pre::-webkit-scrollbar-track,
+.pane::-webkit-scrollbar-track {
   background: transparent;
 }
-.scroll::-webkit-scrollbar-thumb {
+.scroll::-webkit-scrollbar-thumb,
+pre::-webkit-scrollbar-thumb,
+.pane::-webkit-scrollbar-thumb {
   background: var(--line2);
   border-radius: 999px;
   border: 2px solid var(--bg2);
 }
-.scroll::-webkit-scrollbar-thumb:hover {
+pre::-webkit-scrollbar-thumb {
+  border-color: var(--pre-bg);
+}
+.pane::-webkit-scrollbar-thumb {
+  border-color: var(--card);
+}
+.scroll::-webkit-scrollbar-thumb:hover,
+pre::-webkit-scrollbar-thumb:hover,
+.pane::-webkit-scrollbar-thumb:hover {
   background: var(--faint);
 }
 .scroll.more-right {
@@ -1927,7 +2118,7 @@ dialog.dlg textarea {
   mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.18), #000 40px, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
 }
 .scroll-hint {
-  margin: 6px 2px 0;
+  margin: 0 2px 6px;
   font-size: 12px;
   color: var(--muted);
   text-align: right;
@@ -1991,6 +2182,13 @@ dialog.dlg textarea {
   height: 6px;
   border-radius: 50%;
   background: var(--err);
+}
+.gate-list li button.finding-link {
+  color: var(--err);
+  font-weight: 600;
+}
+.gate-list li button.finding-link::after {
+  margin-left: 3px;
 }
 .gate-fix {
   margin-left: auto;
@@ -2252,12 +2450,18 @@ button.finding-link::after {
   content: "\203A";
   display: inline-block;
   margin-left: 6px;
-  color: var(--muted);
+  color: inherit;
   font-weight: 700;
   opacity: 0.7;
+  text-decoration: none;
   transition: transform var(--ease), opacity var(--ease);
 }
-button.finding-link:hover {
+.notice li:has(> button.finding-link),
+.sw-checks li:has(> button.finding-link) {
+  cursor: pointer;
+}
+button.finding-link:hover,
+li:hover > button.finding-link {
   border: 0;
   background: none;
   text-decoration: underline;
