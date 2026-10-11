@@ -52,9 +52,6 @@ function renderGate(box, reasons, okText, fixId, errors, warnings) {
   const warn = (warnings || []).map((t) => el("li", { className: "gate-warn-item", title: t }, gateWarnLabel(t)));
   box.replaceChildren();
   box.classList.toggle("gate-bad", reasons.length > 0);
-  // Input errors alone: the red checks box above lists them, so the gate is a quiet line that
-  // counts them and links to each (no second red box in the same column).
-  box.classList.toggle("gate-quiet", reasons.length > 0 && reasons.every((t) => t === GATE_ERRORS) && !!(errors && errors.length));
   box.classList.toggle("gate-ok", !reasons.length && !!okText && !warn.length);
   box.classList.toggle("gate-warn", !reasons.length && !!okText && warn.length > 0);
   if (!reasons.length) {
@@ -64,10 +61,11 @@ function renderGate(box, reasons, okText, fixId, errors, warnings) {
   }
   const items = reasons.map((t) => {
     // The input-errors item names each error in a few characters ("MGMT_IP", "Gi1/4 VLAN"), each
-    // a link to the field or cell it is about.
+    // a link to the field or cell it is about ("2 errors above: …" when they are the only reason:
+    // the red checks box above lists them in full).
     if (t === GATE_ERRORS && errors && errors.length) {
       const n = errors.length;
-      const li = el("li", { title: t }, n + (n === 1 ? " error" : " errors") + (box.classList.contains("gate-quiet") ? " above: " : ": "));
+      const li = el("li", { title: t }, n + (n === 1 ? " error" : " errors") + (reasons.every((x) => x === GATE_ERRORS) ? " above: " : ": "));
       // Two checks on one cell ("Gi1/5 VLAN" twice) share one link: "Gi1/5 VLAN (2)", both texts
       // in its title.
       const byName = new Map();
@@ -181,18 +179,21 @@ function renderPreview() {
       "Rules are edited under Team security hints in Manage recipes & baseline."));
   if (!g.errors.length || notices.length) {
     const count = notices.length === 1 ? "1 note to review" : notices.length + " notes to review";
+    // Checks passed but an export gate holds (example recipe, baseline, draft): the heading says
+    // so, so one card never shows "Checks passed" above "Export blocked" as two verdicts; the
+    // gate under the Export button names the reasons. Without notes the box lists them here too
+    // (each a jump to its way out); with notes it stays short, so the pane keeps its preview
+    // lines and its footer. Amber, not green.
+    const gates = g.errors.length ? [] : b.filter((x) => !x.startsWith("Team policy:"));
     const head = g.errors.length
       ? count
-      : notices.length
-        ? "Checks passed · " + count
-        : b.length
-          ? "Checks passed. Export is still blocked; see under the Export button."
-          : "Checks passed.";
-    // Checks passed but an export gate holds (baseline model, label, example, draft): amber, with
-    // the reasons listed, so the box never reads as a green light while export is blocked.
-    const gateOnly = !notices.length && !g.errors.length && b.some((x) => !x.startsWith("Team policy:"));
-    $("checks").append(statusNotice(notices.length || gateOnly ? "warning" : "ok", head,
-      gateOnly ? b.filter((x) => !x.startsWith("Team policy:")) : notices,
+      : "Checks passed" + (notices.length ? " · " + count : "") + (gates.length ? " · export blocked" : ".");
+    const gateItems = notices.length ? [] : gates.map((t) => {
+      const fix = GATE_FIXES.find(([re]) => re.test(t));
+      return { text: gateLabel(t), gate: true, title: t, run: fix ? fix[2] : null };
+    });
+    $("checks").append(statusNotice(notices.length || gates.length ? "warning" : "ok", head,
+      [...notices, ...gateItems],
       "Cisco syntax and device behavior are not verified."));
   }
   markInvalidFields(g);
@@ -298,13 +299,17 @@ function statusNotice(kind, heading, items, footer, ctx) {
     const ul = document.createElement("ul");
     for (const t of items) {
       const li = document.createElement("li");
+      // {gate: true}: an export gate listed among the checks (red dot); {run} jumps to its way out.
+      if (t && t.gate) li.className = "li-gate";
+      if (t && t.title) li.title = t.title;
       if (typeof t === "string") li.textContent = t;
+      else if (!t.where && !t.run) li.textContent = t.text;
       else {
         const b = document.createElement("button");
         b.type = "button";
         b.className = "finding-link";
         b.textContent = t.text;
-        b.addEventListener("click", () => focusFinding(t.where, { ...(ctx || { view: "build" }), text: t.text }));
+        b.addEventListener("click", t.run ? t.run : () => focusFinding(t.where, { ...(ctx || { view: "build" }), text: t.text }));
         li.append(b);
       }
       ul.append(li, document.createTextNode(" "));

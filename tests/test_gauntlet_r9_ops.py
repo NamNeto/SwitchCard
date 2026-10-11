@@ -53,17 +53,21 @@ def test_keyboard_row_actions_act_on_the_focused_row(page):
     assert ev(page, "() => current().switches.length") == 9
     assert page.inner_text("#status").startswith("Remove cancelled; switch 6")
     # a menu asked for from a cell gives focus back to that cell (r10, ops-r5 D8), via the dialog too
-    assert ev(page, "() => document.activeElement.getAttribute('aria-label')") == "Site, switch 6"
+    page.wait_for_function("() => document.activeElement.getAttribute('aria-label') === 'Site, switch 6'")
     page.keyboard.press("Shift+F10")
     page.wait_for_selector(".sw-row-menu")
     page.keyboard.press("Escape")
     assert ev(page, "() => !document.querySelector('.sw-row-menu') && document.activeElement.getAttribute('aria-label') === 'Site, switch 6'")
     # Esc on a menu opened from the button puts focus back on the button; the panel's buttons name the row
-    ev(page, "(id) => document.querySelector(`#swRows tr[data-row='${id}'] button.sw-more`).focus()", ids[5])
+    # (scrolled into view first: a scroll event after the focus would close the menu Enter opens)
+    ev(page, "(id) => { const b = document.querySelector(`#swRows tr[data-row='${id}'] button.sw-more`); b.scrollIntoView({ block: 'center' }); b.focus({ preventScroll: true }); }", ids[5])
+    page.wait_for_timeout(150)
+    page.wait_for_function("() => document.activeElement.className === 'sw-more'")
     page.keyboard.press("Enter")
     page.wait_for_selector(".sw-row-menu")
     page.keyboard.press("Escape")
-    assert ev(page, "() => !document.querySelector('.sw-row-menu') && document.activeElement.className === 'sw-more'")
+    page.wait_for_function("() => !document.querySelector('.sw-row-menu') && document.activeElement.className === 'sw-more'")
+    page.wait_for_function("() => $('swPanelTitle').textContent.startsWith('Switch 6')")
     assert ev(page, "() => [$('swCopyRow').title, $('swRemoveRow').title]") == ["Copy switch 6 below itself", "Remove switch 6 (" + rows[5]["values"]["HOSTNAME"] + ")"]
     # the button is drawn only on the selected (focused) or hovered row: no extra tab stop elsewhere
     page.mouse.move(0, 0)

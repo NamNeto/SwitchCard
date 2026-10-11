@@ -30,22 +30,26 @@ def test_policy_row_marks_its_status_cell(page):
     _real(page)
     ev(page, """() => { const r = current(); r.switches = countedUpRows(r, [], 3).rows;
         r.switches[1].values.HOSTNAME = 'PKG-TEST-02'; teamPolicies = ['forbid ^hostname .*TEST']; renderAll(); showView('switches'); }""")
-    cells = ev(page, "() => [...document.querySelectorAll('#swRows td.status')].map((t) => [t.className, getComputedStyle(t).boxShadow !== 'none'])")
-    assert cells[1][0] == "status bad policy" and cells[1][1] is True
-    assert cells[0][0] == "status ok" and cells[0][1] is False
+    # r10: the row is marked like every other error row (red bar, "1 error · policy", the rule in the
+    # cell's title); the cell itself carries no extra box.
+    cells = ev(page, "() => [...document.querySelectorAll('#swRows td.status')].map((t) => [t.className, getComputedStyle(t).boxShadow !== 'none', t.textContent, t.closest('tr').classList.contains('row-bad'), t.querySelector('[title]') ? t.querySelector('[title]').title : t.title])")
+    assert cells[1][0] == "status bad policy" and cells[1][1] is False and cells[1][2] == "1 error · policy" and cells[1][3] is True
+    assert "Team policy: forbidden pattern present: ^hostname .*TEST" in cells[1][4]
+    assert cells[0][0] == "status ok" and cells[0][1] is False and cells[0][3] is False
     assert page.problems == []
 
 
-# --- (3) the Ports dialog is centred in the window like every dialog (round 9), clear of the rail ---
-def test_ports_dialog_is_centred_and_clear_of_the_rail(page):
+# --- (3) the Ports dialog sits over the switch grid (round 10, as in round 8): between the rail
+#         and the side panel, the grid's own width, so nothing behind it shows as a fragment ---
+def test_ports_dialog_sits_over_the_content_column(page):
     page.set_viewport_size({"width": 1440, "height": 900})
     _real(page)
     ev(page, "() => { const r = current(); r.switches = countedUpRows(r, [], 3).rows; renderAll(); showView('switches'); openPortsDialog(r.switches[1]); }")
     page.wait_for_selector("dialog[open]")
     m = ev(page, """() => { const d = document.querySelector('dialog[open]').getBoundingClientRect();
-        const rail = $('rail').getBoundingClientRect();
-        return { left: d.left, width: d.width, railRight: rail.right, centred: Math.abs((d.left + d.right) / 2 - innerWidth / 2) }; }""")
-    assert m["left"] >= m["railRight"] + 8 and m["width"] <= 920 and m["centred"] < 4, m
+        const grid = document.querySelector('#switches .scroll').getBoundingClientRect(), panel = $('swPanel').getBoundingClientRect();
+        return { left: d.left, right: d.right, width: d.width, gridLeft: grid.left, panelLeft: panel.left, centred: Math.abs((d.left + d.right) / 2 - (grid.left + grid.right) / 2) }; }""")
+    assert m["right"] <= m["panelLeft"] + 1 and m["left"] >= m["gridLeft"] - 1 and m["width"] <= 840 and m["centred"] < 4, m
     page.keyboard.press("Escape")
     assert page.problems == []
 

@@ -399,7 +399,6 @@
                   <p class="muted">
                     One hint per line. Shown on Build under Config security hints as
                     <strong>Team</strong>, even when the preview has errors. Never block export.
-                    Hints apply as you type.
                   </p>
                   <div class="field">
                     <label for="teamHintsEditor">Hints</label>
@@ -410,7 +409,8 @@
                     ></textarea>
                   </div>
                   <div class="actions">
-                    <button id="applyTeamHints" type="button">Apply team hints</button>
+                    <button id="applyTeamHints" type="button" aria-describedby="teamHintsLive">Tidy hints</button>
+                    <span id="teamHintsLive" class="muted"><small>Hints apply as you type. Tidy hints removes blank lines and extra spaces and shortens hints over the limit.</small></span>
                   </div>
                 </div>
                 <div class="team-block team-block-policy">
@@ -475,16 +475,16 @@
                   <option>IE9300</option>
                 </select>
               </div>
-              <!-- Three lines beside Model family (a one-per-line field reads as one); it grows a
+              <!-- One line beside Model family, level with its select (round 10); it grows a
                    line per label typed beyond that. -->
               <div class="field">
                 <label for="firmwareRule">Allowed baseline labels</label
                 ><textarea
                   id="firmwareRule"
                   class="compact-xs"
-                  rows="3"
-                  placeholder="One per line; blank = any"
-                  title="Blank: any baseline label of this model family"
+                  rows="1"
+                  placeholder="Blank = any label"
+                  title="One label per line. Blank: any baseline label of this model family"
                 ></textarea>
               </div>
             </div>
@@ -756,9 +756,9 @@
                   <th>#</th>
                   <th>Hostname</th>
                   <th>Management IP</th>
-                  <th>Status</th>
+                  <th>Checks</th>
                   <th>Last export</th>
-                  <th></th>
+                  <th><span class="visually-hidden">Export</span></th>
                 </tr>
               </thead>
               <tbody id="cdRows"></tbody>
