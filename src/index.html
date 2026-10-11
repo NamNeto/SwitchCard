@@ -278,13 +278,10 @@
               </div>
               <div id="checks"></div>
               <pre id="preview" tabindex="0"></pre>
-              <p id="previewMeter" class="muted" style="margin-top: 6px"></p>
-              <div class="actions even">
-                <button id="downloadConfig">Save text only</button
-                ><button id="copyPreview" type="button">Copy preview</button
-                ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
-              </div>
-              <div id="exportWhy" class="gate" role="status"></div>
+              <!-- Lines and bytes of the text; on the right, which lines the box shows when it scrolls. -->
+              <p class="muted preview-meter" style="margin-top: 6px">
+                <span id="previewMeter"></span><span id="previewCue" aria-live="off"></span>
+              </p>
               <div id="asciiFix" class="notice warning" hidden>
                 <strong class="notice-head">Non-ASCII characters block export.</strong>
                 <button type="button" id="fixAscii">Transliterate to ASCII</button>
@@ -298,14 +295,22 @@
                 <summary id="diffSummary">Changes since the last export</summary>
                 <pre id="diffOut" class="diff"></pre>
               </details>
-              <!-- Shown once export is possible (while blocked, the gate says what to do instead). -->
-              <p id="exportNote">
-                <small
-                  >Extract ZIP contents to the SD card <strong>root</strong> (so
-                  <code>editcontent.txt</code> sits beside baseline files). Source folder is never
-                  modified.</small
-                >
-              </p>
+              <!-- The footer stays in view at the bottom of the pane: buttons, gate, extract note. -->
+              <div class="pane-foot">
+                <div class="actions even">
+                  <button id="downloadConfig">Save text only</button
+                  ><button id="copyPreview" type="button">Copy preview</button
+                  ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
+                </div>
+                <div id="exportWhy" class="gate" role="status"></div>
+                <p id="exportNote">
+                  <small
+                    >Extract ZIP contents to the SD card <strong>root</strong> (so
+                    <code>editcontent.txt</code> sits beside baseline files). Source folder is never
+                    modified.</small
+                  >
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -495,22 +500,30 @@
             </div>
             <div class="field">
               <!-- Management interface: {{MGMT_INTERFACE}} = Vlan<MGMT_VLAN> (SVI) or Loopback<MGMT_LOOPBACK>. -->
-              <label for="mgmtInterface">Management interface ({{MGMT_INTERFACE}})</label
+              <label for="mgmtInterface">Management interface <code class="dlg-ph">MGMT_INTERFACE</code></label
               ><select id="mgmtInterface">
                 <option value="svi">SVI — interface Vlan{{MGMT_VLAN}}</option>
                 <option value="loopback">Loopback — interface Loopback{{MGMT_LOOPBACK}}</option>
               </select>
               <small class="template-help"
                 >SVI: Build asks for the management VLAN. Loopback: Build asks for the loopback
-                number. Write <code>interface {{MGMT_INTERFACE}}</code> in the template and use the same
-                placeholder wherever a source interface is needed. A loopback design also needs
-                <code>ip routing</code>, a Routed uplink or SVI towards the gateway, and
-                <code>ip route 0.0.0.0 0.0.0.0 {{GATEWAY}}</code> instead of
-                <code>ip default-gateway</code>.</small
+                number. Either way, write <code>interface {{MGMT_INTERFACE}}</code> in the template.</small
               >
+              <details class="sku-notes">
+                <summary>How Loopback mode works</summary>
+                <p>
+                  <small
+                    >Use <code>{{MGMT_INTERFACE}}</code> wherever a source interface is needed, so
+                    the NTP, RADIUS, logging and SSH sources follow the choice above. A loopback
+                    design also needs <code>ip routing</code>, a Routed uplink or an SVI towards the
+                    gateway, and <code>ip route 0.0.0.0 0.0.0.0 {{GATEWAY}}</code> instead of
+                    <code>ip default-gateway</code>.</small
+                  >
+                </p>
+              </details>
             </div>
             <details>
-              <summary>Edit management source commands ({{MGMT_SOURCES}})</summary>
+              <summary>Edit management source commands <code class="dlg-ph">MGMT_SOURCES</code></summary>
               <p>
                 <small
                   >One command per line. <code>{{MGMT_INTERFACE}}</code> follows the choice above, so
@@ -653,13 +666,15 @@
               <button type="button" id="swExport">Export</button>
               <span class="sw-template"
                 ><select id="swTemplateMode" aria-label="Columns in the CSV template" title="Columns in the CSV template">
-                  <option value="description">Fields + port descriptions</option>
-                  <option value="all">Fields + all port settings</option>
-                  <option value="none">Switch fields only</option></select
+                  <option value="description">Template: fields + port descriptions</option>
+                  <option value="all">Template: fields + all port settings</option>
+                  <option value="none">Template: switch fields only</option></select
                 ><button type="button" id="swTemplate" title="Download an empty CSV with these columns; row 1 is the switch on Build a card">Download template</button></span
               >
             </div>
-            <button type="button" id="swRemoveAll" class="danger tool-end" title="Remove every switch from the list">Remove all</button>
+            <div class="tool-group tool-end">
+              <button type="button" id="swRemoveAll" class="danger" title="Remove every switch from the list">Remove all</button>
+            </div>
           </div>
           <p id="swNotes" class="muted" hidden></p>
         </div>

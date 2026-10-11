@@ -87,15 +87,17 @@ function insertAtCaret(ta, text) {
 // The Build pane (the sticky preview card) never runs past the bottom of the window: its
 // height limit follows its position, so at the top of the page it ends above the fold and,
 // once pinned under the header, it may use the whole window. Below 981 px it is not sticky.
-// When the pane is short, the preview gives up height first; its box then ends on a whole line
-// (n lines of 20 px + the 18 px of border and top band), never half-way through one.
+// The preview box takes all the height the rest of the pane leaves, snapped to whole lines
+// (n lines of 20 px + the 18 px of border and top band, never half-way through one) and never
+// taller than its text; at least 2 lines, below which the pane scrolls and its footer stays put.
 const buildPane = document.querySelector("#build .card.pane");
 function sizeBuildPane() {
   if (!buildPane) return;
   const preview = $("preview");
   if ($("build").hidden || window.innerWidth <= 980) {
     buildPane.style.maxHeight = "";
-    if (preview) preview.style.maxHeight = "";
+    if (preview) preview.style.height = "";
+    updatePreviewCue();
     return;
   }
   const header = document.querySelector("header");
@@ -104,14 +106,41 @@ function sizeBuildPane() {
   const limit = Math.max(280, window.innerHeight - top - 12);
   buildPane.style.maxHeight = limit + "px";
   if (!preview) return;
-  // Room for the preview = the pane's limit minus everything else in it; snapped down to whole
-  // lines (at least 5) when that is less than the preview's own 16-line maximum.
-  preview.style.maxHeight = "";
-  const own = preview.getBoundingClientRect().height;
-  const rest = buildPane.scrollHeight - own;
-  const room = limit - rest;
-  if (room < own - 0.5) preview.style.maxHeight = Math.max(5, Math.floor((room - 18) / 20)) * 20 + 18 + "px";
+  // The text's own height is its scroll height (the box may be squeezed by the pane right now);
+  // the rest of the pane is everything else in it (the pane's own padding included).
+  const total = Math.max(1, Math.round((preview.scrollHeight - 36) / 20));
+  const rest = buildPane.scrollHeight - preview.getBoundingClientRect().height;
+  const lines = Math.min(total, Math.max(2, Math.floor((limit - 2 - rest - 18) / 20)));
+  preview.style.height = lines * 20 + 18 + "px";
+  updatePreviewCue();
 }
+// "Lines 1–20 of 76 · scroll for more" under the box while it scrolls; nothing when it all fits.
+function updatePreviewCue() {
+  const pre = $("preview"), cue = $("previewCue");
+  if (!pre || !cue) return;
+  const blocks = pre.querySelectorAll(".pl");
+  const total = blocks.length;
+  if (!total || pre.scrollHeight <= pre.clientHeight + 1) {
+    cue.textContent = "";
+    return;
+  }
+  // The first and last line blocks that are at least half inside the box (a long line wraps,
+  // so this is measured, not counted).
+  const box = pre.getBoundingClientRect();
+  const top = box.top + 1 + 16, bottom = box.top + pre.clientHeight + 1;
+  let first = 0, last = 0;
+  blocks.forEach((b, i) => {
+    const r = b.getBoundingClientRect();
+    const mid = (r.top + r.bottom) / 2;
+    if (mid >= top && mid <= bottom) {
+      if (!first) first = i + 1;
+      last = i + 1;
+    }
+  });
+  if (!first) first = last = Math.min(total, Math.floor(pre.scrollTop / 20) + 1);
+  cue.textContent = "Showing lines " + first + "–" + last + " of " + total + (last < total ? " · scroll for more" : "");
+}
+if ($("preview")) $("preview").addEventListener("scroll", updatePreviewCue, { passive: true });
 window.addEventListener("scroll", sizeBuildPane, { passive: true });
 window.addEventListener("resize", sizeBuildPane);
 if (buildPane && typeof ResizeObserver === "function") {

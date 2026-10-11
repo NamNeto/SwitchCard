@@ -134,16 +134,30 @@ function buildSwitchGrid(cols, rows) {
 function switchStatus(x) {
   const notes = x.warnings.length;
   const n = x.errors.length + x.policy.length;
-  // A duplicate says so under the count ("1 error · duplicate"): its red cell alone would not say
-  // what is wrong with it. Read off the checks, which keep their own wording.
-  const dup = x.errors.some((e) => /^duplicate /.test(e));
+  // The kind of error sits under the count ("1 error · duplicate", "· policy", "· bad IP"): a red
+  // cell alone would not say what is wrong. Read off the checks, which keep their own wording.
+  const kind = n ? errorKind(x) : "";
   return {
     text: n
-      ? n + (n === 1 ? " error" : " errors") + (dup ? " · duplicate" : "")
+      ? n + (n === 1 ? " error" : " errors") + (kind ? " · " + kind : "")
       : "OK" + (notes ? " · " + notes + (notes === 1 ? " note" : " notes") : ""),
     title: [...x.errors, ...x.policy.map((p) => "Team policy: " + p), ...x.warnings].join("\n"),
     bad: n > 0,
   };
+}
+// A word for the first error of a row: "duplicate", "policy" (a team rule), "bad IP" and the like
+// for a field, "Gi1/4 VLAN" for a port cell, "template" for the recipe. Derived from the checks'
+// locations; the check texts themselves are unchanged.
+const ERROR_KIND_FIELD = { MGMT_IP: "bad IP", GATEWAY: "bad gateway", MGMT_MASK: "bad mask", MGMT_VLAN: "bad VLAN", MGMT_LOOPBACK: "bad loopback", HOSTNAME: "bad hostname" };
+function errorKind(x) {
+  if (x.errors.some((e) => /^duplicate /.test(e))) return "duplicate";
+  const f = (x.findings || []).find((y) => y.level === "error");
+  if (!f) return x.policy.length ? "policy" : "";
+  const w = f.where || {};
+  if (w.kind === "field" || w.kind === "row") return ERROR_KIND_FIELD[w.key] || ("bad " + String(w.key || "value").replaceAll("_", " ").toLowerCase());
+  if (w.kind === "port" || w.kind === "ports") return findingShortName(f);
+  if (w.kind === "file") return "config text";
+  return w.kind ? findingShortName(f) : "";
 }
 // Re-checks the list (cached per row) and updates values, placeholders, inherit marks, port
 // counts, statuses and the side panel in the existing table.
@@ -263,25 +277,16 @@ function renderSwitchPanel(r, x) {
           el("button", { type: "button", title: "Copy this switch below itself", onclick: () => copySwitchRow(x.row.id) }, "Copy below"),
           el("button", { type: "button", className: "danger", title: "Remove this switch", onclick: () => removeSwitchRow(x.row.id) }, "Remove")))));
   }
-  fillConfigPre($("swPreview"), x.text || "No output: fix the errors above.");
+  // The text as it is, one whole line per line (the box scrolls sideways for a wide comment, and
+  // fades at that edge to say so).
+  const pre = $("swPreview");
+  pre.textContent = x.text || "No output: fix the errors above.";
+  pre.classList.toggle("wide", pre.scrollWidth > pre.clientWidth + 1);
   const prev = lastExport(r, x.host);
   if (prev && !x.errors.length) {
     $("swDiffPanel").hidden = false;
     fillDiff($("swDiffSummary"), $("swDiff"), prev, x.text);
   }
-}
-// IOS text in the side panel: every line is a block that wraps only at spaces (a token such as
-// 2026-10-01 or 255.255.255.0 is never split) with a hanging indent and a continuation bar, so a
-// continued line can never read as a second command. The box's textContent stays the text byte
-// for byte (the newline ends each block).
-function fillConfigPre(pre, text) {
-  const lines = String(text).split("\n");
-  pre.replaceChildren(...lines.map((line, i) => {
-    const b = el("span", { className: "pl" });
-    for (const part of line.split(/( +)/)) if (part) b.append(/^ +$/.test(part) ? part : el("span", { className: "tok" }, part));
-    if (i < lines.length - 1) b.append("\n");
-    return b;
-  }).filter((b, i) => i < lines.length - 1 || lines[i] !== ""));
 }
 function selectSwitch(id) {
   if (id === swSelectedId) return;
@@ -591,16 +596,23 @@ function openPortsDialog(row, focus) {
   draw();
   const n = (r.switches || []).indexOf(row) + 1;
   const host = String((row.values && row.values.HOSTNAME) || (r.values && r.values.HOSTNAME) || "").trim();
+  // Edits apply as they are typed (the grid and the preview follow). Done keeps them; Cancel (or
+  // Esc) puts this switch's port settings back as they were when the dialog opened.
+  const before = JSON.stringify(row.ports || {});
   return showDialog({
     title: "Ports · switch " + n + (host ? " (" + host + ")" : ""),
     body: wrap,
-    actions: [{ label: "Close", value: true, primary: true }],
-    note: "Changes apply as you type. Use table puts a port back on the table.",
+    actions: [{ label: "Cancel", value: false }, { label: "Done", value: true, primary: true }],
+    note: "Changes apply as you type. Done keeps them; Cancel or Esc puts the ports back as they were.",
     onOpen: (dlg) => {
       dlg.classList.add("dlg-wide");
       if (focus) draw(focus);
     },
-  }).then(() => {
+  }).then((v) => {
+    if (v !== true && JSON.stringify(row.ports || {}) !== before) {
+      row.ports = JSON.parse(before);
+      touch();
+    }
     if (currentView !== "switches") return;
     renderSwitches();
     // A fixed check removes the button that opened the dialog: focus goes to this row's Ports button.
@@ -706,11 +718,20 @@ function highlightPreviewLine(pre, line) {
   let end = text.indexOf("\n", start);
   if (end < 0) end = text.length;
   if (end > start && text[end - 1] === "\r") end--;
-  const node = pre.firstChild;
-  if (!node || node.nodeType !== Node.TEXT_NODE) return false;
   const range = document.createRange();
-  range.setStart(node, start);
-  range.setEnd(node, end);
+  const blocks = pre.querySelectorAll(".pl");
+  if (blocks.length) {
+    // One block per line (Build's numbered preview): select that block's text node.
+    const b = blocks[line - 1], t = b && b.firstChild;
+    if (!t || t.nodeType !== Node.TEXT_NODE) return false;
+    range.setStart(t, 0);
+    range.setEnd(t, t.data.length - (t.data.endsWith("\r") ? 1 : 0));
+  } else {
+    const node = pre.firstChild;
+    if (!node || node.nodeType !== Node.TEXT_NODE) return false;
+    range.setStart(node, start);
+    range.setEnd(node, end);
+  }
   const sel = window.getSelection();
   sel.removeAllRanges();
   sel.addRange(range);

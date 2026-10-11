@@ -49,10 +49,17 @@ function renderGate(box, reasons, okText, fixId, errors) {
     return;
   }
   const items = reasons.map((t) => {
-    // The checks box above already lists each error as a link: the gate only counts them.
+    // The input-errors item names each error in a few characters ("MGMT_IP", "Gi1/4 VLAN"), each
+    // a link to the field or cell it is about.
     if (t === GATE_ERRORS && errors && errors.length) {
       const n = errors.length;
-      return el("li", { title: t }, n + (n === 1 ? " error" : " errors") + " in the checks above");
+      const li = el("li", { title: t }, n + (n === 1 ? " error: " : " errors: "));
+      errors.forEach((f, i) => {
+        if (i) li.append(", ");
+        li.append(el("button", { type: "button", className: "finding-link", title: f.text, onclick: () => focusFinding(f.where, { view: "build" }) },
+          findingShortName(f)));
+      });
+      return li;
     }
     return el("li", { title: t }, gateLabel(t));
   });
@@ -62,6 +69,14 @@ function renderGate(box, reasons, okText, fixId, errors) {
       box.append(el("button", { type: "button", id: fixId, className: "gate-fix", onclick: run }, label));
       break;
     }
+}
+// Text in a <pre> as one block per line (so CSS can number them): each block holds the line's
+// text node and its newline, and the box's textContent is the text byte for byte.
+function fillLines(pre, text) {
+  const lines = String(text).split("\n");
+  const last = lines.length - 1;
+  pre.replaceChildren(...lines.map((line, i) => el("span", { className: "pl" }, line, i < last ? "\n" : ""))
+    .filter((b, i) => i < last || lines[i] !== ""));
 }
 // A finding's place in a few characters: the field key, "Gi1/4 VLAN", "template", ...
 function findingShortName(f) {
@@ -111,9 +126,11 @@ function renderPreview() {
   const r = current(),
     g = generate(r),
     b = blockers(r, g);
-  $("preview").textContent = g.text;
+  // One block per line (its number is drawn by CSS); the box's textContent stays the text itself.
+  fillLines($("preview"), g.text);
   const meter = $("previewMeter");
   if (meter) meter.textContent = previewSizeLabel(g.text);
+  if (typeof updatePreviewCue === "function") updatePreviewCue();
   // Status above the preview: at most one red box (errors) and one box for the result
   // (yellow with the notes to review, or green when there is nothing to review). Export
   // blockers are listed under the Export button (#exportWhy) and, once the checks pass, also in the
@@ -186,9 +203,6 @@ function renderPreview() {
   $("downloadCard").title = $("downloadCard").disabled
     ? why.join(" ") || "Export blocked"
     : "Download ZIP for the SD card root";
-  // The "extract to the card root" note belongs with a possible export; while blocked, the gate
-  // above it says what to do instead.
-  if ($("exportNote")) $("exportNote").hidden = $("downloadCard").disabled;
   $("downloadConfig").title = $("downloadConfig").disabled
     ? editorPending
       ? "Apply recipe changes or Discard unapplied draft first."

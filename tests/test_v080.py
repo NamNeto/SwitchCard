@@ -716,13 +716,13 @@ def test_ports_dialog_overrides_and_use_table(page):
     assert "GigabitEthernet1/2" not in ev(page, "() => current().switches[0].ports")
     page.click(dlg + "button.remove-unknown[data-port='Gi9/9']")
     assert ev(page, "() => current().switches[0].ports") == {"GigabitEthernet1/3": {"description": "own text"}}
-    click_dialog(page, "Close")
+    click_dialog(page, "Done")  # gauntlet r6: the Ports dialog closes with Done (Cancel reverts)
     assert page.inner_text("#swRows tr[data-row='sw-a'] button.sw-ports") == "1 set"
     # focus option
     ev(page, "() => { openPortsDialog(current().switches[0], { name: 'GigabitEthernet1/3', attr: 'vlan' }); }")
     page.wait_for_selector("dialog[open]")
     assert ev(page, "() => [document.activeElement.dataset.port, document.activeElement.dataset.attr]") == ["GigabitEthernet1/3", "vlan"]
-    click_dialog(page, "Close")
+    click_dialog(page, "Done")  # gauntlet r6: the Ports dialog closes with Done (Cancel reverts)
 
 
 def test_switches_follow_template_changes(page):
@@ -750,7 +750,7 @@ def test_switches_team_policy_hit_is_an_error(page):
         { id: 'sw-a', values: { HOSTNAME: 'A-01' }, ports: {} }, { id: 'sw-b', values: { HOSTNAME: 'A-02', MGMT_IP: '192.0.2.77' }, ports: {} }];
         showView('switches'); }""")
     status = "#swRows tr[data-row='sw-a'] td.status"
-    assert page.inner_text(status) == "1 error"
+    assert page.text_content(status) == "1 error · policy"  # gauntlet r6: the kind of error under the count
     assert ev(page, "(s) => document.querySelector(s).classList.contains('bad')", status) is True
     assert "Team policy: forbidden pattern present" in page.get_attribute(status, "title")
     page.click("#swRows tr[data-row='sw-a'] td.num")
@@ -774,7 +774,7 @@ def test_switches_minor_fixes_role_and_trim(page):
     page.select_option(role, base)
     assert "GigabitEthernet1/2" not in ev(page, "() => current().switches[0].ports")
     assert ev(page, "(s) => document.querySelector(s).classList.contains('inherit')", role) is True
-    click_dialog(page, "Close")
+    click_dialog(page, "Done")  # gauntlet r6: the Ports dialog closes with Done (Cancel reverts)
 
 
 # --- Task 11: Cards view ---
@@ -945,7 +945,7 @@ def test_cards_team_policy_row_blocks(page):
     assert page.is_disabled(_cd_row(ids[1], "button.cd-card"))
     assert page.is_enabled(_cd_row(ids[0], "button.cd-card"))
     assert "Rows with errors: 2 (team policy: forbidden pattern present: ^hostname IE3100-DEMO-02$)." in page.inner_text("#cdGates")
-    assert page.inner_text(_cd_row(ids[1], "button.cd-status")) == "1 error"
+    assert page.inner_text(_cd_row(ids[1], "button.cd-status")) == "1 error · policy"  # gauntlet r6: the kind of error under the count
     stub_downloads(page)
     page.click("#cdAll")
     page.wait_for_function("() => $('status').textContent.includes('Rows with errors: 2 (') && $('status').textContent.includes('nothing was exported')")
@@ -1018,7 +1018,7 @@ def test_clicking_checks_focuses_targets(page):
     _click_finding(page, "#swChecks", port)
     page.wait_for_selector("dialog[open]")
     assert ev(page, "() => [document.activeElement.dataset.port, document.activeElement.dataset.attr, !!document.activeElement.closest('dialog')]") == [port, "vlan", True]
-    click_dialog(page, "Close")
+    click_dialog(page, "Done")  # gauntlet r6: the Ports dialog closes with Done (Cancel reverts)
     assert page.problems == []
 
 
