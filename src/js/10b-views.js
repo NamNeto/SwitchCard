@@ -17,8 +17,11 @@ const VIEW_SUBTITLES = {
   manage: "Firmware baseline, recipes, templates and team rules. Recipe edits take effect after Apply recipe changes.",
 };
 // Shows one view. Leaving the recipe editor is refused while it holds an unapplied draft.
-function showView(name) {
+// opts.user: the change comes from the rail (or Build's Manage button), not from the page's own
+// code; only such a change is refused while an export runs (see below).
+function showView(name, opts) {
   if (!VIEW_SECTIONS[name]) return false;
+  const byUser = !!(opts && opts.user);
   if (typeof cardRun !== "undefined" && cardRun && name !== currentView) {
     message("A card export is running (" + cardRun.step + "). Other views open again when it ends; use Cancel after this card to stop early.");
     // The next progress tick would replace that line within a moment: the reason also stays
@@ -32,12 +35,16 @@ function showView(name) {
     message("Apply your recipe changes before leaving the recipe editor.");
     return false;
   }
-  // run() disables the rail for the duration of an export; nothing else may change the view
-  // meanwhile either (the hidden Switches grid is left enabled on that promise).
-  if (typeof busy !== "undefined" && busy && name !== currentView) {
+  // run() disables the rail for the duration of an export, and a user's view change is refused
+  // meanwhile (the hidden Switches grid is left enabled on that promise). The page's own changes
+  // inside run() (opening a project that carries a draft lands in Manage) still go through.
+  if (byUser && typeof busy !== "undefined" && busy && name !== currentView) {
     message("An export is running. Other views open again when it ends.");
     return false;
   }
+  // A status line from another view is stale once the view changes: it goes (a message sent
+  // after the change, such as "Project opened", stays).
+  if (name !== currentView) $("status").hidden = true;
   currentView = name;
   for (const v of Object.keys(VIEW_SECTIONS)) {
     $(VIEW_SECTIONS[v]).hidden = v !== name;
@@ -113,13 +120,15 @@ function buildSwitchGrid(cols, rows) {
       el("th", {}, "#"),
       el("th", {}, "Status"),
       cols.map((k) => el("th", { className: "c-" + k, dataKey: k, title: fieldLabel(k) + " {{" + k + "}}" }, SW_SHORT_LABELS[k] || fieldLabel(k))),
-      el("th", { className: "c-ports" }, "Ports")),
+      el("th", { className: "c-ports" }, "Ports"),
+      el("th", { className: "c-more" }, el("span", { className: "visually-hidden" }, "Row actions"))),
   );
   const body = [
     el("tr", { className: "defaults" },
       el("td", { colSpan: 2, title: "Device details and the port table on Build a card" }, "Defaults"),
       cols.map((k) => el("td", { className: "c-" + k, dataKey: k })),
-      el("td", { className: "c-ports", title: "The port table on Build a card" }, "Build")),
+      el("td", { className: "c-ports", title: "The port table on Build a card" }, "from Build a card"),
+      el("td", { className: "c-more" })),
   ];
   rows.forEach((row, i) => {
     body.push(
@@ -129,7 +138,14 @@ function buildSwitchGrid(cols, rows) {
         cols.map((k) =>
           // size 12: the cell's CSS width rules, not the input's 20-character default.
           el("td", { className: "c-" + k }, el("input", { dataRow: row.id, dataKey: k, size: 12, autocomplete: "off", ariaLabel: fieldLabel(k) + ", switch " + (i + 1) }))),
-        el("td", { className: "c-ports" }, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" }))),
+        el("td", { className: "c-ports" }, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" })),
+        // One quiet tab stop at the row end: a menu with this row's Copy below and Remove, so the
+        // keyboard reaches a row's actions from the row itself (the side panel's buttons are the
+        // same actions, but Tab reaches them only across every later row).
+        el("td", { className: "c-more" }, el("button", {
+          type: "button", className: "sw-more", ariaLabel: "Row actions, switch " + (i + 1), ariaHaspopup: "menu", ariaExpanded: "false",
+          title: "Copy below or Remove this switch",
+        }, "\u22ef"))),
     );
   });
   $("swRows").replaceChildren(...body);
@@ -201,8 +217,8 @@ function patchSwitchGrid(r) {
     }
     const set = Object.values(x.row.ports || {}).filter((p) => p && Object.keys(p).length).length;
     const pb = tr.querySelector("button.sw-ports");
-    pb.textContent = set ? set + " set" : "table";
-    const label = "Ports of switch " + x.n + ", " + (set ? set + " set for this switch" : "all from the port table");
+    pb.textContent = set ? set + (set === 1 ? " own setting" : " own settings") : "Port table";
+    const label = "Ports of switch " + x.n + ", " + (set ? set + (set === 1 ? " setting of its own" : " settings of its own") : "all from the port table");
     if (pb.getAttribute("aria-label") !== label) pb.setAttribute("aria-label", label);
     pb.classList.toggle("has-set", set > 0);
     const st = switchStatus(x);
@@ -261,6 +277,8 @@ function renderSwitchPanel(r, x) {
   if (x) {
     $("swCopyRow").onclick = () => copySwitchRow(x.row.id);
     $("swRemoveRow").onclick = () => removeSwitchRow(x.row.id);
+    $("swCopyRow").title = "Copy switch " + x.n + " below itself";
+    $("swRemoveRow").title = "Remove switch " + x.n + (x.host ? " (" + x.host + ")" : "");
   }
   if (!x) {
     if (swPanelKeys.checks === "none") return;
@@ -360,13 +378,15 @@ function copySwitchRow(id) {
     message("At most " + CONFIG.MAX_FLEET_ROWS + " switches per recipe.");
     return;
   }
+  const host = String((rows[i].values && rows[i].values.HOSTNAME) || (r.values && r.values.HOSTNAME) || "").trim();
   const copy = { ...structuredClone(rows[i]), id: newSwitchId() };
   rows.splice(i + 1, 0, copy);
   swSelectedId = copy.id;
   touch();
   renderSwitches();
   focusSwitchRow(copy.id);
-  message("Copied switch " + (i + 1) + ". The copy is flagged as a duplicate until you change its hostname and management IP.");
+  message("Copied switch " + (i + 1) + (host ? " (" + host + ")" : "") + " as switch " + (i + 2) +
+    ". The copy is flagged as a duplicate until you change its hostname and management IP.");
 }
 // Puts focus on a row's first cell and scrolls it to the middle of the list.
 function focusSwitchRow(id) {
@@ -384,7 +404,10 @@ async function removeSwitchRow(id) {
   if (i < 0) return;
   const host = String((rows[i].values && rows[i].values.HOSTNAME) || (r.values && r.values.HOSTNAME) || "").trim();
   const what = "switch " + (i + 1) + (host ? " (" + host + ")" : "");
-  if (!(await confirmDialog("Remove this switch?", "Remove " + what + " from the list? This cannot be undone.", { ok: "Remove", danger: true }))) return;
+  if (!(await confirmDialog("Remove this switch?", "Remove " + what + " from the list? This cannot be undone.", { ok: "Remove", danger: true }))) {
+    message("Remove cancelled; " + what + " is kept.");
+    return;
+  }
   const j = rows.findIndex((x) => x.id === id);
   if (j >= 0) rows.splice(j, 1);
   touch();
@@ -855,7 +878,72 @@ $("swRows").addEventListener("click", (e) => {
   if (e.target.closest("button.sw-ports")) {
     const row = (current().switches || []).find((x) => x.id === id);
     if (row) openPortsDialog(row);
-  }
+  } else if (e.target.closest("button.sw-more")) openRowMenu(e.target.closest("button.sw-more"), id);
+});
+// The row's menu: Copy below and Remove for that row (the id is fixed when it opens). Arrow keys
+// move, Enter or Space runs the item, Esc (or focus leaving) closes and puts focus back on the
+// button. One menu at a time; a click elsewhere closes it.
+let rowMenu = null;
+function closeRowMenu(refocus) {
+  if (!rowMenu) return;
+  const { menu, button } = rowMenu;
+  rowMenu = null;
+  menu.remove();
+  button.setAttribute("aria-expanded", "false");
+  if (refocus && canFocus(button)) button.focus({ preventScroll: true });
+}
+function openRowMenu(button, id) {
+  if (rowMenu && rowMenu.button === button) return closeRowMenu(true);
+  closeRowMenu(false);
+  const r = current();
+  const i = (r.switches || []).findIndex((x) => x.id === id);
+  if (i < 0) return;
+  const host = String((r.switches[i].values && r.switches[i].values.HOSTNAME) || (r.values && r.values.HOSTNAME) || "").trim();
+  const who = "switch " + (i + 1) + (host ? " (" + host + ")" : "");
+  // Focus goes back to the button first: a confirm dialog opened by the item then returns to it.
+  const run = (fn) => () => { closeRowMenu(true); fn(id); };
+  const item = (label, cls, title, fn) =>
+    el("button", { type: "button", role: "menuitem", className: cls, title, tabIndex: -1, onclick: run(fn) }, label);
+  const menu = el("div", { className: "sw-row-menu", role: "menu", ariaLabel: "Actions for " + who },
+    item("Copy below", "", "Copy " + who + " below itself", copySwitchRow),
+    item("Remove", "danger", "Remove " + who, removeSwitchRow));
+  menu.addEventListener("keydown", (e) => {
+    const items = [...menu.querySelectorAll("[role=menuitem]")];
+    const at = items.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      items[(at + (e.key === "ArrowDown" ? 1 : items.length - 1)) % items.length].focus();
+    } else if (e.key === "Escape" || e.key === "Tab") {
+      e.preventDefault();
+      closeRowMenu(true);
+    }
+  });
+  // Under the button, right-aligned to it (fixed, so the scrolling grid box never clips it; a
+  // scroll or resize closes it).
+  const at = button.getBoundingClientRect();
+  menu.style.top = Math.round(at.bottom + 4) + "px";
+  menu.style.right = Math.max(8, Math.round(window.innerWidth - at.right)) + "px";
+  document.body.append(menu);
+  rowMenu = { menu, button };
+  button.setAttribute("aria-expanded", "true");
+  menu.querySelector("[role=menuitem]").focus();
+}
+document.addEventListener("mousedown", (e) => {
+  if (rowMenu && !rowMenu.menu.contains(e.target) && e.target !== rowMenu.button) closeRowMenu(false);
+});
+document.addEventListener("focusin", (e) => {
+  if (rowMenu && !rowMenu.menu.contains(e.target)) closeRowMenu(false);
+});
+document.addEventListener("scroll", () => closeRowMenu(false), true);
+window.addEventListener("resize", () => closeRowMenu(false));
+// From any cell of a row, Shift+F10 or the Menu key opens that row's actions.
+$("swRows").addEventListener("keydown", (e) => {
+  if (!(e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey))) return;
+  const tr = e.target.closest("tr[data-row]");
+  const b = tr && tr.querySelector("button.sw-more");
+  if (!b) return;
+  e.preventDefault();
+  openRowMenu(b, tr.dataset.row);
 });
 $("swAdd").onclick = () => {
   const r = current();
@@ -954,7 +1042,10 @@ $("swRemoveAll").onclick = async () => {
   if (!(await confirmDialog("Remove all switches?",
     "Remove all " + n + " switch" + (n === 1 ? "" : "es") + ' of recipe "' + r.name + '"? Device details on Build a card stay as they are.' +
       "\nThis cannot be undone. Save project first to keep a copy.",
-    { ok: "Remove all", danger: true }))) return;
+    { ok: "Remove all", danger: true }))) {
+    message("Remove all cancelled; the " + n + " switch" + (n === 1 ? " is" : "es are") + " kept.");
+    return;
+  }
   r.switches = [];
   swSelectedId = null;
   touch();

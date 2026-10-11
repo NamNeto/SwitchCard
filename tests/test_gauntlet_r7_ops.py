@@ -93,7 +93,7 @@ def test_ports_dialog_edits_are_not_autosaved_before_done(page):
     page.wait_for_selector("dialog[open]")
     page.locator("dialog[open] input[data-attr=description]").first.fill("UNCOMMITTED PORT EDIT")
     # the grid follows while the dialog is open
-    assert page.inner_text('#swRows tr[data-row="%s"] button.sw-ports' % ids[0]) == "1 set"
+    assert page.inner_text('#swRows tr[data-row="%s"] button.sw-ports' % ids[0]) == "1 own setting"
     page.wait_for_timeout(1200)
     saved = ev(page, "() => localStorage.getItem(AUTOSAVE_KEY)")
     assert "UNCOMMITTED PORT EDIT" not in saved
@@ -122,7 +122,7 @@ def test_ports_dialog_done_autosaves_and_cancel_restores(page):
     assert "Robot cell 1" in ev(page, "() => JSON.stringify(current().switches[0].ports)")
     # the Ports button names its switch for screen readers (M12)
     ev(page, "() => showView('switches')")
-    assert ev(page, "(s) => document.querySelector(s).getAttribute('aria-label')", btn) == "Ports of switch 1, 1 set for this switch"
+    assert ev(page, "(s) => document.querySelector(s).getAttribute('aria-label')", btn) == "Ports of switch 1, 1 setting of its own"
 
 
 # --- Minor fixes ---

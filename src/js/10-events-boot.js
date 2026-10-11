@@ -1,9 +1,10 @@
 // --- Event wiring (buttons, inputs); the boot sequence is in 11-boot.js ---
-$("setup").onclick = () => showView("manage");
-$("railBuild").onclick = () => showView("build");
-$("railSwitches").onclick = () => showView("switches");
-$("railCards").onclick = () => showView("cards");
-$("railManage").onclick = () => showView("manage");
+// The rail and Build's Manage button are the user's own view changes (refused during an export).
+$("setup").onclick = () => showView("manage", { user: true });
+$("railBuild").onclick = () => showView("build", { user: true });
+$("railSwitches").onclick = () => showView("switches", { user: true });
+$("railCards").onclick = () => showView("cards", { user: true });
+$("railManage").onclick = () => showView("manage", { user: true });
 // Hints are bounded to MAX_TEAM_HINTS lines of MAX_TEAM_HINT_CHARS, without control characters.
 function boundedHints(text) {
   const all = lines(text).filter((h) => !singleLineBad(h));
@@ -556,8 +557,10 @@ $("deleteRecipe").onclick = async () => {
         "? This cannot be undone in the browser (Save project first if you need a backup).",
       { ok: "Delete recipe", danger: true },
     ))
-  )
+  ) {
+    message("Delete cancelled; the recipe is kept.");
     return;
+  }
   const deleted = active;
   recipes = recipes.filter((r) => r.id !== deleted);
   active = recipes[0].id;

@@ -719,7 +719,7 @@ def test_ports_dialog_overrides_and_use_table(page):
     page.click(dlg + "button.remove-unknown[data-port='Gi9/9']")
     assert ev(page, "() => current().switches[0].ports") == {"GigabitEthernet1/3": {"description": "own text"}}
     click_dialog(page, "Done")  # gauntlet r6: the Ports dialog closes with Done (Cancel reverts)
-    assert page.inner_text("#swRows tr[data-row='sw-a'] button.sw-ports") == "1 set"
+    assert page.inner_text("#swRows tr[data-row='sw-a'] button.sw-ports") == "1 own setting"
     # focus option
     ev(page, "() => { openPortsDialog(current().switches[0], { name: 'GigabitEthernet1/3', attr: 'vlan' }); }")
     page.wait_for_selector("dialog[open]")
@@ -1236,11 +1236,13 @@ def test_import_header_decode_hint(page):
 
 def test_grid_has_no_per_row_copy_remove_columns(page):
     # gauntlet r8: Copy below and Remove act on the selected row from the side panel (labelled
-    # buttons), so the grid ends with the Ports column and carries no icon buttons.
+    # buttons), so the grid carries no icon columns; round 9 adds one quiet Row actions menu
+    # button at the row end (a hidden-text header), drawn only on the selected or hovered row.
     ev(page, """() => { current().switches = [{ id: 'sw-a', values: { HOSTNAME: 'A-01' }, ports: {} }]; showView('switches'); }""")
     ths = ev(page, "() => [...$('swHead').querySelectorAll('th')].map((t) => t.textContent)")
-    assert ths[-1] == "Ports" and "Copy" not in ths and "Remove" not in ths
-    assert ev(page, "() => $('swRows').querySelectorAll('button').length") == 1  # the Ports button only
+    assert ths[-2:] == ["Ports", "Row actions"] and "Copy" not in ths and "Remove" not in ths
+    assert ev(page, "() => [...$('swRows').querySelectorAll('button')].map((b) => b.className)") == ["sw-ports", "sw-more"]
+    assert ev(page, "() => getComputedStyle($('swRows').querySelector('button.sw-more')).visibility") == "hidden"
     assert ev(page, "() => [$('swCopyRow').textContent, $('swRemoveRow').textContent]") == ["Copy below", "Remove"]
 
 
