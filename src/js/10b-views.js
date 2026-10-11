@@ -134,8 +134,13 @@ function buildSwitchGrid(cols, rows) {
 function switchStatus(x) {
   const notes = x.warnings.length;
   const n = x.errors.length + x.policy.length;
+  // A duplicate says so under the count ("1 error · duplicate"): its red cell alone would not say
+  // what is wrong with it. Read off the checks, which keep their own wording.
+  const dup = x.errors.some((e) => /^duplicate /.test(e));
   return {
-    text: n ? n + (n === 1 ? " error" : " errors") : "OK" + (notes ? " · " + notes + (notes === 1 ? " note" : " notes") : ""),
+    text: n
+      ? n + (n === 1 ? " error" : " errors") + (dup ? " · duplicate" : "")
+      : "OK" + (notes ? " · " + notes + (notes === 1 ? " note" : " notes") : ""),
     title: [...x.errors, ...x.policy.map((p) => "Team policy: " + p), ...x.warnings].join("\n"),
     bad: n > 0,
   };
@@ -181,10 +186,15 @@ function patchSwitchGrid(r) {
     pb.classList.toggle("has-set", set > 0);
     const st = switchStatus(x);
     const td = tr.querySelector("td.status");
-    // A clean row stays quiet: "OK" in muted text, the note count fainter still (same text).
-    const notesAt = st.bad ? -1 : st.text.indexOf(" · ");
-    td.replaceChildren(el("span", { className: "pill " + (st.bad ? "pill-bad" : "pill-quiet") },
-      notesAt < 0 ? st.text : el("span", {}, st.text.slice(0, notesAt), el("span", { className: "st-notes" }, st.text.slice(notesAt)))));
+    // A clean row stays quiet: "OK" in muted text, the note count fainter still (same text). On
+    // an error row the kind of error sits under the count ("1 error" / "duplicate"); the cell's
+    // text is still "1 error · duplicate" (the separator is there, only not drawn).
+    const sepAt = st.text.indexOf(" · ");
+    const head = sepAt < 0 ? st.text : st.text.slice(0, sepAt);
+    const tail = sepAt < 0 ? "" : st.text.slice(sepAt + 3);
+    const pill = el("span", { className: "pill " + (st.bad ? "pill-bad" : "pill-quiet") },
+      !tail || st.bad ? head : el("span", {}, head, el("span", { className: "st-notes" }, " · " + tail)));
+    td.replaceChildren(pill, tail && st.bad ? el("span", { className: "st-what" }, el("span", { className: "visually-hidden" }, " · "), tail) : "");
     td.title = st.title;
     td.className = "status " + (st.bad ? "bad" : "ok");
     tr.classList.toggle("row-bad", st.bad);
@@ -194,13 +204,11 @@ function patchSwitchGrid(r) {
   // An empty list shows the empty state alone (no placeholder side panel).
   const layout = $("swPanel").closest(".sw-layout");
   if (layout) layout.classList.toggle("sw-none", !rows.length);
-  // Nothing to export or remove from an empty list: those two buttons leave the toolbar (the
-  // empty state's only jobs are Add and Import), and stay disabled while hidden.
+  // Nothing to export or remove from an empty list: the two buttons stay where they are (the
+  // toolbar keeps one shape) but are disabled, and their title says why.
   $("swExport").disabled = !rows.length;
-  $("swExport").hidden = !rows.length;
   $("swExport").title = rows.length ? "Download the list as CSV" : "No switches to export yet";
   $("swRemoveAll").disabled = !rows.length;
-  $("swRemoveAll").hidden = !rows.length;
   $("swRemoveAll").title = rows.length ? "Remove every switch from the list" : "The list is already empty";
   $("swNotes").textContent = res.warnings.join(" ");
   $("swNotes").hidden = !res.warnings.length;
@@ -255,12 +263,25 @@ function renderSwitchPanel(r, x) {
           el("button", { type: "button", title: "Copy this switch below itself", onclick: () => copySwitchRow(x.row.id) }, "Copy below"),
           el("button", { type: "button", className: "danger", title: "Remove this switch", onclick: () => removeSwitchRow(x.row.id) }, "Remove")))));
   }
-  $("swPreview").textContent = x.text || "No output: fix the errors above.";
+  fillConfigPre($("swPreview"), x.text || "No output: fix the errors above.");
   const prev = lastExport(r, x.host);
   if (prev && !x.errors.length) {
     $("swDiffPanel").hidden = false;
     fillDiff($("swDiffSummary"), $("swDiff"), prev, x.text);
   }
+}
+// IOS text in the side panel: every line is a block that wraps only at spaces (a token such as
+// 2026-10-01 or 255.255.255.0 is never split) with a hanging indent and a continuation bar, so a
+// continued line can never read as a second command. The box's textContent stays the text byte
+// for byte (the newline ends each block).
+function fillConfigPre(pre, text) {
+  const lines = String(text).split("\n");
+  pre.replaceChildren(...lines.map((line, i) => {
+    const b = el("span", { className: "pl" });
+    for (const part of line.split(/( +)/)) if (part) b.append(/^ +$/.test(part) ? part : el("span", { className: "tok" }, part));
+    if (i < lines.length - 1) b.append("\n");
+    return b;
+  }).filter((b, i) => i < lines.length - 1 || lines[i] !== ""));
 }
 function selectSwitch(id) {
   if (id === swSelectedId) return;
@@ -574,6 +595,7 @@ function openPortsDialog(row, focus) {
     title: "Ports · switch " + n + (host ? " (" + host + ")" : ""),
     body: wrap,
     actions: [{ label: "Close", value: true, primary: true }],
+    note: "Changes apply as you type. Use table puts a port back on the table.",
     onOpen: (dlg) => {
       dlg.classList.add("dlg-wide");
       if (focus) draw(focus);
@@ -786,8 +808,7 @@ function updateScrollHint(box) {
   if (hint) hint.hidden = !(max > 1 && box.scrollLeft < max - 1);
 }
 function watchScrollHints(root) {
-  // #swPreview never wraps, so it scrolls sideways like a table and fades the side that has more.
-  for (const box of (root || document).querySelectorAll(".scroll, #swPreview")) {
+  for (const box of (root || document).querySelectorAll(".scroll")) {
     if (box.__hint) continue;
     box.__hint = true;
     box.addEventListener("scroll", () => updateScrollHint(box), { passive: true });
