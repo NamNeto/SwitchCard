@@ -648,6 +648,30 @@ function checkFleet(r, csvText) {
   result.warnings.push(...checked.warnings);
   return result;
 }
+// The running bulk card export ({ step: "Card n of N: file" }), or null. While it is set the other
+// views stay closed (showView says why), so its progress and Cancel stay in sight and its pacing
+// between downloads is never cut short.
+let cardRun = null;
+const RAIL_LOCK_TITLE = "A card export is running: other views open again when it ends (or use Cancel after this card).";
+function lockRailForCardRun(on) {
+  const rail = $("rail");
+  rail.classList.toggle("rail-locked", on);
+  for (const b of rail.querySelectorAll("button")) {
+    const other = b.getAttribute("aria-current") !== "page";
+    // run() disabled the rail; enabled here so a click explains the lock instead of doing nothing.
+    b.disabled = on ? false : busy;
+    // A class, not aria-disabled: the click must still reach showView, which says why it refuses.
+    if (on && other) {
+      b.classList.add("rail-off");
+      b.dataset.lockTitle = b.title || "";
+      b.title = RAIL_LOCK_TITLE;
+    } else if (b.classList.contains("rail-off")) {
+      b.classList.remove("rail-off");
+      b.title = b.dataset.lockTitle || "";
+      delete b.dataset.lockTitle;
+    }
+  }
+}
 // Bulk export of checked switch rows (checkSwitchRows or checkFleet results): asks in the write
 // dialog, then one ZIP per switch plus the manifest, or one text-only ZIP; records each row in the
 // recipe's export history. Resolves false when cancelled. Runs inside run().
@@ -657,8 +681,8 @@ async function exportSwitchCards(r, results, opts) {
   const gates = blockers(r);
   if (gates.length) throw Error(gates[0]);
   if (!results.length) throw Error("No switches to export.");
-  const bad = results.filter((x) => x.errors.length || x.policy.length).map((x) => x.n);
-  if (bad.length) throw Error("Rows with errors: " + bad.join(", ") + "; nothing was exported.");
+  const bad = results.filter((x) => x.errors.length || x.policy.length);
+  if (bad.length) throw Error("Rows with errors: " + badRowsSummary(bad) + "; nothing was exported.");
   const n = results.length;
   const dkeys = deviceKeys(r);
   const lines = [
@@ -722,11 +746,14 @@ async function exportSwitchCards(r, results, opts) {
       stop.disabled = false;
       box.hidden = false;
       if (currentView === "cards") stop.focus({ preventScroll: true });
+      cardRun = { step: "" };
+      lockRailForCardRun(true);
       try {
         for (let i = 0; i < n && !stopped; i++) {
           const row = results[i];
           const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
           const step = "Card " + (i + 1) + " of " + n + ": " + name;
+          cardRun.step = step;
           label.textContent = step;
           download(await zip(buildCardFiles({ text: row.text }), when), name);
           message(step); // after zip(), whose own "Packaging" lines would hide it
@@ -737,6 +764,8 @@ async function exportSwitchCards(r, results, opts) {
           await new Promise((resolve) => setTimeout(resolve, 400));
         }
       } finally {
+        cardRun = null;
+        lockRailForCardRun(false); // run() then restores the rail as it was before the run
         if (document.activeElement === stop) stop.blur(); // run() puts focus back on the opener
         box.hidden = true;
         stop.onclick = null;
@@ -758,7 +787,7 @@ async function exportSwitchCards(r, results, opts) {
   }
   message(
     "Export finished: " + n + " switch" + (n === 1 ? "" : "es") +
-      (textOnly ? " in one text-only ZIP (HOSTNAME/editcontent.txt + fleet-manifest.txt)." : " as separate card ZIPs plus a manifest with every SHA-256. If the browser blocked some downloads, allow multiple downloads for this page and export again.") +
+      (textOnly ? " in one text-only ZIP (HOSTNAME/editcontent.txt + fleet-manifest.txt)." : (n === 1 ? " as one card ZIP" : " as separate card ZIPs") + " plus a manifest with every SHA-256. If the browser blocked some downloads, allow multiple downloads for this page and export again.") +
       " Each hostname's text is remembered for the next comparison; Save project to keep that.",
   );
   return true;

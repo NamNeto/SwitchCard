@@ -68,6 +68,20 @@ function showDialog({ title, body, actions, onOpen }) {
     }
     dlg.append(el("h2", {}, title), el("div", { className: "dialog-body" }, body), bar);
     dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(null); });
+    // Tab wraps inside the dialog: from the last control to the first and back, never via <body>.
+    dlg.addEventListener("keydown", (e) => {
+      if (e.key !== "Tab" || e.altKey || e.ctrlKey || e.metaKey) return;
+      const list = [...dlg.querySelectorAll("button, input, select, textarea, a[href], summary, [tabindex]:not([tabindex='-1'])")]
+        .filter((n) => canFocus(n) && n.tabIndex >= 0);
+      if (!list.length) return;
+      const first = list[0],
+        last = list[list.length - 1],
+        a = document.activeElement;
+      if (e.shiftKey ? a === first || !dlg.contains(a) : a === last || !dlg.contains(a)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      }
+    });
     document.body.appendChild(dlg);
     dlg.showModal();
     if (onOpen) onOpen(dlg);

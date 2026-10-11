@@ -79,6 +79,7 @@ Build many cards from one recipe. The rail on the left holds **Build a card**, *
 - **Export CSV** downloads the list as stored (empty cells stay empty), with port columns only for settings some switch has. Importing that file reproduces the list.
 - **CSV → Download template** downloads the exact header the recipe needs, with row 1 filled with the switch on *Build a card*; the **Template** picker beside it chooses the port columns (port descriptions, all port settings, or switch fields only). **Export** writes the list as CSV.
 - **Remove all** empties the list after a dialog.
+- Pasting several lines or spreadsheet cells into one cell is refused with a note; use **CSV → Import** to fill many switches.
 
 **Per-switch ports.** Port roles, VLANs and descriptions come from the port table on *Build a card* and are shared by every switch. The **Ports** column counts the ports a switch overrides and opens its **Ports** dialog: one line per port with Interface, Role, VLAN, Description, IP and Mask. Grey values come from the port table; typing sets the value for this switch only, and **Use table** clears that switch's settings for the port. In a CSV, a column named after an interface and one of `description`, `role`, `vlan`, `ip` or `mask`, for example `Gi1/3 description` or `GigabitEthernet1/1 ip`, does the same. A column naming an interface the recipe does not have, or an unknown role, is an error. When *Apply recipe changes* removes interfaces from the recipe, a dialog lists the per-switch settings on those ports, and only those are dropped.
 
@@ -93,10 +94,10 @@ Build many cards from one recipe. The rail on the left holds **Build a card**, *
 - **changed since** with the date: click it for a dialog with the line diff (or, when the old text is no longer stored, the two SHA-256 values);
 - **not tracked**: the recipe does not use `HOSTNAME`, so exports are not remembered.
 
-Click a status to open that switch in Switches. The gate line above the table names what blocks export, with the same gates as a single card (unapplied draft, example recipe, matching baseline) plus the rows with errors or team-policy failures.
+Click a status to open that switch in Switches. The gate line above the table names what blocks export, with the same gates as a single card (unapplied draft, example recipe, matching baseline) plus the rows with errors or team-policy failures, each with what is wrong, for example *Rows with errors: 2, 3 (duplicate MGMT_IP 10.20.30.13) · 5 (template still contains the example header)*. The first three problems are named, then *and N more rows*.
 
 - **Card ZIP** exports one switch.
-- **All card ZIPs** writes one SD-card ZIP per switch, then a manifest with every file name and hash. Browsers ask once whether to allow multiple downloads; if some were blocked, allow them and export again. While it runs, the Cards view shows *Card 8 of 24: file name* and **Cancel after this card**; the cards already written stay recorded as exported, the manifest lists just those, and **Changed and new only** writes the rest.
+- **All card ZIPs** writes one SD-card ZIP per switch, then a manifest with every file name and hash. Browsers ask once whether to allow multiple downloads; if some were blocked, allow them and export again. While it runs, the Cards view shows *Card 8 of 24: file name* and **Cancel after this card**; the cards already written stay recorded as exported, the manifest lists just those, and **Changed and new only** writes the rest. The other views stay closed until the run ends (a click on the rail says so), so the progress and Cancel stay in sight and the cards keep their pace between downloads.
 - **Changed and new only (n)** exports only the switches that were never exported or changed since; it is disabled when every card is up to date.
 - **Text-only ZIP** writes one ZIP with `HOSTNAME/editcontent.txt` per switch plus the manifest, for workflows that add the baseline separately.
 
@@ -151,7 +152,7 @@ When such a character blocks export, a **Transliterate to ASCII** button appears
 
 - **Delete recipe**: next to Duplicate; asks first and names how many switches go with the recipe. The last recipe cannot be deleted.
 - **Discard unapplied draft**: reloads the editor from the last applied recipe and clears the draft from autosave.
-- **Copy preview**: copies the generated text when checks pass. Some `file://` setups block the clipboard; use **Save text only** instead.
+- **Copy preview**: copies the generated text when checks pass. Some `file://` setups block the clipboard; use **Save text only** instead. Save text only is blocked for an *Example recipe* (its text is fictional), like the SD-card export; Copy preview still works.
 - **Clear browser autosave**: removes all SwitchCard data in this browser storage area after a dialog (see [SECURITY.md](../SECURITY.md)). In-memory work stays until reload.
 - **Advanced output options** (per recipe, off by default): optional `!` header/footer comments with a SHA-256, and `default interface` before each port. Not device-tested; see [EEM-CONTRACT.md](EEM-CONTRACT.md) before enabling.
 

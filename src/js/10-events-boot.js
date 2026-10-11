@@ -305,6 +305,8 @@ $("applyPortCsv").onclick = () => {
 
 $("dismissOnboarding").onclick = () => {
   $("onboarding").hidden = true;
+  // The button just hid itself: focus moves on to step 1 (the recipe picker), never to <body>.
+  if (canFocus($("recipe"))) $("recipe").focus({ preventScroll: true });
   // Storage may be blocked (file:// policies, private mode): never throw here.
   try {
     localStorage.setItem(ONBOARD_KEY, "1");
@@ -616,7 +618,12 @@ $("downloadConfig").onclick = () => {
     message("Apply recipe changes or Discard unapplied draft first.");
     return;
   }
-  const g = generate(current());
+  const r = current();
+  if (r.example) {
+    message(EXAMPLE_TEXT_BLOCKED);
+    return;
+  }
+  const g = generate(r);
   if (g.errors.length) return;
   const policyHits = policyViolations(g.text, teamPolicies);
   if (policyHits.length) {

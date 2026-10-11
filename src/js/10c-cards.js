@@ -13,6 +13,32 @@ function formatExportAt(iso) {
 function cardRowBad(x) {
   return x.errors.length > 0 || x.policy.length > 0;
 }
+// What is wrong with a row, in a few words, for the gate and bulk status lines: the first error
+// (duplicates name the shared value), else the first team-policy hit.
+function rowProblem(x) {
+  const e = x.errors[0];
+  if (!e) return x.policy.length ? "team policy: " + String(x.policy[0]).replace(/\.$/, "") : "";
+  if (/^duplicate HOSTNAME/.test(e)) return "duplicate HOSTNAME " + x.host;
+  if (/^duplicate MGMT_IP/.test(e)) return "duplicate MGMT_IP " + x.ip;
+  if (/^The template still contains the example header line/.test(e)) return "template still contains the example header";
+  const t = String(e).replace(/\.$/, "");
+  return t.length > 70 ? t.slice(0, 67) + "…" : t;
+}
+// "2, 3 (duplicate MGMT_IP 10.20.30.13) · 5 (template still contains the example header)": rows
+// grouped by problem, the first three problems, then "and N more rows".
+function badRowsSummary(xs) {
+  const groups = new Map();
+  for (const x of xs) {
+    const why = rowProblem(x);
+    if (groups.has(why)) groups.get(why).push(x.n);
+    else groups.set(why, [x.n]);
+  }
+  const list = (ns) => (ns.length > 6 ? ns.slice(0, 5).join(", ") + " +" + (ns.length - 5) + " more" : ns.join(", "));
+  const all = [...groups];
+  const shown = all.slice(0, 3).map(([why, ns]) => list(ns) + (why ? " (" + why + ")" : ""));
+  const rest = all.slice(3).reduce((sum, [, ns]) => sum + ns.length, 0);
+  return shown.join(" · ") + (rest ? " · and " + rest + " more row" + (rest === 1 ? "" : "s") : "");
+}
 // The checked rows plus their export states, for the current recipe.
 function cardRows(r) {
   const rows = r.switches || [];
@@ -80,10 +106,9 @@ function renderCards() {
   $("cdTable").classList.toggle("is-blocked", blocked);
   $("cdEmpty").hidden = items.length > 0;
   const badRows = items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x.n);
-  const policyRows = items.filter(({ x }) => x.policy.length).map(({ x }) => x.n);
   const reasons = [...gates];
   if (badRows.length)
-    reasons.push("Rows with errors: " + badRows.join(", ") + (policyRows.length ? " (team policy: " + policyRows.join(", ") + ")" : "") + ".");
+    reasons.push("Rows with errors: " + badRowsSummary(items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x)) + ".");
   renderGate($("cdGates"), reasons, items.length ? "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + "." : "", "cdFixGate");
   const changed = items.filter(({ st }) => st.state === "new" || st.state === "changed").length;
   // Counts at a glance: "12 switches · 6 up to date · 3 changed · 3 new · 1 with errors".
@@ -131,9 +156,9 @@ function exportCardsBulk(which) {
       message(which === "changed" ? "Every card is up to date." : "No switches to export yet.");
       return;
     }
-    const bad = items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x.n);
+    const bad = items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x);
     if (bad.length) {
-      message("Rows with errors: " + bad.join(", ") + ". Fix them in Switches; nothing was exported.");
+      message("Rows with errors: " + badRowsSummary(bad) + ". Fix them in Switches; nothing was exported.");
       return;
     }
     await exportSwitchCards(r, items.map(({ x }) => x), { textOnly: which === "text" });

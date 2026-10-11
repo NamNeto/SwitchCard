@@ -885,7 +885,7 @@ def test_cards_gates_example_and_errors(page):
     assert page.is_enabled(_cd_row(ids[0], "button.cd-card"))
     stub_downloads(page)
     page.click("#cdAll")
-    page.wait_for_function("() => $('status').textContent.includes('Rows with errors: 2.')")
+    page.wait_for_function("() => $('status').textContent.includes('Rows with errors: 2 (') && $('status').textContent.includes('nothing was exported')")
     assert ev(page, "() => !!document.querySelector('dialog[open]')") is False
     assert downloads(page) == []
 
@@ -944,11 +944,11 @@ def test_cards_team_policy_row_blocks(page):
     ev(page, "() => { teamPolicies = ['forbid ^hostname IE3100-DEMO-02$']; renderCards(); }")
     assert page.is_disabled(_cd_row(ids[1], "button.cd-card"))
     assert page.is_enabled(_cd_row(ids[0], "button.cd-card"))
-    assert "Rows with errors: 2 (team policy: 2)" in page.inner_text("#cdGates")
+    assert "Rows with errors: 2 (team policy: forbidden pattern present: ^hostname IE3100-DEMO-02$)." in page.inner_text("#cdGates")
     assert page.inner_text(_cd_row(ids[1], "button.cd-status")) == "1 error"
     stub_downloads(page)
     page.click("#cdAll")
-    page.wait_for_function("() => $('status').textContent.includes('Rows with errors: 2.')")
+    page.wait_for_function("() => $('status').textContent.includes('Rows with errors: 2 (') && $('status').textContent.includes('nothing was exported')")
     assert ev(page, "() => !!document.querySelector('dialog[open]')") is False
     assert downloads(page) == []
 

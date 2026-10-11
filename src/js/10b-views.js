@@ -19,6 +19,10 @@ const VIEW_SUBTITLES = {
 // Shows one view. Leaving the recipe editor is refused while it holds an unapplied draft.
 function showView(name) {
   if (!VIEW_SECTIONS[name]) return false;
+  if (typeof cardRun !== "undefined" && cardRun && name !== currentView) {
+    message("A card export is running (" + cardRun.step + "). Other views open again when it ends; use Cancel after this card to stop early.");
+    return false;
+  }
   if (name !== "manage" && editorPending) {
     message("Apply your recipe changes before leaving the recipe editor.");
     return false;
@@ -217,7 +221,10 @@ function renderSwitchPanel(r, x) {
   $("swPanelTitle").textContent = title;
   const items = [
     ...x.findings.map((f) => ({ level: f.level, text: f.text, where: f.where })),
-    ...x.policy.map((p) => ({ level: "error", text: "Team policy: " + p, where: { kind: "policy" } })),
+    // Team-policy results are listed even while the row has other errors (the row check stops at
+    // the first kind; the panel shows both, as Build does).
+    ...(x.policy.length ? x.policy : x.errors.length && x.text ? policyViolations(x.text, teamPolicies) : [])
+      .map((p) => ({ level: "error", text: "Team policy: " + p, where: { kind: "policy" } })),
   ].sort((a, b) => (a.level === "error" ? 0 : 1) - (b.level === "error" ? 0 : 1)); // errors first (stable)
   // Each check is a button that jumps to what it is about (this row's cell, its Ports dialog, ...).
   const ctx = { view: "switches", rowId: x.row.id };
@@ -567,7 +574,14 @@ function openPortsDialog(row, focus) {
       if (focus) draw(focus);
     },
   }).then(() => {
-    if (currentView === "switches") renderSwitches();
+    if (currentView !== "switches") return;
+    renderSwitches();
+    // A fixed check removes the button that opened the dialog: focus goes to this row's Ports button.
+    if (focusLost() || !canFocus(document.activeElement)) {
+      const tr = [...$("swRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === row.id);
+      const pb = tr && tr.querySelector("button.sw-ports");
+      if (canFocus(pb)) pb.focus({ preventScroll: true });
+    }
   });
 }
 // --- Clickable checks: a check's location -> the control it is about ---
@@ -685,6 +699,16 @@ $("swRows").addEventListener("input", (e) => {
   // Addresses and numbers are trimmed while typing, as on Build a card.
   const k = t.dataset.key;
   setSwitchCell(t, cleanInput(t, fieldLabel(k), /(?:^|_)(?:IP|MASK|VLAN|LOOPBACK)$|^GATEWAY$/.test(k)));
+});
+// Several lines or spreadsheet cells pasted into one cell would join into one value: refused with
+// a pointer to Import CSV. Surrounding spaces and line breaks alone are fine (trimmed as before).
+$("swRows").addEventListener("paste", (e) => {
+  const t = e.target;
+  if (!t.matches("input[data-key]") || !e.clipboardData) return;
+  const text = e.clipboardData.getData("text/plain").trim();
+  if (!/[\r\n\t]/.test(text)) return;
+  e.preventDefault();
+  message("Not pasted: that text holds several lines or cells, and one cell takes one value. To fill many switches, use Import CSV (a header row, then one row per switch).");
 });
 // Trim when the cell loses focus, not while typing.
 $("swRows").addEventListener("change", (e) => {
@@ -814,6 +838,8 @@ $("swRemoveAll").onclick = async () => {
   swSelectedId = null;
   touch();
   renderSwitches();
+  // Remove all is hidden with the list: focus goes to the empty state's Add switches.
+  if ((focusLost() || !canFocus(document.activeElement)) && canFocus($("swEmptyAdd"))) $("swEmptyAdd").focus({ preventScroll: true });
   message("Removed all " + n + " switch" + (n === 1 ? "" : "es") + ".");
 };
 // The shared recipe picker re-renders the list (its onchange, set earlier, switches the recipe).
