@@ -33,7 +33,14 @@ def test_save_text_only_is_blocked_for_an_example_recipe(page):
     ev(page, """(h) => { const r = current(); r.example = false; r.template = r.template.replace(h, '! Plant test');
         baseline = null; renderAll(); renderPreview(); }""", HEADER)
     assert page.is_enabled("#downloadConfig")
+    # (r10, ops-r5 D1) the text goes through the same write dialog as the card exports
     page.click("#downloadConfig")
+    page.wait_for_selector("dialog[open] input[type=checkbox]")
+    assert ev(page, "() => document.querySelector('dialog[open] h2').textContent") == "Save text only?"
+    assert downloads(page) == []
+    page.check("dialog[open] input[type=checkbox]")
+    click_dialog(page, "Download text")
+    page.wait_for_selector("dialog[open]", state="detached")
     d = downloads(page)
     assert [x["name"] for x in d] == ["editcontent.txt"]
     assert d[0]["text"] == ev(page, "() => $('preview').textContent")

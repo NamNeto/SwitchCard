@@ -372,9 +372,13 @@ function baselineDiffersWarning() {
   return "Baseline fingerprint " + c.summary + (c.changed.length ? "; changed: " + c.changed.slice(0, 5).join(", ") : "") +
     ". Use the recorded folder, or Save project to record this one.";
 }
-function exportConfirmSummary(r, g) {
+// opts.textOnly: Build's Save text only goes through the same write dialog as the card exports
+// (operator round 5); only editcontent.txt is written, so the heading and the closing line say
+// so. The baseline lines stay: the fingerprint verdict is shown on every write path alike.
+function exportConfirmSummary(r, g, opts) {
+  const textOnly = !!(opts && opts.textOnly);
   const lines = [
-    "What goes on the card",
+    textOnly ? "What goes in editcontent.txt" : "What goes on the card",
     "",
     "Recipe: " + (r.name || "(unnamed)"),
     "Hostname: " + boundIdentityLabel(r, "HOSTNAME"),
@@ -414,7 +418,9 @@ function exportConfirmSummary(r, g) {
         : "(none)"),
     baselineFingerprintLine(),
     "",
-    "Root editcontent.txt in the ZIP is exactly this preview text.",
+    textOnly
+      ? "editcontent.txt is exactly this preview text. No baseline files are written (Export SD-card ZIP writes the whole card)."
+      : "Root editcontent.txt in the ZIP is exactly this preview text.",
     "",
     "Cancel = no download.",
   );

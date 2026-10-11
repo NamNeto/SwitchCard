@@ -169,7 +169,9 @@ function visiblePreviewLines(pre) {
   const total = blocks.length;
   if (!total || pre.scrollHeight <= pre.clientHeight + 1) return null;
   const box = pre.getBoundingClientRect();
-  const top = box.top + 1 + 16, bottom = box.top + pre.clientHeight + 1;
+  // The box's inner edge is its border (the top inset scrolls with the text, so a line shown there
+  // counts; operator round 5: a fully visible top line was left out of the cue mid-scroll).
+  const top = box.top + 1, bottom = box.top + pre.clientHeight + 1;
   let first = 0, last = 0;
   blocks.forEach((b, i) => {
     const r = b.getBoundingClientRect();
@@ -739,30 +741,45 @@ $("folderInput").onchange = () =>
     );
     $("folderInput").value = "";
   });
-$("downloadConfig").onclick = () => {
-  if (editorPending) {
-    message("Apply recipe changes or Discard unapplied draft first.");
-    return;
-  }
-  const r = current();
-  if (r.example) {
-    message(EXAMPLE_TEXT_BLOCKED);
-    return;
-  }
-  const g = generate(r);
-  if (g.errors.length) return;
-  const policyHits = policyViolations(g.text, teamPolicies);
-  if (policyHits.length) {
-    message("Team policy blocks this text: " + policyHits[0]);
-    return;
-  }
-  download(new Blob([g.text], { type: "text/plain;charset=utf-8" }), "editcontent.txt");
-  message(
-    "Text exported as editcontent.txt (" +
-      previewSizeLabel(g.text) +
-      "). A browser may append a number if that filename already exists in Downloads.",
-  );
-};
+// Save text only: the same gates as before (draft, example recipe, input errors, team policy; no
+// baseline needed), then the same write dialog as every card export (operator round 5): bound
+// values, SHA-256, the baseline fingerprint verdict and the review tick before any download.
+$("downloadConfig").onclick = () =>
+  run(async () => {
+    if (editorPending) {
+      message("Apply recipe changes or Discard unapplied draft first.");
+      return;
+    }
+    const r = current();
+    if (r.example) {
+      message(EXAMPLE_TEXT_BLOCKED);
+      return;
+    }
+    const g = generate(r);
+    if (g.errors.length) return;
+    const policyHits = policyViolations(g.text, teamPolicies);
+    if (policyHits.length) {
+      message("Team policy blocks this text: " + policyHits[0]);
+      return;
+    }
+    if (
+      !(await writeDialog({
+        title: "Save text only?",
+        summary: exportConfirmSummary(r, g, { textOnly: true }),
+        primary: "Download text",
+        warning: baselineDiffersWarning(),
+      }))
+    ) {
+      message("Save text only cancelled.");
+      return;
+    }
+    download(new Blob([g.text], { type: "text/plain;charset=utf-8" }), "editcontent.txt");
+    message(
+      "Text exported as editcontent.txt (" +
+        previewSizeLabel(g.text) +
+        "). A browser may append a number if that filename already exists in Downloads.",
+    );
+  });
 
 function assertExportReady() {
   const r = current();
@@ -878,7 +895,11 @@ $("projectInput").onchange = () =>
       const notes = await acceptProject(restoredFile.p, null, restoredFile);
       let msg =
         "Project opened. Reload its baseline folder or open a team package to include firmware.";
-      if (restoredFile.draft) msg += " Unapplied recipe draft restored into the editor; Apply or Discard before export.";
+      if (restoredFile.draft) {
+        msg += " Unapplied recipe draft restored into the editor; Apply or Discard before export.";
+        // The view changed to Manage, so the Open project control that had focus is out of sight.
+        focusDraftStart();
+      }
       if (restoredFile.preservedAutosaveRaw) msg += " Earlier stored autosave bytes remain included as preservedAutosaveRaw in the imported wrapper and this workspace.";
       msg += parkedDraftNote(restoredFile);
       if (notes && notes.length) msg += " Migration notes: " + notes.join(" ");
@@ -997,6 +1018,23 @@ function restorePendingDraft(draft) {
   $("editRecipe").value = active;
   tab(true);
   renderPreview();
+}
+// A restored draft lands in Manage and the status line says "click Apply recipe changes": focus
+// starts on that button, in the bar pinned at the window's bottom, so it is visible at any scroll
+// position (operator round 5: the focus fell to the page after Open project, and a reload with a
+// draft focused the heading off screen). Nothing is applied until Enter is pressed.
+function focusDraftStart() {
+  const b = $("applyRecipe");
+  if (!b || b.closest("[hidden]")) return false;
+  // Inside run() (Open project) the controls are disabled until the run ends: focus then.
+  if (busy) {
+    focusAfterRun(b);
+    return true;
+  }
+  if (!canFocus(b)) return false;
+  b.focus({ preventScroll: true });
+  if (b.scrollIntoView) b.scrollIntoView({ block: "nearest" });
+  return true;
 }
 function applyRestoredResult(restored, source) {
   const meta = restored.meta || {};

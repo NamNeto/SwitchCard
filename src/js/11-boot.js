@@ -45,8 +45,9 @@ let bootDone = false;
     }
     refreshBackupButtons();
     // A boot dialog was answered (its opener was the page itself): focus starts on the first
-    // control of the task, the recipe picker, or the view heading when that is not in view.
-    if (restored && focusLost()) {
+    // control of the task, the recipe picker, or the view heading when that is not in view. A
+    // restored draft starts on Apply recipe changes (pinned in view) instead.
+    if (restored && focusLost() && !(restored.draft && focusDraftStart())) {
       const start = [$("recipe"), $("viewTitle")].find((n) => n && !n.closest("[hidden]"));
       if (start) start.focus({ preventScroll: true });
     }

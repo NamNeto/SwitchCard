@@ -210,9 +210,17 @@ async function unzip(file) {
 // a run (its buttons are disabled; showView refuses while busy), and with 200 switches its 2000
 // cells would cost a style and layout pass at both ends of every export.
 const RUN_CONTROLS = ":is(input,select,textarea,button):not(#switches[hidden] *)";
+// A control the running task wants focused when it ends (the controls are disabled meanwhile, so
+// it cannot take focus during the run): set with focusAfterRun(); used when the opener is gone.
+let runFocusTarget = null;
+function focusAfterRun(n) {
+  if (busy) runFocusTarget = n;
+  else if (canFocus(n)) n.focus({ preventScroll: true });
+}
 async function run(fn) {
   if (busy) return;
   busy = true;
+  runFocusTarget = null;
   const opener = document.activeElement; // disabled below; focus goes back to it at the end
   document.querySelectorAll(RUN_CONTROLS).forEach((el) => {
     el.dataset.beforeDisabled = el.disabled ? "1" : "0";
@@ -232,6 +240,12 @@ async function run(fn) {
     // Re-enabling restored the states from before the run; let the rail and Cards view set the
     // current ones (a now-empty "Changed and not exported" turns off) before focus goes back.
     if (typeof updateRail === "function") updateRail();
-    restoreFocus(opener);
+    const want = runFocusTarget;
+    runFocusTarget = null;
+    // The task's own target first (a view changed under the opener); else back to the opener.
+    if (want && focusLost() && canFocus(want)) {
+      want.focus({ preventScroll: true });
+      if (want.scrollIntoView) want.scrollIntoView({ block: "nearest" });
+    } else restoreFocus(opener);
   }
 }

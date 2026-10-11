@@ -52,8 +52,14 @@ def test_keyboard_row_actions_act_on_the_focused_row(page):
     page.wait_for_selector("dialog[open]", state="detached")
     assert ev(page, "() => current().switches.length") == 9
     assert page.inner_text("#status").startswith("Remove cancelled; switch 6")
-    assert ev(page, "() => document.activeElement.className") == "sw-more"
-    # Esc on the menu closes it and puts focus back on the button; the panel's buttons name the row
+    # a menu asked for from a cell gives focus back to that cell (r10, ops-r5 D8), via the dialog too
+    assert ev(page, "() => document.activeElement.getAttribute('aria-label')") == "Site, switch 6"
+    page.keyboard.press("Shift+F10")
+    page.wait_for_selector(".sw-row-menu")
+    page.keyboard.press("Escape")
+    assert ev(page, "() => !document.querySelector('.sw-row-menu') && document.activeElement.getAttribute('aria-label') === 'Site, switch 6'")
+    # Esc on a menu opened from the button puts focus back on the button; the panel's buttons name the row
+    ev(page, "(id) => document.querySelector(`#swRows tr[data-row='${id}'] button.sw-more`).focus()", ids[5])
     page.keyboard.press("Enter")
     page.wait_for_selector(".sw-row-menu")
     page.keyboard.press("Escape")

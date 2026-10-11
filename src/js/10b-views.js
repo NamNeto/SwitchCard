@@ -516,7 +516,12 @@ function openImportDialog() {
       box.focus();
     },
   }).then((choice) => {
-    if (!choice || !parsed || parsed.errors.length || !parsed.rows.length) return;
+    if (!choice || !parsed || parsed.errors.length || !parsed.rows.length) {
+      // Cancel or Esc: said at once, so an earlier "Imported …" status never reads as this run's
+      // result (operator round 5).
+      message("Import cancelled; the switch list is unchanged.");
+      return;
+    }
     const before = (r.switches || []).length;
     r.switches = choice === "replace" ? parsed.rows : (r.switches || []).concat(parsed.rows);
     swSelectedId = null;
@@ -882,17 +887,21 @@ $("swRows").addEventListener("click", (e) => {
 });
 // The row's menu: Copy below and Remove for that row (the id is fixed when it opens). Arrow keys
 // move, Enter or Space runs the item, Esc (or focus leaving) closes and puts focus back on the
-// button. One menu at a time; a click elsewhere closes it.
+// button, or on the cell the menu was opened from with Shift+F10 (operator round 5). One menu at
+// a time; a click elsewhere closes it.
 let rowMenu = null;
 function closeRowMenu(refocus) {
   if (!rowMenu) return;
-  const { menu, button } = rowMenu;
+  const { menu, button, opener } = rowMenu;
   rowMenu = null;
   menu.remove();
   button.setAttribute("aria-expanded", "false");
-  if (refocus && canFocus(button)) button.focus({ preventScroll: true });
+  if (!refocus) return;
+  const back = canFocus(opener) ? opener : button;
+  if (canFocus(back)) back.focus({ preventScroll: true });
 }
-function openRowMenu(button, id) {
+// opener: the control that had focus when the menu was asked for from a cell (focus returns there).
+function openRowMenu(button, id, opener) {
   if (rowMenu && rowMenu.button === button) return closeRowMenu(true);
   closeRowMenu(false);
   const r = current();
@@ -900,7 +909,7 @@ function openRowMenu(button, id) {
   if (i < 0) return;
   const host = String((r.switches[i].values && r.switches[i].values.HOSTNAME) || (r.values && r.values.HOSTNAME) || "").trim();
   const who = "switch " + (i + 1) + (host ? " (" + host + ")" : "");
-  // Focus goes back to the button first: a confirm dialog opened by the item then returns to it.
+  // Focus goes back to the opener first: a confirm dialog opened by the item then returns to it.
   const run = (fn) => () => { closeRowMenu(true); fn(id); };
   const item = (label, cls, title, fn) =>
     el("button", { type: "button", role: "menuitem", className: cls, title, tabIndex: -1, onclick: run(fn) }, label);
@@ -924,7 +933,7 @@ function openRowMenu(button, id) {
   menu.style.top = Math.round(at.bottom + 4) + "px";
   menu.style.right = Math.max(8, Math.round(window.innerWidth - at.right)) + "px";
   document.body.append(menu);
-  rowMenu = { menu, button };
+  rowMenu = { menu, button, opener: opener && opener !== button && opener.closest("#swRows tr[data-row]") ? opener : null };
   button.setAttribute("aria-expanded", "true");
   menu.querySelector("[role=menuitem]").focus();
 }
@@ -943,7 +952,7 @@ $("swRows").addEventListener("keydown", (e) => {
   const b = tr && tr.querySelector("button.sw-more");
   if (!b) return;
   e.preventDefault();
-  openRowMenu(b, tr.dataset.row);
+  openRowMenu(b, tr.dataset.row, e.target);
 });
 $("swAdd").onclick = () => {
   const r = current();
