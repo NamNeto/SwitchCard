@@ -25,17 +25,24 @@ def test_preview_meter_is_not_covered_by_the_footer(page):
         assert m["gap"] >= 0 and m["scrolled"] == 0, (h, m)
 
 
-# --- (2) a team-policy hit marks the status cell (no single cell is at fault) ---
-def test_policy_row_marks_its_status_cell(page):
+# --- (2) a team-policy hit names its rule in the status cell and outlines the cell whose value
+#         matched (round 11); a hit with no value behind it marks the row alone ---
+def test_policy_row_names_the_rule_and_outlines_the_matched_cell(page):
     _real(page)
     ev(page, """() => { const r = current(); r.switches = countedUpRows(r, [], 3).rows;
         r.switches[1].values.HOSTNAME = 'PKG-TEST-02'; teamPolicies = ['forbid ^hostname .*TEST']; renderAll(); showView('switches'); }""")
-    # r10: the row is marked like every other error row (red bar, "1 error · policy", the rule in the
-    # cell's title); the cell itself carries no extra box.
     cells = ev(page, "() => [...document.querySelectorAll('#swRows td.status')].map((t) => [t.className, getComputedStyle(t).boxShadow !== 'none', t.textContent, t.closest('tr').classList.contains('row-bad'), t.querySelector('[title]') ? t.querySelector('[title]').title : t.title])")
-    assert cells[1][0] == "status bad policy" and cells[1][1] is False and cells[1][2] == "1 error · policy" and cells[1][3] is True
+    assert cells[1][0] == "status bad policy" and cells[1][1] is False and cells[1][2] == "1 error · policy: forbid ^hostname .*TEST" and cells[1][3] is True
     assert "Team policy: forbidden pattern present: ^hostname .*TEST" in cells[1][4]
     assert cells[0][0] == "status ok" and cells[0][1] is False and cells[0][3] is False
+    host = ev(page, "() => { const i = document.querySelectorAll('#swRows tr[data-row]')[1].querySelector('input[data-key=HOSTNAME]'); return [i.classList.contains('cell-bad'), i.getAttribute('aria-invalid'), i.title]; }")
+    assert host == [True, "true", "Team policy: forbidden pattern present: ^hostname .*TEST"]
+    others = ev(page, "() => [...document.querySelectorAll('#swRows tr[data-row]')[1].querySelectorAll('input.cell-bad')].length")
+    assert others == 1
+    # a rule the values do not explain (a command in the template) marks no cell
+    ev(page, "() => { teamPolicies = ['forbid ^ip http server']; const r = current(); r.template += '\\nip http server\\n'; renderAll(); showView('switches'); }")
+    assert ev(page, "() => [...document.querySelectorAll('#swRows input.cell-bad')].length") == 0
+    assert ev(page, "() => document.querySelectorAll('#swRows td.status')[0].textContent") == "1 error · policy: forbid ^ip http server"
     assert page.problems == []
 
 

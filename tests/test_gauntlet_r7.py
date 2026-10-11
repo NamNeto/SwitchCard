@@ -102,17 +102,17 @@ def test_restore_dialog_names_not_now_and_esc_means_it(page):
     assert page.problems == []
 
 
-# --- (9, 10) Replace stands apart from Cancel and Add after; the helpers are normal buttons ---
+# --- (9, 10) Replace the list stands apart from Cancel and Add to the list; the helpers are normal buttons ---
 def test_import_dialog_replace_stands_apart(page):
     _real(page)
     ev(page, "() => { const r = current(); r.switches = countedUpRows(r, [], 2).rows; renderAll(); showView('switches'); $('swImport').click(); }")
     page.wait_for_selector("dialog[open] textarea")
     page.fill("dialog[open] textarea", "HOSTNAME,MGMT_IP\nPKG-01,10.20.30.41\n")
     labels = [b.inner_text().strip() for b in page.locator("dialog[open] .dialog-actions button").all()]
-    assert labels == ["Replace", "Cancel", "Add after"]
+    assert labels == ["Replace the list", "Cancel", "Add to the list"]
     cls = ev(page, "() => [...document.querySelectorAll('dialog[open] .dialog-actions button')].map((b) => b.className.trim())")
     assert "aside" in cls[0] and "danger" in cls[0] and "primary" in cls[2]
-    # Replace sits at the left end, Cancel and Add after at the right, with a clear gap between.
+    # Replace the list sits at the left end, Cancel and Add to the list at the right, with a clear gap between.
     x = ev(page, "() => [...document.querySelectorAll('dialog[open] .dialog-actions button')].map((b) => b.getBoundingClientRect())")
     assert x[1]["x"] - (x[0]["x"] + x[0]["width"]) > 100
     helpers = ev(page, "() => { const row = document.querySelector('dialog[open] .filebutton').parentElement;"
@@ -122,15 +122,15 @@ def test_import_dialog_replace_stands_apart(page):
     assert page.problems == []
 
 
-# --- (6) Allowed baseline labels: one line beside Model family, level with its 40 px select
-#         (round 10: a taller box misaligned the row), growing a line per label beyond ---
-def test_allowed_baseline_labels_is_one_line_that_grows(page):
+# --- (6) Allowed baseline labels: a two-line box beside Model family, top-aligned with its select
+#         (round 11: between the one-line and three-line boxes), growing a line per label beyond ---
+def test_allowed_baseline_labels_is_two_lines_that_grow(page):
     ev(page, "() => showView('manage')")
-    assert ev(page, "() => $('firmwareRule').rows") == 1
+    assert ev(page, "() => $('firmwareRule').rows") == 2
     page.fill("#firmwareRule", "")
     m = ev(page, """() => { const t = $('firmwareRule').getBoundingClientRect(), s = $('recipeModel').getBoundingClientRect();
         return { h: t.height, sh: s.height, sameTop: Math.abs(t.top - s.top) < 2 }; }""")
-    assert abs(m["h"] - m["sh"]) <= 2 and 38 <= m["h"] <= 42 and m["sameTop"], m
+    assert 58 <= m["h"] <= 64 and m["sameTop"], m
     page.fill("#firmwareRule", "17.12.4\n17.15.1\n17.15.2\n17.15.3\n17.15.4")
     assert ev(page, "() => $('firmwareRule').clientHeight") >= 110
     assert ev(page, "() => getComputedStyle($('firmwareRule')).resize") == "vertical"

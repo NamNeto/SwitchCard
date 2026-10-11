@@ -80,7 +80,7 @@ def test_import_status_names_error_rows(page):
     page.click("#swImport")
     page.wait_for_selector("dialog[open] textarea")
     page.fill("dialog[open] textarea", "HOSTNAME,MGMT_IP\nSW-A,10.20.30.300\nSW-B,10.20.30.12\nSW-B,10.20.30.13\n")
-    click_dialog(page, "Add after")
+    click_dialog(page, "Add to the list")
     page.wait_for_function("() => $('status').textContent.includes('Imported 3 switches')")
     status = ev(page, "() => $('status').textContent")
     assert "3 have errors (rows 1, 2, 3)" in status and "Status column" in status, status

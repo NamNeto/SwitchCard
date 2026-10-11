@@ -144,7 +144,7 @@ function buildSwitchGrid(cols, rows) {
         // same actions, but Tab reaches them only across every later row).
         el("td", { className: "c-more" }, el("button", {
           type: "button", className: "sw-more", ariaLabel: "Row actions, switch " + (i + 1), ariaHaspopup: "menu", ariaExpanded: "false",
-          title: "Copy below or Remove this switch",
+          title: "Row actions",
         }, "\u22ef"))),
     );
   });
@@ -173,12 +173,42 @@ const ERROR_KIND_FIELD = { MGMT_IP: "bad IP", GATEWAY: "bad gateway", MGMT_MASK:
 function errorKind(x) {
   if (x.errors.some((e) => /^duplicate /.test(e))) return "duplicate";
   const f = (x.findings || []).find((y) => y.level === "error");
-  if (!f) return x.policy.length ? "policy" : "";
+  if (!f) return x.policy.length ? "policy: " + policyWord(x.policy[0]) : "";
   const w = f.where || {};
   if (w.kind === "field" || w.kind === "row") return ERROR_KIND_FIELD[w.key] || ("bad " + String(w.key || "value").replaceAll("_", " ").toLowerCase());
   if (w.kind === "port" || w.kind === "ports") return findingShortName(f);
   if (w.kind === "file") return "config text";
   return w.kind ? findingShortName(f) : "";
+}
+// The rule behind a team-policy hit in a few characters ("forbid ^hostname .*TEST", "require
+// …", "invalid rule"), for the status cell; the full text is the cell's title.
+function policyWord(p) {
+  const m = /^(forbidden pattern present|required pattern not found): (.*?)(?: \(.*\))?$/.exec(String(p || ""));
+  if (!m) return "invalid rule";
+  const t = (m[1].startsWith("forbidden") ? "forbid " : "require ") + m[2];
+  return t.length > 26 ? t.slice(0, 25) + "…" : t;
+}
+// The cell a team-policy hit points at, when the matched text holds one of the switch's values
+// (the hostname in "hostname PKG-TEST-11"): that key, else null. The rule is about the card
+// text; the value that put it there is the one to change.
+function policyCellKey(x) {
+  if (!x.policy.length || !x.text) return null;
+  const body = positiveConfigText(x.text);
+  const vals = x.values || {};
+  for (const line of teamPolicies || []) {
+    const p = parsePolicyLine(line);
+    if (!p || p.error || p.mode !== "forbid") continue;
+    const m = p.re.exec(body);
+    if (!m) continue;
+    const from = body.lastIndexOf("\n", m.index) + 1;
+    const to = body.indexOf("\n", m.index + Math.max(1, m[0].length));
+    const hit = body.slice(from, to < 0 ? body.length : to);
+    for (const k of Object.keys(vals)) {
+      const v = String(vals[k] == null ? "" : vals[k]).trim();
+      if (v.length >= 2 && hit.includes(v)) return k;
+    }
+  }
+  return null;
 }
 // Re-checks the list (cached per row) and updates values, placeholders, inherit marks, port
 // counts, statuses and the side panel in the existing table.
@@ -198,6 +228,11 @@ function patchSwitchGrid(r) {
     for (const f of x.findings)
       if (f.level === "error" && f.where && (f.where.kind === "field" || f.where.kind === "row") && !cellErrors.has(f.where.key))
         cellErrors.set(f.where.key, f.text);
+    // A team-policy hit whose matched line holds one of the row's values outlines that cell too.
+    if (x.policy.length && !x.errors.length) {
+      const k = policyCellKey(x);
+      if (k && !cellErrors.has(k)) cellErrors.set(k, "Team policy: " + x.policy[0]);
+    }
     for (const input of tr.querySelectorAll("input[data-key]")) {
       const k = input.dataset.key;
       const own = vals[k] == null ? "" : String(vals[k]);
@@ -236,7 +271,8 @@ function patchSwitchGrid(r) {
       !tail || st.bad ? head : el("span", {}, head, el("span", { className: "st-notes" }, " · " + tail)));
     td.replaceChildren(pill, tail && st.bad ? el("span", { className: "st-what" }, el("span", { className: "visually-hidden" }, " · "), tail) : "");
     td.title = st.title;
-    // A team-policy hit is about the whole card text, not one cell: the status cell is the marked one.
+    // A team-policy hit: the status cell names the rule, and the cell whose value matched (when
+    // one does) is outlined like any other error cell.
     td.className = "status " + (st.bad ? "bad" : "ok") + (x.policy.length ? " policy" : "");
     tr.classList.toggle("row-bad", st.bad);
   }
@@ -452,12 +488,15 @@ function openImportDialog() {
     else {
       p("", parsed.rows.length + (parsed.rows.length === 1 ? " row" : " rows") + " found.");
       p("", "Columns used: " + (parsed.header.join(", ") || "none") + ".");
+      // Which rows fall back to Device details (an empty cell in a used column), so a silent
+      // inheritance is never a surprise after Add (round 11).
+      for (const line of inheritedCellsSummary(parsed, r)) p("", line);
       const ignored = ignoredCsvColumns(text, parsed);
       if (ignored.length) p("", "Ignored columns: " + ignored.join(", ") + ".");
       if (parsed.portCols.length) p("", "Port columns: " + parsed.portCols.join(", ") + ".");
       for (const w of parsed.warnings) if (!w.startsWith("Columns not used")) p("warn", w);
       if (parsed.rows.length > room)
-        p("warn", "Add after would pass " + CONFIG.MAX_FLEET_ROWS + " switches (the list has " + (r.switches || []).length + "); use Replace.");
+        p("warn", "Adding would pass " + CONFIG.MAX_FLEET_ROWS + " switches (the list has " + (r.switches || []).length + "); use Replace the list.");
       const have = (r.switches || []).length;
       if (have) p("notice warning", "Replace drops the " + have + " switch" + (have === 1 ? "" : "es") + " in the list.");
     }
@@ -466,8 +505,8 @@ function openImportDialog() {
         (parsed.decodeWhere && parsed.decodeWhere.length ? " Where: " + listFew(parsed.decodeWhere, 5) + "." : ""));
     const btn = (label) => buttons.find((b) => b.textContent === label);
     if (buttons.length) {
-      const add = btn("Add after"),
-        replace = btn("Replace");
+      const add = btn("Add to the list"),
+        replace = btn("Replace the list");
       add.disabled = !ok || parsed.rows.length > room;
       replace.disabled = !ok;
       // Replace drops the rows in the list: never the filled primary while it would.
@@ -505,11 +544,12 @@ function openImportDialog() {
   return showDialog({
     title: "Import CSV",
     body,
-    // Replace (drops the list) stands apart at the left; Cancel and the primary Add after at the right.
+    // Replace the list (drops it) stands apart at the left; Cancel and the primary, safe Add to
+    // the list at the right.
     actions: [
-      { label: "Replace", value: "replace", disabled: true, aside: true },
+      { label: "Replace the list", value: "replace", disabled: true, aside: true },
       { label: "Cancel", value: null },
-      { label: "Add after", value: "add", primary: true, disabled: true },
+      { label: "Add to the list", value: "add", primary: true, disabled: true },
     ],
     onOpen: (dlg) => {
       dlg.classList.add("dlg-wide");
@@ -536,6 +576,26 @@ function openImportDialog() {
       (choice === "replace" ? (before ? ", replacing the " + before + " in the list." : ".") : " after the " + before + " in the list.") +
       (bad.length ? " " + bad.length + (bad.length === 1 ? " has errors (row " : " have errors (rows ") + listFew(bad, 6) + "); the Status column says what is wrong." : ""));
   });
+}
+// "3 rows take SITE from Device details (Packaging hall): rows 3, 4, 5." per used column with an
+// empty cell; a column every row fills says nothing. Columns not in the file are inherited by
+// every row, which the columns line above already says.
+function inheritedCellsSummary(parsed, r) {
+  const out = [];
+  const defs = (r && r.values) || {};
+  for (const k of parsed.header || []) {
+    const rows = [];
+    parsed.rows.forEach((row, i) => {
+      const v = row.values ? row.values[k] : undefined;
+      if (v == null || String(v).trim() === "") rows.push(i + 1);
+    });
+    if (!rows.length) continue;
+    const d = String(defs[k] == null ? "" : defs[k]).trim();
+    out.push((rows.length === parsed.rows.length ? "Every row takes " : rows.length + (rows.length === 1 ? " row takes " : " rows take ")) +
+      k + " from Device details" + (d ? " (" + (d.length > 40 ? d.slice(0, 39) + "…" : d) + ")" : " (empty there)") +
+      (rows.length === parsed.rows.length ? "." : ": " + (rows.length === 1 ? "row " : "rows ") + listFew(rows, 8) + "."));
+  }
+  return out;
 }
 // "a, b, c and 4 more": the first few items of a list.
 function listFew(items, few) {

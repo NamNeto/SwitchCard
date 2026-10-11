@@ -32,6 +32,18 @@ function gateLabel(reason) {
   };
   return short[reason] || reason;
 }
+// A gate in two or three words, for the checks heading ("Export blocked · example recipe · no
+// firmware baseline"); the full sentence stays under the Export button.
+function gateWord(reason) {
+  if (/^Example recipe:/.test(reason)) return "example recipe";
+  const short = {
+    "Load a firmware baseline to export a complete card.": "no firmware baseline",
+    "Baseline model does not match this recipe.": "baseline is for another model",
+    "Baseline label is not allowed by this recipe.": "baseline label not allowed",
+    "Apply recipe changes or Discard unapplied draft first.": "unapplied recipe draft",
+  };
+  return short[reason] || reason.replace(/\.$/, "").toLowerCase();
+}
 // Short label of a non-blocking gate warning; the full sentence stays as the item's title.
 function gateWarnLabel(t) {
   return /^Baseline fingerprint DIFFERS/.test(t)
@@ -75,7 +87,7 @@ function renderGate(box, reasons, okText, fixId, errors, warnings) {
         else byName.set(name, [f]);
       }
       [...byName].forEach(([name, fs], i) => {
-        if (i) li.append(", ");
+        if (i) li.append(" "); // the links are spaced by CSS: a comma after a chevron badge read as stranded
         li.append(el("button", { type: "button", className: "finding-link", title: fs.map((f) => f.text).join("\n"),
           onclick: () => focusFinding(fs[0].where, { view: "build", text: fs[0].text }) }, name + (fs.length > 1 ? " (" + fs.length + ")" : "")));
       });
@@ -179,22 +191,27 @@ function renderPreview() {
       "Rules are edited under Team security hints in Manage recipes & baseline."));
   if (!g.errors.length || notices.length) {
     const count = notices.length === 1 ? "1 note to review" : notices.length + " notes to review";
-    // Checks passed but an export gate holds (example recipe, baseline, draft): the heading says
-    // so, so one card never shows "Checks passed" above "Export blocked" as two verdicts; the
-    // gate under the Export button names the reasons. Without notes the box lists them here too
-    // (each a jump to its way out); with notes it stays short, so the pane keeps its preview
+    // Checks passed but an export gate holds (example recipe, baseline, draft): the verdict leads.
+    // The heading is "Export blocked" (red words) with the gates in a few words each, and the
+    // check result follows as a secondary line ("Checks: 0 errors · 1 note to review"), so one
+    // card never shows "Checks passed" above "Export blocked" as two verdicts (round 11). The
+    // gate under the Export button names the reasons in full with the way out. Without notes the
+    // box lists the gates as jumps too; with notes it stays short, so the pane keeps its preview
     // lines and its footer. Amber, not green.
     const gates = g.errors.length ? [] : b.filter((x) => !x.startsWith("Team policy:"));
     const head = g.errors.length
       ? count
-      : "Checks passed" + (notices.length ? " · " + count : "") + (gates.length ? " · export blocked" : ".");
+      : gates.length
+        ? { gate: "Export blocked", rest: " · " + gates.map(gateWord).join(" · ") }
+        : "Checks passed" + (notices.length ? " · " + count : "");
+    const sub = g.errors.length || !gates.length ? "" : "Checks: 0 errors · " + (notices.length ? count : "nothing to review");
     const gateItems = notices.length ? [] : gates.map((t) => {
       const fix = GATE_FIXES.find(([re]) => re.test(t));
       return { text: gateLabel(t), gate: true, title: t, run: fix ? fix[2] : null };
     });
     $("checks").append(statusNotice(notices.length || gates.length ? "warning" : "ok", head,
       [...notices, ...gateItems],
-      "Cisco syntax and device behavior are not verified."));
+      "Cisco syntax and device behavior are not verified.", null, sub));
   }
   markInvalidFields(g);
   const sh = $("securityHints");
@@ -288,13 +305,27 @@ function markInvalidFields(g) {
 // One status box: a bold heading, an optional list of items and an optional muted footer.
 // An item is a string, or {text, where}: a button with the same text that runs
 // focusFinding(where, ctx) (ctx defaults to the Build page).
-function statusNotice(kind, heading, items, footer, ctx) {
+// heading may be {gate, rest}: the gate words lead in red ("Export blocked"), the rest follows.
+// sub: a secondary line under the heading (the check result while a gate blocks).
+function statusNotice(kind, heading, items, footer, ctx, sub) {
   const el = document.createElement("div");
   el.className = "notice " + kind;
   const h = document.createElement("strong");
   h.className = "notice-head";
-  h.textContent = heading;
+  if (heading && typeof heading === "object") {
+    const g = document.createElement("span");
+    g.className = "notice-gate";
+    g.textContent = heading.gate;
+    h.append(g, document.createTextNode(heading.rest || ""));
+    el.classList.add("notice-gated");
+  } else h.textContent = heading;
   el.append(h);
+  if (sub) {
+    const s = document.createElement("span");
+    s.className = "notice-sub";
+    s.textContent = sub;
+    el.append(s);
+  }
   if (items && items.length) {
     const ul = document.createElement("ul");
     for (const t of items) {

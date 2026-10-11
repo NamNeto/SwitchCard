@@ -263,9 +263,12 @@ def test_checks_box_is_not_green_while_a_gate_blocks(page):
     ev(page, """(header) => { const r = current(); r.example = false; r.template = r.template.replace(header, '! t');
         r.template += '\\nusername admin\\nip ssh version 2\\n';
         baseline = {model: 'IE9999', version: 'x', files: [{path: 'a.bin', blob: new Blob(['x'])}]}; renderAll(); renderPreview(); }""", HEADER)
-    box = ev(page, "() => { const n = $('checks').querySelector('.notice'); return [n.className, n.textContent, n.querySelector('li.li-gate') && n.querySelector('li.li-gate').title]; }")
-    # r10: the heading says "export blocked" and the gate is listed by its short label (full sentence as title)
-    assert "warning" in box[0] and "Checks passed · export blocked" in box[1] and "Baseline is for another model" in box[1]
+    box = ev(page, "() => { const n = $('checks').querySelector('.notice'); return [n.className, n.textContent, n.querySelector('li.li-gate') && n.querySelector('li.li-gate').title, n.querySelector('.notice-gate') && n.querySelector('.notice-gate').textContent, n.querySelector('.notice-sub') && n.querySelector('.notice-sub').textContent]; }")
+    # r11: the verdict leads ("Export blocked · baseline is for another model"), the check result is the
+    # secondary line, and the gate is listed by its short label (full sentence as title)
+    assert "warning" in box[0] and "notice-gated" in box[0] and box[3] == "Export blocked"
+    assert "Export blocked · baseline is for another model" in box[1] and "Baseline is for another model" in box[1]
+    assert box[4] == "Checks: 0 errors · nothing to review" and "Checks passed" not in box[1]
     assert box[2] == "Baseline model does not match this recipe."
 
 
