@@ -229,7 +229,7 @@ let preservedAutosaveRaw = null;
 let parkedDraft = null;
 function parkedDraftNote(result) {
   if (!result || result.parkedDraft == null) return "";
-  return " An unapplied Maintain draft" + (result.parkedReason ? " was not loaded because " + result.parkedReason : " from an earlier session is still parked") +
+  return " An unapplied recipe draft" + (result.parkedReason ? " was not loaded because " + result.parkedReason : " from an earlier session is still parked") +
     "; it is kept unchanged as parkedDraft in browser autosave and autosave downloads (re-type it by hand if you need it).";
 }
 function autosave() {

@@ -511,12 +511,16 @@ textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-dim);
 }
+/* Keyboard focus: a solid 2 px ring just outside the control (at least 3:1 against every
+   surface, WCAG 2.4.13) on top of the soft halo, which alone is about 1.2:1 and hard to see on
+   an active rail item or a checkbox. */
 input:focus-visible,
 select:focus-visible,
 textarea:focus-visible,
 button:focus-visible,
 .filebutton:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-dim);
 }
@@ -775,6 +779,34 @@ button.primary:disabled:hover {
 }
 h1:focus {
   outline: none;
+}
+h1:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+/* Two links around the switch grid, shown only while focused: past the list to the selected
+   switch panel, and from under it back to the toolbar, so Tab need not walk every cell. */
+.skip-grid {
+  position: absolute;
+  left: -9999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-text);
+}
+.skip-grid:focus {
+  position: static;
+  display: inline-block;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--card);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.sw-layout.sw-none .skip-grid {
+  display: none;
 }
 .warning {
   background: var(--warn-bg);
@@ -1152,7 +1184,10 @@ h3.ed-group:first-of-type {
 /* Scale (200+ switches): the Switches view keeps its layout while another view is shown, so
    coming back to it needs a repaint only, not a fresh style and layout pass over every cell. It
    stays out of sight, out of the tab order and out of the accessibility tree (visibility), takes
-   no room (absolute, zero height), and keeps the width it has when shown (.views has no padding). */
+   no room (absolute, zero height), and keeps the width it has when shown (.views has no padding).
+   Nothing touches its cells while it is hidden (run() leaves them enabled), so it costs the other
+   views nothing. (content-visibility: hidden was measured: it restyles the whole grid on every
+   return to the view, which is slower.) */
 .views {
   position: relative;
 }
@@ -1259,8 +1294,11 @@ footer {
   opacity: 0;
   overflow: hidden;
 }
+/* The visually hidden file input inside carries the focus (also after its dialog closes or a
+   chooser is cancelled): the ring is drawn on the visible button whenever it does. */
 .filebutton:focus-within {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-dim);
 }
@@ -1560,7 +1598,20 @@ dialog.dlg {
   max-width: min(720px, 94vw);
   width: 100%;
 }
-dialog.dlg::backdrop {
+/* Shown with show(), not showModal() (04b-dialogs.js says why): fixed and centred like a modal,
+   above everything, with its own veil just below it. */
+dialog.dlg[open] {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  z-index: 1001;
+  max-height: calc(100vh - 6px - 2em);
+  overflow: auto;
+}
+.dlg-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
   background: var(--backdrop);
 }
 dialog.dlg h2 {
@@ -2252,7 +2303,7 @@ dialog.dlg textarea {
     margin-right: auto;
     max-width: min(920px, 100vw - 24px - 356px);
   }
-  dialog.dlg.dlg-ports::backdrop {
+  .dlg-veil:has(+ dialog.dlg-ports) {
     background: var(--backdrop-light);
   }
 }

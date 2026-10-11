@@ -42,16 +42,57 @@ function restoreFocus(opener, nearest) {
 // Resolves with the clicked action's value, or null on Esc. Resolved by our own handlers,
 // not the native close event (automated browsers can defer that indefinitely).
 // note: a short sentence at the left of the action bar (what the buttons do or do not save).
+//
+// The dialog is a <dialog> shown with show(), not showModal(): a modal makes the whole document
+// inert, which restyles every element on open and again on close (with 200 switches, 2000 grid
+// cells: 20-30 ms each way, the larger part of opening the Ports dialog). Modality is provided
+// here instead: a veil over the page takes the clicks, Tab and Shift+Tab wrap inside the dialog
+// from anywhere, Esc cancels, focus that lands outside is brought back, and aria-modal says so
+// to assistive technology. The dialog keeps its open attribute (dialog[open]).
+const openDialogs = [];
 function showDialog({ title, body, actions, onOpen, note }) {
   return new Promise((resolve) => {
-    const dlg = el("dialog", { className: "dlg" });
+    const dlg = el("dialog", { className: "dlg", ariaModal: "true" });
+    const veil = el("div", { className: "dlg-veil" });
     const opener = document.activeElement;
     let done = false;
+    const controls = () => [...dlg.querySelectorAll("button, input, select, textarea, a[href], summary, [tabindex]:not([tabindex='-1'])")]
+      .filter((n) => canFocus(n) && n.tabIndex >= 0);
+    const topmost = () => openDialogs[openDialogs.length - 1] === dlg;
+    const onKey = (e) => {
+      if (!dlg.open || !topmost()) return;
+      if (e.key === "Escape" && !e.altKey && !e.ctrlKey && !e.metaKey) {
+        e.preventDefault();
+        e.stopPropagation();
+        finish(null);
+        return;
+      }
+      // Tab wraps inside the dialog: from the last control to the first and back, never via <body>.
+      if (e.key !== "Tab" || e.altKey || e.ctrlKey || e.metaKey) return;
+      const list = controls();
+      if (!list.length) return;
+      const first = list[0],
+        last = list[list.length - 1],
+        a = document.activeElement;
+      if (e.shiftKey ? a === first || !dlg.contains(a) : a === last || !dlg.contains(a)) {
+        e.preventDefault();
+        (e.shiftKey ? last : first).focus();
+      }
+    };
+    // Focus that lands behind the veil (a click on it, a script) comes back to the dialog.
+    const onFocus = (e) => {
+      if (dlg.open && topmost() && !dlg.contains(e.target)) keepInside();
+    };
     const finish = (value) => {
       if (done) return;
       done = true;
+      document.removeEventListener("keydown", onKey, true);
+      document.removeEventListener("focusin", onFocus, true);
+      const at = openDialogs.indexOf(dlg);
+      if (at >= 0) openDialogs.splice(at, 1);
       if (dlg.open) dlg.close();
       dlg.remove();
+      veil.remove();
       // Back to the opener when it can take focus now; inside run() (opener disabled) run()
       // puts it back once the work is done.
       restoreFocus(opener, false);
@@ -71,23 +112,8 @@ function showDialog({ title, body, actions, onOpen, note }) {
     }
     dlg.append(el("h2", {}, title), el("div", { className: "dialog-body" }, body), bar);
     dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(null); });
-    // Tab wraps inside the dialog: from the last control to the first and back, never via <body>.
-    dlg.addEventListener("keydown", (e) => {
-      if (e.key !== "Tab" || e.altKey || e.ctrlKey || e.metaKey) return;
-      const list = [...dlg.querySelectorAll("button, input, select, textarea, a[href], summary, [tabindex]:not([tabindex='-1'])")]
-        .filter((n) => canFocus(n) && n.tabIndex >= 0);
-      if (!list.length) return;
-      const first = list[0],
-        last = list[list.length - 1],
-        a = document.activeElement;
-      if (e.shiftKey ? a === first || !dlg.contains(a) : a === last || !dlg.contains(a)) {
-        e.preventDefault();
-        (e.shiftKey ? last : first).focus();
-      }
-    });
-    document.body.appendChild(dlg);
-    dlg.showModal();
-    if (onOpen) onOpen(dlg);
+    // A click on the veil is not a dismissal (Esc and Cancel are): focus just comes back.
+    veil.addEventListener("mousedown", (e) => { e.preventDefault(); keepInside(); });
     // Focus stays inside the open dialog. The browser may first focus the scrolling body, which
     // stops being focusable once a wide layout no longer overflows; focus then falls to <body>.
     const keepInside = () => {
@@ -95,6 +121,12 @@ function showDialog({ title, body, actions, onOpen, note }) {
       const first = [...dlg.querySelectorAll("button, input, select, textarea")].find(canFocus);
       if (first) first.focus({ preventScroll: true });
     };
+    document.body.append(veil, dlg);
+    openDialogs.push(dlg);
+    document.addEventListener("keydown", onKey, true);
+    document.addEventListener("focusin", onFocus, true);
+    dlg.show();
+    if (onOpen) onOpen(dlg);
     keepInside();
     requestAnimationFrame(() => setTimeout(keepInside, 0));
   });
@@ -123,12 +155,15 @@ function infoDialog(title, textOrNode) {
 const EXPORT_STATE_PILL = {
   current: ["pill-ok", "up to date"], changed: ["pill-warn", "changed"], new: ["pill-new", "new"], nohost: ["pill-muted", "not tracked"],
 };
+// A long list (200 switches) is built in chunks: the rows that fit the scrolling box come with
+// the dialog, the rest follow after its first paint, so opening stays quick.
+const DLG_ROWS_FIRST = 40, DLG_ROWS_CHUNK = 80;
 function summaryRowsTable(rows) {
-  return el("table", { className: "dlg-rows" },
-    el("thead", {}, el("tr", {}, ["#", "Hostname", "Mgmt IP", "State", "Lines", "SHA-256", ""].map((h) => el("th", {}, h)))),
-    el("tbody", {}, rows.map((x) => {
+  const tbody = el("tbody");
+  const fill = (from, to) => {
+    for (const x of rows.slice(from, to)) {
       const [cls, label] = EXPORT_STATE_PILL[x.state] || EXPORT_STATE_PILL.nohost;
-      return el("tr", {},
+      tbody.append(el("tr", {},
         el("td", { className: "num" }, String(x.n)),
         el("td", {}, x.host || "(no hostname)"),
         el("td", { className: "mono" }, x.ip || ""),
@@ -139,8 +174,14 @@ function summaryRowsTable(rows) {
         el("td", { className: "dlg-sha-copy" }, el("button", {
           type: "button", className: "dlg-copy-sha", title: "Copy the full SHA-256 of this card's editcontent.txt",
           onclick: async (e) => { e.target.textContent = (await copyText(x.sha256)) ? "Copied" : "Copy failed"; },
-        }, "Copy")));
-    })));
+        }, "Copy"))));
+    }
+    if (to < rows.length) setTimeout(() => fill(to, to + DLG_ROWS_CHUNK), 0);
+  };
+  fill(0, DLG_ROWS_FIRST);
+  return el("table", { className: "dlg-rows" },
+    el("thead", {}, el("tr", {}, ["#", "Hostname", "Mgmt IP", "State", "Lines", "SHA-256", ""].map((h) => el("th", {}, h)))),
+    tbody);
 }
 function summaryView(text, rows) {
   const box = el("div", { className: "dlg-summary" });

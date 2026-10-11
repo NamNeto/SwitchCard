@@ -32,6 +32,12 @@ function showView(name) {
     message("Apply your recipe changes before leaving the recipe editor.");
     return false;
   }
+  // run() disables the rail for the duration of an export; nothing else may change the view
+  // meanwhile either (the hidden Switches grid is left enabled on that promise).
+  if (typeof busy !== "undefined" && busy && name !== currentView) {
+    message("An export is running. Other views open again when it ends.");
+    return false;
+  }
   currentView = name;
   for (const v of Object.keys(VIEW_SECTIONS)) {
     $(VIEW_SECTIONS[v]).hidden = v !== name;
@@ -245,6 +251,13 @@ function patchSwitchGrid(r) {
 // Each part is redrawn only when what it shows changed (keys below), so a keystroke that leaves
 // the checks alone does not re-insert the detail row and re-lay out the whole table.
 let swPanelKeys = { checks: null, text: null, diff: null };
+// The side panel sits below the grid from 1200 px down (styles.css); the selected row's checks
+// then also show inline under the row. A change re-renders the panel either way.
+const PANEL_BELOW = window.matchMedia("(max-width: 1200px)");
+PANEL_BELOW.addEventListener("change", () => {
+  swPanelKeys.checks = null;
+  if (currentView === "switches") renderSwitches();
+});
 function renderSwitchPanel(r, x) {
   const checks = $("swChecks");
   $("swPanelEmpty").hidden = !!x;
@@ -268,9 +281,11 @@ function renderSwitchPanel(r, x) {
     ...(x.policy.length ? x.policy : x.errors.length && x.text ? policyViolations(x.text, teamPolicies) : [])
       .map((p) => ({ level: "error", text: "Team policy: " + p, where: { kind: "policy" } })),
   ].sort((a, b) => (a.level === "error" ? 0 : 1) - (b.level === "error" ? 0 : 1)); // errors first (stable)
-  const tr = [...$("swRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === x.row.id);
+  // The inline detail row exists only while the panel sits below the grid (narrow windows); beside
+  // the grid it would be a hidden row whose insertion still re-lays out the whole table.
+  const tr = PANEL_BELOW.matches ? [...$("swRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === x.row.id) : null;
   const detail = $("swRows").querySelector("tr.sw-detail");
-  const detailOk = !tr || (detail && detail.dataset.for === x.row.id && tr.nextElementSibling === detail);
+  const detailOk = tr ? detail && detail.dataset.for === x.row.id && tr.nextElementSibling === detail : !detail;
   const checksKey = JSON.stringify([x.row.id, title, items.map((f) => [f.level, f.text, f.where || null])]);
   if (checksKey !== swPanelKeys.checks || !detailOk) {
     swPanelKeys.checks = checksKey;
@@ -485,8 +500,11 @@ function openImportDialog() {
     touch();
     if (currentView === "switches") renderSwitches();
     const n = parsed.rows.length;
+    // Rows that arrived with errors are named at once, not only in the rail chip.
+    const bad = checkSwitchRows(r, r.switches).rows.filter((x) => parsed.rows.includes(x.row) && (x.errors.length || x.policy.length)).map((x) => x.n);
     message("Imported " + n + " switch" + (n === 1 ? "" : "es") +
-      (choice === "replace" ? (before ? ", replacing the " + before + " in the list." : ".") : " after the " + before + " in the list."));
+      (choice === "replace" ? (before ? ", replacing the " + before + " in the list." : ".") : " after the " + before + " in the list.") +
+      (bad.length ? " " + bad.length + (bad.length === 1 ? " has errors (row " : " have errors (rows ") + listFew(bad, 6) + "); the Status column says what is wrong." : ""));
   });
 }
 // "a, b, c and 4 more": the first few items of a list.
@@ -652,7 +670,7 @@ function openPortsDialog(row, focus) {
     if (v !== true && JSON.stringify(row.ports || {}) !== before) {
       row.ports = JSON.parse(before);
       touch();
-    } else if (dirty) scheduleAutosave();
+    } else if (dirty) touchAndAutosaveNow(); // Done commits: written now, so an immediate reload keeps it
     if (currentView !== "switches") return;
     renderSwitches();
     // A fixed check removes the button that opened the dialog: focus goes to this row's Ports button.

@@ -44,6 +44,12 @@ let bootDone = false;
       if (autosavePaused) setAutosaveHint("paused");
     }
     refreshBackupButtons();
+    // A boot dialog was answered (its opener was the page itself): focus starts on the first
+    // control of the task, the recipe picker, or the view heading when that is not in view.
+    if (restored && focusLost()) {
+      const start = [$("recipe"), $("viewTitle")].find((n) => n && !n.closest("[hidden]"));
+      if (start) start.focus({ preventScroll: true });
+    }
   } finally {
     if (typeof sizeBuildPane === "function") sizeBuildPane();
     bootDone = true;

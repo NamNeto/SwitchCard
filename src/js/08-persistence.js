@@ -390,7 +390,7 @@ async function confirmReplaceUnsavedWork(kind) {
   return confirmDialog(
     "Replace the current workspace?",
     "You have unsaved changes" +
-      (editorPending ? " (including an unapplied Maintain draft)" : "") +
+      (editorPending ? " (including an unapplied recipe draft)" : "") +
       ". Opening this " +
       (kind || "file") +
       " will replace the current workspace. Continue?",

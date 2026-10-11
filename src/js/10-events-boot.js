@@ -808,7 +808,7 @@ $("saveProject").onclick = async () => {
       if (
         !(await confirmDialog(
           "Save without the draft?",
-          "Unapplied Maintain draft is NOT included in Save project (applied recipes only). Continue download anyway?",
+          "The unapplied recipe draft is NOT included in Save project (applied recipes only). Continue download anyway?",
           { ok: "Save without the draft" },
         ))
       ) {
@@ -864,7 +864,7 @@ $("projectInput").onchange = () =>
       const notes = await acceptProject(restoredFile.p, null, restoredFile);
       let msg =
         "Project opened. Reload its baseline folder or open a team package to include firmware.";
-      if (restoredFile.draft) msg += " Unapplied Maintain draft restored into the editor; Apply or Discard before export.";
+      if (restoredFile.draft) msg += " Unapplied recipe draft restored into the editor; Apply or Discard before export.";
       if (restoredFile.preservedAutosaveRaw) msg += " Earlier stored autosave bytes remain included as preservedAutosaveRaw in the imported wrapper and this workspace.";
       msg += parkedDraftNote(restoredFile);
       if (notes && notes.length) msg += " Migration notes: " + notes.join(" ");
@@ -962,6 +962,16 @@ window.addEventListener("beforeunload", (e) => {
   if (dirty || editorPending) {
     e.preventDefault();
     e.returnValue = "";
+  }
+});
+// An edit made within the autosave debounce of a reload or close is written on the way out
+// (synchronously, to localStorage); nothing is written while autosave is paused (boot dialog,
+// an open Ports dialog), which keeps those cases as they are.
+window.addEventListener("pagehide", () => {
+  if (autosaveTimer && !autosavePaused) {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = null;
+    autosave();
   }
 });
 function restorePendingDraft(draft) {
