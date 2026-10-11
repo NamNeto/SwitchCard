@@ -127,7 +127,7 @@ function buildSwitchGrid(cols, rows) {
     el("tr", { className: "defaults" },
       el("td", { colSpan: 2, title: "Device details and the port table on Build a card" }, "Defaults"),
       cols.map((k) => el("td", { className: "c-" + k, dataKey: k })),
-      el("td", { className: "c-ports", title: "The port table on Build a card" }, "from Build a card"),
+      el("td", { className: "c-ports", title: "Every port follows the port table on Build a card" }, "Build a card"),
       el("td", { className: "c-more" })),
   ];
   rows.forEach((row, i) => {
@@ -217,7 +217,7 @@ function patchSwitchGrid(r) {
     }
     const set = Object.values(x.row.ports || {}).filter((p) => p && Object.keys(p).length).length;
     const pb = tr.querySelector("button.sw-ports");
-    pb.textContent = set ? set + (set === 1 ? " own setting" : " own settings") : "Port table";
+    pb.textContent = set ? set + (set === 1 ? " override" : " overrides") : "Port table";
     const label = "Ports of switch " + x.n + ", " + (set ? set + (set === 1 ? " setting of its own" : " settings of its own") : "all from the port table");
     if (pb.getAttribute("aria-label") !== label) pb.setAttribute("aria-label", label);
     pb.classList.toggle("has-set", set > 0);

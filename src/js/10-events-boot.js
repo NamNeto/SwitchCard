@@ -134,12 +134,18 @@ function sizeBuildPane() {
   const fit = Math.floor((limit - rest - 18) / 20);
   const floor = Math.min(total, pinned ? PREVIEW_MIN_LINES_PINNED : PREVIEW_MIN_LINES);
   let lines = Math.min(total, Math.max(fit, floor));
-  // One line less when that alone keeps the unpinned pane above the fold.
-  if (!pinned && lines > fit && lines === fit + 1 && lines > 2) lines = fit;
+  // One row less when that alone keeps the unpinned pane above the fold, unless a wrapped line
+  // in those rows would then leave fewer than 11 text lines in view (the rows are rows, not lines).
+  if (!pinned && lines > fit && lines === fit + 1 && lines > 2) {
+    const top = preview.getBoundingClientRect().top + 17 - preview.scrollTop;
+    const shown = [...preview.querySelectorAll(".pl")].filter((b) => b.getBoundingClientRect().top < top + fit * 20 - 1).length;
+    if (shown >= PREVIEW_MIN_LINES - 1 || shown >= total) lines = fit;
+  }
   preview.style.height = lines * 20 + 18 + "px";
-  // Unpinned, the pane grows to hold the floor; pinned, it never exceeds the window.
+  // Unpinned, the pane grows to hold the floor; pinned, it never exceeds the window and ends
+  // with its footer (no leftover padding under it when the box took whole lines only).
   const need = rest + lines * 20 + 18;
-  buildPane.style.maxHeight = (pinned ? limit : Math.max(limit, need)) + "px";
+  buildPane.style.maxHeight = (pinned ? Math.min(limit, need) : Math.max(limit, need)) + "px";
   updatePreviewCue();
 }
 // "Showing lines 1–20 of 76 · scroll for more" under the box while it scrolls; nothing when it all

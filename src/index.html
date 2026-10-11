@@ -475,15 +475,15 @@
                   <option>IE9300</option>
                 </select>
               </div>
-              <!-- One control-height line beside Model family (the row stays aligned); it grows a
-                   line per label typed. -->
+              <!-- Three lines beside Model family (a one-per-line field reads as one); it grows a
+                   line per label typed beyond that. -->
               <div class="field">
                 <label for="firmwareRule">Allowed baseline labels</label
                 ><textarea
                   id="firmwareRule"
                   class="compact-xs"
-                  rows="1"
-                  placeholder="One per line"
+                  rows="3"
+                  placeholder="One per line; blank = any"
                   title="Blank: any baseline label of this model family"
                 ></textarea>
               </div>
@@ -634,7 +634,9 @@
                 >
               </p>
             </details>
-            <div class="actions even">
+            <!-- Pinned to the window's bottom while the editor runs below it: Apply is in reach at
+                 any scroll position. -->
+            <div class="actions even ed-apply">
               <button class="primary" id="applyRecipe">Apply recipe changes</button
               ><button id="discardDraft" type="button" hidden>Discard unapplied draft</button
               ><button id="saveProjectDraft" type="button" hidden title="Save project from here while the draft is unapplied (the draft itself is not included)">Save project</button>

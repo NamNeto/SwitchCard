@@ -240,7 +240,7 @@ def test_bulk_export_shows_progress_and_stops_after_the_current_card(page):
     assert status.startswith("Export cancelled after card %d of 5." % len(cards))
     assert ev(page, "() => $('cdProgress').hidden") is True
     assert ev(page, "() => document.activeElement.id") in ("cdAll", "cdChanged")
-    page.wait_for_function("(n) => $('cdChanged').textContent === 'Changed and new only (' + n + ')'", arg=5 - len(cards))
+    page.wait_for_function("(n) => $('cdChanged').textContent === 'Changed and not exported (' + n + ')'", arg=5 - len(cards))
     assert page.problems == []
 
 

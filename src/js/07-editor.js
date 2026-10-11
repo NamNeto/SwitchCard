@@ -52,6 +52,9 @@ function renderGate(box, reasons, okText, fixId, errors, warnings) {
   const warn = (warnings || []).map((t) => el("li", { className: "gate-warn-item", title: t }, gateWarnLabel(t)));
   box.replaceChildren();
   box.classList.toggle("gate-bad", reasons.length > 0);
+  // Input errors alone: the red checks box above lists them, so the gate is a quiet line that
+  // counts them and links to each (no second red box in the same column).
+  box.classList.toggle("gate-quiet", reasons.length > 0 && reasons.every((t) => t === GATE_ERRORS) && !!(errors && errors.length));
   box.classList.toggle("gate-ok", !reasons.length && !!okText && !warn.length);
   box.classList.toggle("gate-warn", !reasons.length && !!okText && warn.length > 0);
   if (!reasons.length) {
@@ -64,7 +67,7 @@ function renderGate(box, reasons, okText, fixId, errors, warnings) {
     // a link to the field or cell it is about.
     if (t === GATE_ERRORS && errors && errors.length) {
       const n = errors.length;
-      const li = el("li", { title: t }, n + (n === 1 ? " error: " : " errors: "));
+      const li = el("li", { title: t }, n + (n === 1 ? " error" : " errors") + (box.classList.contains("gate-quiet") ? " above: " : ": "));
       // Two checks on one cell ("Gi1/5 VLAN" twice) share one link: "Gi1/5 VLAN (2)", both texts
       // in its title.
       const byName = new Map();

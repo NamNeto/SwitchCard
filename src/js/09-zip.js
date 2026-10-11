@@ -230,7 +230,7 @@ async function run(fn) {
     });
     renderPreview();
     // Re-enabling restored the states from before the run; let the rail and Cards view set the
-    // current ones (a now-empty "Changed and new only" turns off) before focus goes back.
+    // current ones (a now-empty "Changed and not exported" turns off) before focus goes back.
     if (typeof updateRail === "function") updateRail();
     restoreFocus(opener);
   }
