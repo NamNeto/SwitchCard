@@ -151,6 +151,13 @@ def test_ports_dialog_opened_by_click_focuses_its_first_field(page):
     ev(page, "() => showView('switches')")
     page.locator("#swRows tr[data-row='%s'] button.sw-ports" % ids[1]).click()
     page.wait_for_selector("dialog[open]")
+    # A wide window: the first field. A small one: the browser focuses the scrolling body first,
+    # which is inside the dialog too; Tab then moves on from it.
+    page.wait_for_function("() => !!document.activeElement.closest('dialog[open]')")
+    page.set_viewport_size({"width": 1440, "height": 900})
+    page.keyboard.press("Escape")
+    page.wait_for_selector("dialog[open]", state="detached")
+    page.locator("#swRows tr[data-row='%s'] button.sw-ports" % ids[1]).click()
     page.wait_for_function("() => document.activeElement.matches('dialog[open] select[data-attr=role]')")
     page.keyboard.press("Escape")
     page.wait_for_selector("dialog[open]", state="detached")
