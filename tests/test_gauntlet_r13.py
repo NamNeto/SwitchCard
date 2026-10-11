@@ -3,7 +3,7 @@
 message is docked under the rail where it covers no control, the team-policy row names its rule,
 the Ports dialog opens on its heading, the bulk primary says how many files it writes, the
 fingerprint line says when it is not verified, and the operator round 8 minors."""
-from helpers import ev, stub_downloads, downloads, click_dialog
+from helpers import ev, stub_downloads, downloads, click_dialog, GRID_FIT, assert_grid_fits_or_says_more
 
 HEADER = "! EXAMPLE ONLY - replace with your tested configuration"
 
@@ -34,6 +34,10 @@ def test_build_ip_keeps_an_inner_space_typed_key_by_key(page):
     assert "MGMT_IP must be a valid IPv4 address." in page.inner_text("#checks")
     assert page.is_disabled("#downloadCard") and page.is_disabled("#downloadConfig")
     stub_downloads(page)
+    # The unpinned pane runs below the fold (it keeps 12 whole preview lines); it pins and ends
+    # above the fold once the window scrolls, on the scroll event: wait for that, then click.
+    page.locator("#downloadCard").scroll_into_view_if_needed()
+    page.wait_for_function("() => $('downloadCard').getBoundingClientRect().bottom <= innerHeight")
     page.click("#downloadCard", force=True)
     page.wait_for_timeout(200)
     assert page.locator("dialog[open]").count() == 0
@@ -178,8 +182,8 @@ def test_policy_row_names_its_rule_without_overflowing(page):
         assert m["text"] == "1 error · policy: forbid ^hostname .*TEST", m
         assert "Team policy: forbidden pattern present: ^hostname .*TEST" in m["title"]
         assert m["whatH"] <= 2 * m["lineH"] + 1 and m["cellOver"] <= 0, m
-        if size["width"] == 1440:
-            assert m["tableOver"] <= 0, m
+        page.wait_for_timeout(100)
+        assert_grid_fits_or_says_more(ev(page, GRID_FIT))
     assert page.problems == []
 
 

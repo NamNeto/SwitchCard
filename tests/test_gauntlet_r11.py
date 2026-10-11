@@ -81,15 +81,23 @@ def test_review_tick_is_amber_with_a_clear_gap(page):
 
 
 # --- (5) the Ports dialog note is whole on one line, the side panel's preview in view beside it ---
-def test_ports_dialog_note_is_one_line_and_the_preview_stays_visible(page):
+def test_ports_dialog_note_is_not_clipped_and_the_preview_stays_visible(page):
     page.set_viewport_size({"width": 1440, "height": 900})
     _real(page)
     ev(page, "() => { const r = current(); r.switches = countedUpRows(r, [], 3).rows; renderAll(); showView('switches'); selectSwitch(r.switches[2].id); openPortsDialog(r.switches[2]); }")
     page.wait_for_selector("dialog[open]")
-    m = ev(page, """() => { const n = document.querySelector('dialog[open] .dialog-note'); const d = document.querySelector('dialog[open]').getBoundingClientRect();
-        const lh = parseFloat(getComputedStyle(n).lineHeight) || 18; const p = $('swPreview').getBoundingClientRect();
-        return { lines: Math.round(n.getBoundingClientRect().height / lh), previewClear: p.left >= d.right - 1 }; }""")
-    assert m["lines"] == 1 and m["previewClear"], m
+    # The note has its own line above the buttons: one line in Segoe UI, two in a wider font;
+    # either way it is never clipped, never runs under a button, and the side panel's preview
+    # stays clear of the dialog.
+    m = ev(page, """() => { const n = document.querySelector('dialog[open] .dialog-note'); const dlg = document.querySelector('dialog[open]');
+        const d = dlg.getBoundingClientRect(); const r = n.getBoundingClientRect();
+        const lh = parseFloat(getComputedStyle(n).lineHeight) || r.height; const p = $('swPreview').getBoundingClientRect();
+        const btns = [...dlg.querySelectorAll('.dialog-actions button')].map((b) => b.getBoundingClientRect());
+        return { lines: Math.round(r.height / lh), clipped: n.scrollHeight > n.clientHeight + 1 || n.scrollWidth > n.clientWidth + 1,
+          inside: r.left >= d.left && r.right <= d.right && r.top >= d.top && r.bottom <= d.bottom,
+          overlap: btns.some((b) => b.top < r.bottom - 1 && b.bottom > r.top + 1 && b.left < r.right - 1 && b.right > r.left + 1),
+          previewClear: p.left >= d.right - 1 }; }""")
+    assert 1 <= m["lines"] <= 2 and not m["clipped"] and m["inside"] and not m["overlap"] and m["previewClear"], m
     page.keyboard.press("Escape")
     assert page.problems == []
 

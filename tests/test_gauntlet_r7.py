@@ -57,10 +57,13 @@ def test_preview_keeps_twelve_lines_with_the_tips_banner(page):
     ev(page, "() => { showView('build'); window.scrollTo(0, 0); }")
     page.wait_for_timeout(150)
     assert ev(page, "() => !$('onboarding').hidden")
+    # Counted in text lines of the font in use (a wider font wraps more lines and the box takes
+    # the rows they need), never in rows of an assumed height: 12 lines, or 11 when one row less
+    # keeps the pane above the fold.
     first, last, total = ev(page, VISIBLE, "preview")
-    assert last - first + 1 >= 11, (first, last)
-    rows = ev(page, "() => Math.round(($('preview').clientHeight - 16) / 20)")
-    assert rows >= 11
+    assert first == 1 and last - first + 1 >= 11, (first, last)
+    rows = ev(page, "() => { const p = $('preview'); const cs = getComputedStyle(p); return (p.clientHeight - parseFloat(getComputedStyle(p, '::before').height)) / parseFloat(cs.lineHeight); }")
+    assert rows >= 11 and abs(rows - round(rows)) < 0.01, rows
     # The export button is in view at the top of the page, with the banner showing.
     assert ev(page, "() => $('downloadCard').getBoundingClientRect().bottom <= innerHeight")
     assert page.problems == []

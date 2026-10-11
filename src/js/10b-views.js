@@ -292,6 +292,10 @@ function patchSwitchGrid(r) {
   $("swNotes").hidden = !res.warnings.length;
   if (!byId.has(swSelectedId)) swSelectedId = null;
   renderSwitchPanel(r, swSelectedId ? byId.get(swSelectedId) : null);
+  // The sideways hint above the grid is part of its layout: set now, with the rows, not a frame
+  // later from the ResizeObserver, so the rows never move down under a key or a menu just opened.
+  const box = $("swTable").closest(".scroll");
+  if (box && !$("switches").hidden && typeof updateScrollHint === "function") updateScrollHint(box);
   scheduleRailUpdate();
 }
 // Side panel: the selected row's checks, its editcontent.txt and changes since its last export.
@@ -1040,7 +1044,7 @@ function openRowMenu(button, id, opener) {
   menu.style.top = Math.round(at.bottom + 4) + "px";
   menu.style.right = Math.max(8, Math.round(window.innerWidth - at.right)) + "px";
   document.body.append(menu);
-  rowMenu = { menu, button, opener: opener && opener !== button && opener.closest("#swRows tr[data-row]") ? opener : null };
+  rowMenu = { menu, button, at, opener: opener && opener !== button && opener.closest("#swRows tr[data-row]") ? opener : null };
   button.setAttribute("aria-expanded", "true");
   menu.querySelector("[role=menuitem]").focus();
 }
@@ -1050,7 +1054,15 @@ document.addEventListener("mousedown", (e) => {
 document.addEventListener("focusin", (e) => {
   if (rowMenu && !rowMenu.menu.contains(e.target)) closeRowMenu(false);
 });
-document.addEventListener("scroll", () => closeRowMenu(false), true);
+// A scroll that moves the button closes the menu (it is fixed and would float away from its row).
+// The scroll event of a scroll that happened before the menu opened (focus moving to the button
+// scrolls the grid's box into place; its event arrives a frame later) leaves the button where the
+// menu is anchored, and the menu stays.
+document.addEventListener("scroll", () => {
+  if (!rowMenu) return;
+  const now = rowMenu.button.getBoundingClientRect();
+  if (Math.abs(now.bottom - rowMenu.at.bottom) > 1 || Math.abs(now.right - rowMenu.at.right) > 1) closeRowMenu(false);
+}, true);
 window.addEventListener("resize", () => closeRowMenu(false));
 // From any cell of a row, Shift+F10 or the Menu key opens that row's actions.
 $("swRows").addEventListener("keydown", (e) => {
@@ -1090,9 +1102,22 @@ function updateScrollHint(box) {
   const max = box.scrollWidth - box.clientWidth;
   box.classList.toggle("more-left", max > 1 && box.scrollLeft > 1);
   box.classList.toggle("more-right", max > 1 && box.scrollLeft < max - 1);
-  // The hint sits above the box (in view at the top of a long list) or, elsewhere, under it.
-  const hint = [box.previousElementSibling, box.nextElementSibling].find((n) => n && n.classList.contains("scroll-hint"));
-  if (hint) hint.hidden = !(max > 1 && box.scrollLeft < max - 1);
+  // The hint sits above the box (in view at the top of a long list) or, elsewhere, under it;
+  // other siblings may stand between them (the grid's skip link does), never another box. It
+  // keeps its line while the box overflows at all and only goes blank at the right end, so
+  // scrolling sideways never moves the grid up or down under the pointer (or closes a row menu
+  // through the scroll that shift would cause).
+  const hint = scrollHintOf(box);
+  if (hint) {
+    hint.hidden = !(max > 1);
+    hint.classList.toggle("at-end", !(box.scrollLeft < max - 1));
+  }
+}
+function scrollHintOf(box) {
+  for (const step of ["previousElementSibling", "nextElementSibling"])
+    for (let n = box[step]; n && !n.classList.contains("scroll"); n = n[step])
+      if (n.classList.contains("scroll-hint")) return n;
+  return null;
 }
 function watchScrollHints(root) {
   for (const box of (root || document).querySelectorAll(".scroll")) {

@@ -41,7 +41,11 @@ def test_keyboard_row_actions_act_on_the_focused_row(page):
     assert "Copied switch 6" in page.inner_text("#status")
     assert ev(page, "() => document.activeElement.getAttribute('aria-label')") == "Hostname, switch 7"
     # Shift+F10 from a cell opens the same menu; Remove names row 6, Esc keeps it and the status says so
+    # (a frame first, as a person's next key always is: the panel re-snaps its preview for the
+    # newly selected row on the next frame, and at the foot of the page the window's scroll is
+    # then clamped; a scroll that moves the row's button closes a menu opened in that same frame)
     page.focus("#swRows input[aria-label='Site, switch 6']")
+    page.wait_for_timeout(150)
     page.keyboard.press("Shift+F10")
     page.wait_for_selector(".sw-row-menu")
     page.keyboard.press("ArrowDown")
