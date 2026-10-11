@@ -752,7 +752,7 @@ def test_switches_team_policy_hit_is_an_error(page):
         { id: 'sw-a', values: { HOSTNAME: 'A-01' }, ports: {} }, { id: 'sw-b', values: { HOSTNAME: 'A-02', MGMT_IP: '192.0.2.77' }, ports: {} }];
         showView('switches'); }""")
     status = "#swRows tr[data-row='sw-a'] td.status"
-    assert page.text_content(status) == "1 error · policy"  # r6: the kind under the count; r12: the rule in the title and the panel
+    assert page.text_content(status) == "1 error · policy: forbid ^hostname A-01$"  # r6: the kind under the count; r12: the rule in the title and the panel
     assert ev(page, "(s) => document.querySelector(s).classList.contains('bad')", status) is True
     assert "Team policy: forbidden pattern present" in page.get_attribute(status, "title")
     page.click("#swRows tr[data-row='sw-a'] td.num")
@@ -826,7 +826,7 @@ def test_cards_single_and_all_exports_record_history(page):
     text = page.inner_text("dialog[open]")
     assert "IE3100-DEMO-01" in text and "IE3100-DEMO-03" in text
     page.check("dialog[open] input[type=checkbox]")
-    click_dialog(page, "Download ZIPs")
+    click_dialog(page, "Download 3 ZIPs + manifest")
     page.wait_for_function("() => (window.__dl || []).length === 4", timeout=10000)
     assert _zip_names(downloads(page)) == sorted(
         ["IE3100-DEMO-0%d-switchcard-%s-sdcard.zip" % (i, rel) for i in (1, 2, 3)] + ["switchcard-fleet-%s-manifest.txt" % rel])
@@ -840,7 +840,7 @@ def test_changed_only_after_template_edit(page):
     stub_downloads(page)
     page.click("#cdAll")
     page.check("dialog[open] input[type=checkbox]")
-    click_dialog(page, "Download ZIPs")
+    click_dialog(page, "Download 3 ZIPs + manifest")
     page.wait_for_function("() => (window.__dl || []).length === 4", timeout=10000)
     page.wait_for_function("() => $('cdChanged').textContent === 'Changed and not exported (0)'")
     # only row 3's SITE changes
@@ -859,7 +859,7 @@ def test_changed_only_after_template_edit(page):
     text = page.inner_text("dialog[open]")
     assert "IE3100-DEMO-03" in text and "IE3100-DEMO-01" not in text
     page.check("dialog[open] input[type=checkbox]")
-    click_dialog(page, "Download ZIPs")
+    click_dialog(page, "Download 1 ZIP + manifest")
     page.wait_for_function("() => (window.__dl || []).length === 2", timeout=10000)
     names = _zip_names(downloads(page))
     assert len(names) == 2 and names[0].startswith("IE3100-DEMO-03-") and "manifest" in names[1]
@@ -948,7 +948,7 @@ def test_cards_team_policy_row_blocks(page):
     assert page.is_disabled(_cd_row(ids[1], "button.cd-card"))
     assert page.is_enabled(_cd_row(ids[0], "button.cd-card"))
     assert "Rows with errors: 2 (team policy: forbidden pattern present: ^hostname IE3100-DEMO-02$)." in page.inner_text("#cdGates")
-    assert page.inner_text(_cd_row(ids[1], "button.cd-status")) == "1 error · policy"  # r6: the kind under the count; r12: the rule in the title
+    assert page.inner_text(_cd_row(ids[1], "button.cd-status")) == "1 error · policy: forbid ^hostname IE3100-DEMO-02$"  # r6: the kind under the count; r12: the rule in the title
     stub_downloads(page)
     page.click("#cdAll")
     page.wait_for_function("() => $('status').textContent.includes('Rows with errors: 2 (') && $('status').textContent.includes('nothing was exported')")
@@ -1253,7 +1253,7 @@ def test_bulk_export_records_rows_before_a_failure(page):
     ev(page, """() => { window.__n = 0; download = () => { if (++window.__n === 2) throw Error('blocked'); }; dirty = false; }""")
     page.click("#cdAll")
     page.check("dialog[open] input[type=checkbox]")
-    click_dialog(page, "Download ZIPs")
+    click_dialog(page, "Download 3 ZIPs + manifest")
     page.wait_for_function("() => !busy && $('status').textContent.includes('blocked')", timeout=10000)
     assert ev(page, "() => Object.keys(current().exports)") == ["ie3100-demo-01"]
     assert ev(page, "() => Object.keys(current().exportStates)") == ["ie3100-demo-01"]

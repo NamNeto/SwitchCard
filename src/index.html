@@ -58,12 +58,18 @@
     <!-- ===== Main shell ===== -->
     <main class="shell">
      <div class="app">
+      <div class="rail-col">
       <nav id="rail" class="rail" aria-label="Workspace">
         <button type="button" id="railBuild" aria-current="page"><span class="rail-name">Build a card</span></button>
         <button type="button" id="railSwitches"><span class="rail-name">Switches</span><span id="chipSwitches" class="chip"></span></button>
         <button type="button" id="railCards"><span class="rail-name">Cards</span><span id="chipCards" class="chip"></span></button>
         <button type="button" id="railManage"><span class="rail-name">Manage recipes &amp; baseline</span><span id="chipManage" class="chip"></span></button>
       </nav>
+      <!-- Status message: docked under the rail, where nothing interactive sits, so it never covers a
+           control (operator round 8). message() fills the text and keeps the close control (its
+           glyph is CSS, so the element's textContent is the message alone). -->
+      <div id="status" role="status" hidden></div>
+      </div>
       <div class="views">
       <div class="top">
         <div>
@@ -780,9 +786,6 @@
           </p>
         </div>
       </section>
-      <!-- Status toast: message() fills the text and keeps the close control (its glyph is CSS, so
-           the element's textContent is the message alone). -->
-      <div id="status" role="status" hidden></div>
       <footer>
         SwitchCard <strong>0.8.0</strong> · offline · CSP <code>connect-src 'none'</code> · not
         affiliated with Cisco · Swap Drive (<code>sync sdflash:</code>) remains Cisco’s flash↔SD

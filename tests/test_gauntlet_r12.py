@@ -67,7 +67,7 @@ def test_grid_fits_its_card_at_1440_with_the_policy_row(page):
         return { over: t.scrollWidth - box.clientWidth, tableOver: t.getBoundingClientRect().width - box.clientWidth,
           moreIn: more.right <= box.getBoundingClientRect().right - 1, status: document.querySelectorAll('#swRows td.status')[10].textContent }; }""")
     assert m["tableOver"] <= 0 and m["moreIn"], m
-    assert m["status"] == "1 error · policy", m
+    assert m["status"] == "1 error · policy: forbid ^hostname .*TEST", m
     # the full rule: in the cell's title and in the side panel
     ev(page, "() => selectSwitch(current().switches[10].id)")
     assert "forbidden pattern present: ^hostname .*TEST" in ev(page, "() => { const t = document.querySelectorAll('#swRows td.status')[10]; return t.title || (t.querySelector('[title]') || {}).title || ''; }")

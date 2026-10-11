@@ -173,7 +173,7 @@ const ERROR_KIND_FIELD = { MGMT_IP: "bad IP", GATEWAY: "bad gateway", MGMT_MASK:
 function errorKind(x) {
   if (x.errors.some((e) => /^duplicate /.test(e))) return "duplicate";
   const f = (x.findings || []).find((y) => y.level === "error");
-  if (!f) return x.policy.length ? "policy" : "";
+  if (!f) return x.policy.length ? "policy: " + policyWord(x.policy[0]) : "";
   const w = f.where || {};
   if (w.kind === "field" || w.kind === "row") return ERROR_KIND_FIELD[w.key] || ("bad " + String(w.key || "value").replaceAll("_", " ").toLowerCase());
   if (w.kind === "port" || w.kind === "ports") return findingShortName(f);
@@ -181,13 +181,14 @@ function errorKind(x) {
   return w.kind ? findingShortName(f) : "";
 }
 // The rule behind a team-policy hit in a few characters ("forbid ^hostname .*TEST", "require
-// …", "invalid rule"); the status cell says "policy" alone (round 12: the rule made the cell
-// too wide for the grid at 1440 px), the cell's title and the side panel carry the full text.
+// …", "invalid rule"): the status cell says "policy: forbid ^hostname…" on at most two short
+// lines (so the grid still fits its card at 1440 px); the cell's title and the side panel carry
+// the full text.
 function policyWord(p) {
   const m = /^(forbidden pattern present|required pattern not found): (.*?)(?: \(.*\))?$/.exec(String(p || ""));
   if (!m) return "invalid rule";
   const t = (m[1].startsWith("forbidden") ? "forbid " : "require ") + m[2];
-  return t.length > 26 ? t.slice(0, 25) + "…" : t;
+  return t.length > 40 ? t.slice(0, 39) + "…" : t;
 }
 // The cell a team-policy hit points at, when the matched text holds one of the switch's values
 // (the hostname in "hostname PKG-TEST-11"): that key, else null. The rule is about the card
@@ -677,13 +678,30 @@ function openPortsDialog(row, focus) {
           input.classList.toggle("inherit", v === "");
           changed();
         });
+        // Addresses and VLANs: the ends are trimmed when the field is committed, never while typing.
+        if (attr !== "description")
+          input.addEventListener("change", () => {
+            const t = trimOnCommit(input);
+            if (t === null) return;
+            setOwn(name, attr, t);
+            input.classList.toggle("inherit", t === "");
+            changed();
+          });
+        // As in the grid: several lines or cells pasted into one field are refused, not joined.
+        input.addEventListener("paste", (ev) => {
+          if (!ev.clipboardData) return;
+          const text = ev.clipboardData.getData("text/plain").trim();
+          if (!/[\r\n\t]/.test(text)) return;
+          ev.preventDefault();
+          message("Not pasted: that text holds several lines or cells, and one field takes one value. Paste a single line.");
+        });
         return el("td", {}, input);
       };
       // Use table only where this switch sets something; other ports just follow the table.
       const isOwn = Object.keys(own).length > 0;
       const useTable = isOwn
         ? el("button", {
-          type: "button", className: "use-table", dataPort: name, title: "Drop this switch's settings for " + name + " and follow the port table",
+          type: "button", className: "use-table", dataPort: name, title: "Drop this switch's settings for " + name + " and follow the port table", ariaLabel: "Use table for " + name,
           onclick: () => {
             const k = ownKey(name);
             if (k !== undefined) delete row.ports[k];
@@ -760,6 +778,15 @@ function openPortsDialog(row, focus) {
       // dlg-ports: beside the side panel (not over it) from 1300 px, so its preview stays in view.
       dlg.classList.add("dlg-wide", "dlg-ports");
       if (focus) draw(focus);
+      else {
+        // Opened from the row: focus starts on the heading, not on a Role select that a stray
+        // arrow key would change before the dialog is read (final critics, round 12).
+        const h = dlg.querySelector("h2");
+        if (h) {
+          h.tabIndex = -1;
+          h.focus({ preventScroll: true });
+        }
+      }
     },
   }).then((v) => {
     autosavePaused = pausedBefore;
@@ -906,7 +933,8 @@ function highlightPreviewLine(pre, line) {
 $("swRows").addEventListener("input", (e) => {
   const t = e.target;
   if (!t.matches("input[data-key]")) return;
-  // Addresses and numbers are trimmed while typing, as on Build a card.
+  // Only invisible/control characters are removed while typing; the stored address or number
+  // drops its ends, and the cell itself is trimmed on change (below), as on Build a card.
   const k = t.dataset.key;
   setSwitchCell(t, cleanInput(t, fieldLabel(k), /(?:^|_)(?:IP|MASK|VLAN|LOOPBACK)$|^GATEWAY$/.test(k)));
 });

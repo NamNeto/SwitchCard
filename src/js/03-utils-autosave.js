@@ -1,8 +1,11 @@
 // --- Utilities ---
 // The status toast: its textContent is the message alone (the close control has no text; its
 // glyph is CSS), so readers of #status see exactly what was said.
-function message(t) {
+// opts.untilEdit: the message describes the state at load (the autosave was not restored, the
+// examples are shown) and goes away at the first edit, so it never outlives what it describes.
+function message(t, opts) {
   const s = $("status");
+  s.dataset.untilEdit = opts && opts.untilEdit ? "1" : "";
   s.replaceChildren(
     document.createTextNode(t),
     el("button", {
@@ -29,6 +32,11 @@ function message(t) {
 }
 function touch() {
   dirty = true;
+  const st = $("status");
+  if (st && st.dataset.untilEdit === "1" && !st.hidden) {
+    st.dataset.untilEdit = "";
+    st.hidden = true;
+  }
   scheduleAutosave();
 }
 // A change that must survive a reload at once (a card just handed to the download): written now,
@@ -291,16 +299,31 @@ function restoreDraftFields(draft) {
     $("teamPoliciesEditor").value = draft.teamPoliciesDraft;
   return true;
 }
-// Cleans a single-line input as you type (pasted zero-width / control characters) and
-// optionally trims it. Tells the user when something was removed.
+// Cleans a single-line input as you type: only pasted zero-width / control characters are
+// removed from the field (and the user is told). Spaces are never rewritten while typing, so a
+// space typed inside an address stays visible and is reported by the checks instead of being
+// silently joined ("10.20.30.2 1" must not become "10.20.30.21"). With trim, the returned value
+// (the one stored) drops only the ends; the field itself is trimmed on change (blur).
 function cleanInput(el, label, trim = false) {
   const c = sanitizeSingleLine(el.value);
-  if (trim) c.text = c.text.trim();
   if (c.text !== el.value) {
+    const at = el.selectionStart, cut = el.value.length - c.text.length;
     el.value = c.text;
+    if (typeof at === "number" && el === document.activeElement) {
+      const pos = Math.max(0, at - cut);
+      try { el.setSelectionRange(pos, pos); } catch (e) {}
+    }
     message("Removed invisible/control characters pasted into " + label + "; cleaned spacing is shown in the field.");
   }
-  return c.text;
+  return trim ? c.text.trim() : c.text;
+}
+// Trims a field's ends when it is committed (change fires on blur or Enter), never while typing.
+// Returns the trimmed text, or null when nothing changed.
+function trimOnCommit(el) {
+  const t = el.value.trim();
+  if (t === el.value) return null;
+  el.value = t;
+  return t;
 }
 // One date format everywhere on the page: "YYYY-MM-DD HH:MM" in local time (formatExportAt).
 function formatSavedAt(iso) {
@@ -469,6 +492,7 @@ async function restoreAutosaveRaw(raw, key, opts) {
     return fail("failed", "it is not valid JSON (corrupt or truncated)");
   }
   let parsed;
+  let askedReplace = false; // the release dialog below already asked to replace the workspace (backup restore)
   try {
     parsed = parseWorkspaceFile(data);
   } catch (e) {
@@ -483,7 +507,11 @@ async function restoreAutosaveRaw(raw, key, opts) {
     const found = "Found a browser autosave from SwitchCard v" + meta.release +
       (meta.savedAt ? ", saved " + formatSavedAt(meta.savedAt) : "") +
       (key !== AUTOSAVE_KEY ? " (older storage key " + key + ")" : "") + ". This page is v" + RELEASE + ".";
-    let body = found;
+    // Restoring a backup: this one dialog also says what happens to the work on screen, so no
+    // second "Replace the current workspace?" follows (operator round 8).
+    let body = fromBackup
+      ? found + " Restore it replaces the current workspace; the current workspace and any unapplied draft are kept in the newest backup. Nothing is deleted."
+      : found;
     if (!fromBackup) {
       // What the autosave holds, and what each choice does with it. Declining keeps a backup copy:
       // fail() above calls backupAutosave before the examples are shown, and deletes nothing.
@@ -510,12 +538,13 @@ async function restoreAutosaveRaw(raw, key, opts) {
       { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples", focusOk: !fromBackup },
     );
     if (!ok) return fail("declined", "you chose not to restore data saved by v" + meta.release);
+    askedReplace = !!fromBackup;
   }
   // Ask before dropping port assignments whose interface no longer exists. Cancel keeps the
   // stored autosave intact (backed up; nothing is overwritten).
   if (!(await confirmAndDropUnmatchedPorts(parsed.p.recipes, "autosave restore")))
     return fail("declined", "unmatched port assignments were not accepted");
-  const result = { status: "restored", ...parsed, meta, key, fromBackup,
+  const result = { status: "restored", ...parsed, meta, key, fromBackup, askedReplace,
     migrationNotes: parsed.p._migrationNotes.slice() };
   if (!(opts && opts.prepareOnly)) commitRestoredWorkspace(result);
   return result;
@@ -592,7 +621,7 @@ async function restoreSelectedBackup() {
     if (!b) throw Error("No autosave backup found.");
     result = await restoreAutosaveRaw(b.raw, b.from || "backup", { fromBackup: true, prepareOnly: true });
     if (result.status !== "restored") throw Error(result.reason);
-    if (!(await confirmReplaceUnsavedWork("autosave backup"))) throw Error("you cancelled");
+    if (!result.askedReplace && !(await confirmReplaceUnsavedWork("autosave backup"))) throw Error("you cancelled");
     const stored = localStorage.getItem(AUTOSAVE_KEY);
     const live = autosavePayload();
     // If the stored autosave differs from what is on screen, keep its exact bytes too.

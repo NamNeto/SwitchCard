@@ -346,10 +346,18 @@
         border-radius: var(--radius, 12px);
         border: 1px solid var(--line);
         box-shadow: var(--shadow-sm);
-        /* Sticks just below the sticky header, so the current view stays marked while the page scrolls. */
+      }
+      /* The rail's column (the rail, then the status message under it) sticks just below the sticky
+         header, so the current view stays marked while the page scrolls and the status stays in view
+         in a place where no control sits. */
+      .rail-col {
         position: sticky;
         top: calc(var(--header-h) + 12px);
         z-index: 10;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        min-width: 0;
       }
       .rail button {
         display: flex;
@@ -1334,25 +1342,25 @@
       .fleet-columns code {
         font-size: 12px;
       }
-      /* The status message is a toast: bottom right, at most half the width, with a close control,
-         so it never hides a whole table row and can be put away. Its text is the message alone. */
+      /* The status message sits under the rail (in the rail's sticky column), at the rail's width, with
+         a close control. It takes the empty space below the rail, so it never covers a control, a row
+         or a sticky action bar, and it stays until the next message, a view change or Dismiss. A long
+         message scrolls inside it. Its text is the message alone. */
       #status {
-        position: sticky;
-        bottom: 12px;
-        margin-left: auto;
-        width: fit-content;
-        max-width: min(560px, 100%);
-        padding: 10px 40px 10px 14px;
-        font-size: 13.5px;
+        position: relative;
+        max-height: max(120px, calc(100vh - var(--header-h) - 300px));
+        min-height: 0;
+        overflow-y: auto;
+        overflow-wrap: break-word;
+        padding: 10px 34px 10px 12px;
+        font-size: 13px;
         line-height: 1.45;
-        background: var(--status-bg);
+        background: var(--card); /* opaque: in a narrow window the band rides over scrolled content */
         color: var(--text);
         border: 1px solid var(--line2);
         border-left: 3px solid var(--accent);
         border-radius: var(--radius-sm);
-        z-index: 5;
-        box-shadow: var(--shadow);
-        backdrop-filter: blur(8px);
+        box-shadow: var(--shadow-sm);
       }
       #statusClose {
         position: absolute;
@@ -1637,11 +1645,18 @@
           grid-template-columns: minmax(0, 1fr);
           gap: calc(var(--space) * 2);
         }
+        .rail-col {
+          top: var(--header-h);
+          gap: 8px;
+        }
         .rail {
           flex-direction: row;
           flex-wrap: wrap;
-          top: var(--header-h);
           margin: 0 -2px;
+        }
+        /* Narrow window: the status is a short band under the tab row; a long message scrolls in it. */
+        #status {
+          max-height: 22vh;
         }
         .rail button {
           width: auto;
@@ -1713,6 +1728,15 @@
       dialog.dlg h2 {
         margin: 0 0 10px;
         font-size: 1.1rem;
+      }
+      /* A dialog that starts on its heading (Ports) shows the ring there. */
+      dialog.dlg h2[tabindex] {
+        width: fit-content;
+      }
+      dialog.dlg h2:focus {
+        outline: 2px solid var(--accent);
+        outline-offset: 3px;
+        border-radius: 4px;
       }
       /* The focused control of a dialog always shows its ring, whatever opened the dialog: a mouse
          click leaves :focus-visible off, and the button Enter would press must be visible. */
@@ -2214,6 +2238,14 @@
         font-weight: 600;
         line-height: 1.2;
         color: var(--err);
+      }
+      /* A team rule: "policy: forbid ^hostname…" wraps to at most two lines in the same width. */
+      #swTable td.status.policy .st-what {
+        white-space: normal;
+        overflow-wrap: anywhere;
+        display: -webkit-box;
+        -webkit-box-orient: vertical;
+        -webkit-line-clamp: 2;
       }
       #swTable button {
         height: 32px;
@@ -3083,6 +3115,16 @@
         background: var(--warn-bg);
         font-weight: 650;
       }
+      /* The fingerprint's severity at a glance: not verified (no record to compare with) in amber,
+         a match in green; DIFFERS keeps its highlighted row above. */
+      .dlg-kv tr.dlg-unverified td {
+        color: var(--warn);
+        font-weight: 600;
+      }
+      .dlg-kv tr.dlg-verified td {
+        color: var(--ok);
+        font-weight: 600;
+      }
       .dlg-copy {
         display: flex;
         justify-content: flex-end;
@@ -3255,12 +3297,18 @@
     <!-- ===== Main shell ===== -->
     <main class="shell">
      <div class="app">
+      <div class="rail-col">
       <nav id="rail" class="rail" aria-label="Workspace">
         <button type="button" id="railBuild" aria-current="page"><span class="rail-name">Build a card</span></button>
         <button type="button" id="railSwitches"><span class="rail-name">Switches</span><span id="chipSwitches" class="chip"></span></button>
         <button type="button" id="railCards"><span class="rail-name">Cards</span><span id="chipCards" class="chip"></span></button>
         <button type="button" id="railManage"><span class="rail-name">Manage recipes &amp; baseline</span><span id="chipManage" class="chip"></span></button>
       </nav>
+      <!-- Status message: docked under the rail, where nothing interactive sits, so it never covers a
+           control (operator round 8). message() fills the text and keeps the close control (its
+           glyph is CSS, so the element's textContent is the message alone). -->
+      <div id="status" role="status" hidden></div>
+      </div>
       <div class="views">
       <div class="top">
         <div>
@@ -3977,9 +4025,6 @@
           </p>
         </div>
       </section>
-      <!-- Status toast: message() fills the text and keeps the close control (its glyph is CSS, so
-           the element's textContent is the message alone). -->
-      <div id="status" role="status" hidden></div>
       <footer>
         SwitchCard <strong>0.8.0</strong> · offline · CSP <code>connect-src 'none'</code> · not
         affiliated with Cisco · Swap Drive (<code>sync sdflash:</code>) remains Cisco’s flash↔SD
@@ -4393,8 +4438,11 @@
       // --- Utilities ---
       // The status toast: its textContent is the message alone (the close control has no text; its
       // glyph is CSS), so readers of #status see exactly what was said.
-      function message(t) {
+      // opts.untilEdit: the message describes the state at load (the autosave was not restored, the
+      // examples are shown) and goes away at the first edit, so it never outlives what it describes.
+      function message(t, opts) {
         const s = $("status");
+        s.dataset.untilEdit = opts && opts.untilEdit ? "1" : "";
         s.replaceChildren(
           document.createTextNode(t),
           el("button", {
@@ -4421,6 +4469,11 @@
       }
       function touch() {
         dirty = true;
+        const st = $("status");
+        if (st && st.dataset.untilEdit === "1" && !st.hidden) {
+          st.dataset.untilEdit = "";
+          st.hidden = true;
+        }
         scheduleAutosave();
       }
       // A change that must survive a reload at once (a card just handed to the download): written now,
@@ -4683,16 +4736,31 @@
           $("teamPoliciesEditor").value = draft.teamPoliciesDraft;
         return true;
       }
-      // Cleans a single-line input as you type (pasted zero-width / control characters) and
-      // optionally trims it. Tells the user when something was removed.
+      // Cleans a single-line input as you type: only pasted zero-width / control characters are
+      // removed from the field (and the user is told). Spaces are never rewritten while typing, so a
+      // space typed inside an address stays visible and is reported by the checks instead of being
+      // silently joined ("10.20.30.2 1" must not become "10.20.30.21"). With trim, the returned value
+      // (the one stored) drops only the ends; the field itself is trimmed on change (blur).
       function cleanInput(el, label, trim = false) {
         const c = sanitizeSingleLine(el.value);
-        if (trim) c.text = c.text.trim();
         if (c.text !== el.value) {
+          const at = el.selectionStart, cut = el.value.length - c.text.length;
           el.value = c.text;
+          if (typeof at === "number" && el === document.activeElement) {
+            const pos = Math.max(0, at - cut);
+            try { el.setSelectionRange(pos, pos); } catch (e) {}
+          }
           message("Removed invisible/control characters pasted into " + label + "; cleaned spacing is shown in the field.");
         }
-        return c.text;
+        return trim ? c.text.trim() : c.text;
+      }
+      // Trims a field's ends when it is committed (change fires on blur or Enter), never while typing.
+      // Returns the trimmed text, or null when nothing changed.
+      function trimOnCommit(el) {
+        const t = el.value.trim();
+        if (t === el.value) return null;
+        el.value = t;
+        return t;
       }
       // One date format everywhere on the page: "YYYY-MM-DD HH:MM" in local time (formatExportAt).
       function formatSavedAt(iso) {
@@ -4861,6 +4929,7 @@
           return fail("failed", "it is not valid JSON (corrupt or truncated)");
         }
         let parsed;
+        let askedReplace = false; // the release dialog below already asked to replace the workspace (backup restore)
         try {
           parsed = parseWorkspaceFile(data);
         } catch (e) {
@@ -4875,7 +4944,11 @@
           const found = "Found a browser autosave from SwitchCard v" + meta.release +
             (meta.savedAt ? ", saved " + formatSavedAt(meta.savedAt) : "") +
             (key !== AUTOSAVE_KEY ? " (older storage key " + key + ")" : "") + ". This page is v" + RELEASE + ".";
-          let body = found;
+          // Restoring a backup: this one dialog also says what happens to the work on screen, so no
+          // second "Replace the current workspace?" follows (operator round 8).
+          let body = fromBackup
+            ? found + " Restore it replaces the current workspace; the current workspace and any unapplied draft are kept in the newest backup. Nothing is deleted."
+            : found;
           if (!fromBackup) {
             // What the autosave holds, and what each choice does with it. Declining keeps a backup copy:
             // fail() above calls backupAutosave before the examples are shown, and deletes nothing.
@@ -4902,12 +4975,13 @@
             { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples", focusOk: !fromBackup },
           );
           if (!ok) return fail("declined", "you chose not to restore data saved by v" + meta.release);
+          askedReplace = !!fromBackup;
         }
         // Ask before dropping port assignments whose interface no longer exists. Cancel keeps the
         // stored autosave intact (backed up; nothing is overwritten).
         if (!(await confirmAndDropUnmatchedPorts(parsed.p.recipes, "autosave restore")))
           return fail("declined", "unmatched port assignments were not accepted");
-        const result = { status: "restored", ...parsed, meta, key, fromBackup,
+        const result = { status: "restored", ...parsed, meta, key, fromBackup, askedReplace,
           migrationNotes: parsed.p._migrationNotes.slice() };
         if (!(opts && opts.prepareOnly)) commitRestoredWorkspace(result);
         return result;
@@ -4984,7 +5058,7 @@
           if (!b) throw Error("No autosave backup found.");
           result = await restoreAutosaveRaw(b.raw, b.from || "backup", { fromBackup: true, prepareOnly: true });
           if (result.status !== "restored") throw Error(result.reason);
-          if (!(await confirmReplaceUnsavedWork("autosave backup"))) throw Error("you cancelled");
+          if (!result.askedReplace && !(await confirmReplaceUnsavedWork("autosave backup"))) throw Error("you cancelled");
           const stored = localStorage.getItem(AUTOSAVE_KEY);
           const live = autosavePayload();
           // If the stored autosave differs from what is on screen, keep its exact bytes too.
@@ -5431,6 +5505,10 @@
             touch();
             renderPreview();
           });
+          // The ends are trimmed when the field is committed, never while typing.
+          vlanEl.addEventListener("change", () => {
+            if (trimOnCommit(vlanEl) !== null) p.vlan = vlanEl.value;
+          });
           vlanTd.append(vlanEl);
           tr.append(vlanTd);
           if (showRouted) {
@@ -5447,6 +5525,10 @@
                 touch();
                 renderPreview();
               });
+              // The ends are trimmed when the field is committed, never while typing.
+              ipEl.addEventListener("change", () => {
+                if (trimOnCommit(ipEl) !== null) p.ip = ipEl.value;
+              });
               ipTd.append(ipEl);
               tr.append(ipTd);
               const maskTd = document.createElement("td");
@@ -5460,6 +5542,10 @@
                 p.mask = cleanInput(maskEl, p.name + " mask", true);
                 touch();
                 renderPreview();
+              });
+              // The ends are trimmed when the field is committed, never while typing.
+              maskEl.addEventListener("change", () => {
+                if (trimOnCommit(maskEl) !== null) p.mask = maskEl.value;
               });
               maskTd.append(maskEl);
               tr.append(maskTd);
@@ -5815,7 +5901,8 @@
           }
           if (!kv) box.append((kv = el("table", { className: "dlg-kv" })));
           // A hash never breaks inside (it is compared with a manifest by eye): one line that scrolls.
-          kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : /DIFFERS/.test(m[2]) ? "dlg-differs" : "" }, el("th", { scope: "row" }, summaryKeyLabel(m[1])),
+          kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : /DIFFERS/.test(m[2]) ? "dlg-differs"
+            : /not verified/.test(m[2]) ? "dlg-unverified" : /matches the project's recorded/.test(m[2]) ? "dlg-verified" : "" }, el("th", { scope: "row" }, summaryKeyLabel(m[1])),
             el("td", { className: /^[0-9a-f]{64}$/i.test(m[2]) ? "dlg-hash" : "" }, m[2])));
         }
         return box;
@@ -6375,7 +6462,7 @@
       function baselineFingerprintLine() {
         return "Baseline fingerprint: " +
           (baseline && baseline.fingerprint
-            ? baseline.fingerprint.digest.slice(0, 16) + "… " + (baseline.compare ? baseline.compare.summary : "(no project record to compare with)")
+            ? baseline.fingerprint.digest.slice(0, 16) + "… " + (baseline.compare ? baseline.compare.summary : "not verified — no recorded fingerprint")
             : "(none)");
       }
       // The loaded baseline's fingerprint differs from the one recorded in the open project: a warning
@@ -8914,7 +9001,8 @@
         const ok = await writeDialog({
           title: textOnly ? "Export text-only ZIP?" : "Export SD-card ZIPs?",
           summary: lines.join("\n"),
-          primary: textOnly ? "Download ZIP" : "Download ZIPs",
+          // The primary says what it writes: "Download 12 ZIPs + manifest" (final critics, round 12).
+          primary: textOnly ? "Download ZIP" : "Download " + n + (n === 1 ? " ZIP" : " ZIPs") + " + manifest",
           warning: baselineDiffersWarning(),
           // The dialog's switch table marks each card's state against its last export.
           rows: results.map((row) => ({ n: row.n, host: row.host, ip: row.ip, sha256: row.sha256, lines: row.lines,
@@ -10811,7 +10899,7 @@
       function errorKind(x) {
         if (x.errors.some((e) => /^duplicate /.test(e))) return "duplicate";
         const f = (x.findings || []).find((y) => y.level === "error");
-        if (!f) return x.policy.length ? "policy" : "";
+        if (!f) return x.policy.length ? "policy: " + policyWord(x.policy[0]) : "";
         const w = f.where || {};
         if (w.kind === "field" || w.kind === "row") return ERROR_KIND_FIELD[w.key] || ("bad " + String(w.key || "value").replaceAll("_", " ").toLowerCase());
         if (w.kind === "port" || w.kind === "ports") return findingShortName(f);
@@ -10819,13 +10907,14 @@
         return w.kind ? findingShortName(f) : "";
       }
       // The rule behind a team-policy hit in a few characters ("forbid ^hostname .*TEST", "require
-      // …", "invalid rule"); the status cell says "policy" alone (round 12: the rule made the cell
-      // too wide for the grid at 1440 px), the cell's title and the side panel carry the full text.
+      // …", "invalid rule"): the status cell says "policy: forbid ^hostname…" on at most two short
+      // lines (so the grid still fits its card at 1440 px); the cell's title and the side panel carry
+      // the full text.
       function policyWord(p) {
         const m = /^(forbidden pattern present|required pattern not found): (.*?)(?: \(.*\))?$/.exec(String(p || ""));
         if (!m) return "invalid rule";
         const t = (m[1].startsWith("forbidden") ? "forbid " : "require ") + m[2];
-        return t.length > 26 ? t.slice(0, 25) + "…" : t;
+        return t.length > 40 ? t.slice(0, 39) + "…" : t;
       }
       // The cell a team-policy hit points at, when the matched text holds one of the switch's values
       // (the hostname in "hostname PKG-TEST-11"): that key, else null. The rule is about the card
@@ -11315,13 +11404,30 @@
                 input.classList.toggle("inherit", v === "");
                 changed();
               });
+              // Addresses and VLANs: the ends are trimmed when the field is committed, never while typing.
+              if (attr !== "description")
+                input.addEventListener("change", () => {
+                  const t = trimOnCommit(input);
+                  if (t === null) return;
+                  setOwn(name, attr, t);
+                  input.classList.toggle("inherit", t === "");
+                  changed();
+                });
+              // As in the grid: several lines or cells pasted into one field are refused, not joined.
+              input.addEventListener("paste", (ev) => {
+                if (!ev.clipboardData) return;
+                const text = ev.clipboardData.getData("text/plain").trim();
+                if (!/[\r\n\t]/.test(text)) return;
+                ev.preventDefault();
+                message("Not pasted: that text holds several lines or cells, and one field takes one value. Paste a single line.");
+              });
               return el("td", {}, input);
             };
             // Use table only where this switch sets something; other ports just follow the table.
             const isOwn = Object.keys(own).length > 0;
             const useTable = isOwn
               ? el("button", {
-                type: "button", className: "use-table", dataPort: name, title: "Drop this switch's settings for " + name + " and follow the port table",
+                type: "button", className: "use-table", dataPort: name, title: "Drop this switch's settings for " + name + " and follow the port table", ariaLabel: "Use table for " + name,
                 onclick: () => {
                   const k = ownKey(name);
                   if (k !== undefined) delete row.ports[k];
@@ -11398,6 +11504,15 @@
             // dlg-ports: beside the side panel (not over it) from 1300 px, so its preview stays in view.
             dlg.classList.add("dlg-wide", "dlg-ports");
             if (focus) draw(focus);
+            else {
+              // Opened from the row: focus starts on the heading, not on a Role select that a stray
+              // arrow key would change before the dialog is read (final critics, round 12).
+              const h = dlg.querySelector("h2");
+              if (h) {
+                h.tabIndex = -1;
+                h.focus({ preventScroll: true });
+              }
+            }
           },
         }).then((v) => {
           autosavePaused = pausedBefore;
@@ -11544,7 +11659,8 @@
       $("swRows").addEventListener("input", (e) => {
         const t = e.target;
         if (!t.matches("input[data-key]")) return;
-        // Addresses and numbers are trimmed while typing, as on Build a card.
+        // Only invisible/control characters are removed while typing; the stored address or number
+        // drops its ends, and the cell itself is trimmed on change (below), as on Build a card.
         const k = t.dataset.key;
         setSwitchCell(t, cleanInput(t, fieldLabel(k), /(?:^|_)(?:IP|MASK|VLAN|LOOPBACK)$|^GATEWAY$/.test(k)));
       });
@@ -12095,6 +12211,7 @@
                   ? "A copy was kept as an autosave backup (Save your work → Browser autosave → Restore / Download autosave backup)."
                   : "The backup copy could not be written, so autosave is paused to avoid overwriting it — use Save project, or Clear browser autosave to resume.") +
                 " Showing the example recipes.",
+              { untilEdit: true },
             );
             if (autosavePaused) setAutosaveHint("paused");
           }

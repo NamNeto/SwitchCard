@@ -126,7 +126,7 @@ def test_bulk_export_keeps_pace_when_another_view_is_clicked(page):
     stub_downloads(page)
     page.click("#cdAll")
     page.check("dialog[open] input[type=checkbox]")
-    click_dialog(page, "Download ZIPs")
+    click_dialog(page, "Download 5 ZIPs + manifest")
     page.wait_for_function("() => $('cdProgressText').textContent.startsWith('Card 2 of 5')")
     assert ev(page, "() => $('rail').classList.contains('rail-locked')") is True
     assert ev(page, "() => $('railSwitches').classList.contains('rail-off')") is True
@@ -216,6 +216,6 @@ def test_export_finished_grammar_for_one_switch(page):
     stub_downloads(page)
     page.click("#cdAll")
     page.check("dialog[open] input[type=checkbox]")
-    click_dialog(page, "Download ZIPs")
+    click_dialog(page, "Download 1 ZIP + manifest")
     page.wait_for_function("() => !busy && $('status').textContent.startsWith('Export finished')", timeout=10000)
     assert ev(page, "() => $('status').textContent").startswith("Export finished: 1 switch as one card ZIP plus a manifest")

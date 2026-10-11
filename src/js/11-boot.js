@@ -40,6 +40,7 @@ let bootDone = false;
             ? "A copy was kept as an autosave backup (Save your work → Browser autosave → Restore / Download autosave backup)."
             : "The backup copy could not be written, so autosave is paused to avoid overwriting it — use Save project, or Clear browser autosave to resume.") +
           " Showing the example recipes.",
+        { untilEdit: true },
       );
       if (autosavePaused) setAutosaveHint("paused");
     }
