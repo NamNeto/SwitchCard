@@ -168,7 +168,8 @@ def test_ports_dialog_opened_by_click_focuses_its_first_field(page):
     page.keyboard.press("Escape")
     page.wait_for_selector("dialog[open]", state="detached")
     page.locator("#swRows tr[data-row='%s'] button.sw-ports" % ids[1]).click()
-    page.wait_for_function("() => document.activeElement.matches('dialog[open] select[data-attr=role]')")
+    # round 13: the dialog starts on its heading, not on a Role select an arrow key would change
+    page.wait_for_function("() => document.activeElement.matches('dialog[open] h2')")
     page.keyboard.press("Escape")
     page.wait_for_selector("dialog[open]", state="detached")
     assert page.problems == []

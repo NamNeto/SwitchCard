@@ -276,7 +276,8 @@ function summaryView(text, rows, onRowsDone) {
     }
     if (!kv) box.append((kv = el("table", { className: "dlg-kv" })));
     // A hash never breaks inside (it is compared with a manifest by eye): one line that scrolls.
-    kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : /DIFFERS/.test(m[2]) ? "dlg-differs" : "" }, el("th", { scope: "row" }, summaryKeyLabel(m[1])),
+    kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : /DIFFERS/.test(m[2]) ? "dlg-differs"
+      : /not verified/.test(m[2]) ? "dlg-unverified" : /matches the project's recorded/.test(m[2]) ? "dlg-verified" : "" }, el("th", { scope: "row" }, summaryKeyLabel(m[1])),
       el("td", { className: /^[0-9a-f]{64}$/i.test(m[2]) ? "dlg-hash" : "" }, m[2])));
   }
   return box;

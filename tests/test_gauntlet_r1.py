@@ -221,7 +221,7 @@ def test_bulk_export_shows_progress_and_stops_after_the_current_card(page):
     stub_downloads(page)
     page.click("#cdAll")
     page.check("dialog[open] input[type=checkbox]")
-    click_dialog(page, "Download ZIPs")
+    click_dialog(page, "Download 5 ZIPs + manifest")
     page.wait_for_function("() => !$('cdProgress').hidden && $('cdProgressText').textContent.startsWith('Card ')")
     text = ev(page, "() => $('cdProgressText').textContent")
     assert text.startswith("Card 1 of 5: ") and text.endswith("-sdcard.zip")

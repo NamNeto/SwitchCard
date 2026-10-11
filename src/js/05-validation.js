@@ -360,7 +360,7 @@ function exportHostnameForFile(r) {
 function baselineFingerprintLine() {
   return "Baseline fingerprint: " +
     (baseline && baseline.fingerprint
-      ? baseline.fingerprint.digest.slice(0, 16) + "… " + (baseline.compare ? baseline.compare.summary : "(no project record to compare with)")
+      ? baseline.fingerprint.digest.slice(0, 16) + "… " + (baseline.compare ? baseline.compare.summary : "not verified — no recorded fingerprint")
       : "(none)");
 }
 // The loaded baseline's fingerprint differs from the one recorded in the open project: a warning

@@ -157,6 +157,10 @@ function renderFields() {
       touch();
       renderPreview();
     });
+    // The ends are trimmed when the field is committed, never while typing.
+    vlanEl.addEventListener("change", () => {
+      if (trimOnCommit(vlanEl) !== null) p.vlan = vlanEl.value;
+    });
     vlanTd.append(vlanEl);
     tr.append(vlanTd);
     if (showRouted) {
@@ -173,6 +177,10 @@ function renderFields() {
           touch();
           renderPreview();
         });
+        // The ends are trimmed when the field is committed, never while typing.
+        ipEl.addEventListener("change", () => {
+          if (trimOnCommit(ipEl) !== null) p.ip = ipEl.value;
+        });
         ipTd.append(ipEl);
         tr.append(ipTd);
         const maskTd = document.createElement("td");
@@ -186,6 +194,10 @@ function renderFields() {
           p.mask = cleanInput(maskEl, p.name + " mask", true);
           touch();
           renderPreview();
+        });
+        // The ends are trimmed when the field is committed, never while typing.
+        maskEl.addEventListener("change", () => {
+          if (trimOnCommit(maskEl) !== null) p.mask = maskEl.value;
         });
         maskTd.append(maskEl);
         tr.append(maskTd);

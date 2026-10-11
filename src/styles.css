@@ -314,10 +314,18 @@ code {
   border-radius: var(--radius, 12px);
   border: 1px solid var(--line);
   box-shadow: var(--shadow-sm);
-  /* Sticks just below the sticky header, so the current view stays marked while the page scrolls. */
+}
+/* The rail's column (the rail, then the status message under it) sticks just below the sticky
+   header, so the current view stays marked while the page scrolls and the status stays in view
+   in a place where no control sits. */
+.rail-col {
   position: sticky;
   top: calc(var(--header-h) + 12px);
   z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
 }
 .rail button {
   display: flex;
@@ -1302,25 +1310,25 @@ pre.diff .del {
 .fleet-columns code {
   font-size: 12px;
 }
-/* The status message is a toast: bottom right, at most half the width, with a close control,
-   so it never hides a whole table row and can be put away. Its text is the message alone. */
+/* The status message sits under the rail (in the rail's sticky column), at the rail's width, with
+   a close control. It takes the empty space below the rail, so it never covers a control, a row
+   or a sticky action bar, and it stays until the next message, a view change or Dismiss. A long
+   message scrolls inside it. Its text is the message alone. */
 #status {
-  position: sticky;
-  bottom: 12px;
-  margin-left: auto;
-  width: fit-content;
-  max-width: min(560px, 100%);
-  padding: 10px 40px 10px 14px;
-  font-size: 13.5px;
+  position: relative;
+  max-height: max(120px, calc(100vh - var(--header-h) - 300px));
+  min-height: 0;
+  overflow-y: auto;
+  overflow-wrap: break-word;
+  padding: 10px 34px 10px 12px;
+  font-size: 13px;
   line-height: 1.45;
-  background: var(--status-bg);
+  background: var(--card); /* opaque: in a narrow window the band rides over scrolled content */
   color: var(--text);
   border: 1px solid var(--line2);
   border-left: 3px solid var(--accent);
   border-radius: var(--radius-sm);
-  z-index: 5;
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(8px);
+  box-shadow: var(--shadow-sm);
 }
 #statusClose {
   position: absolute;
@@ -1605,11 +1613,18 @@ td.muted-cell {
     grid-template-columns: minmax(0, 1fr);
     gap: calc(var(--space) * 2);
   }
+  .rail-col {
+    top: var(--header-h);
+    gap: 8px;
+  }
   .rail {
     flex-direction: row;
     flex-wrap: wrap;
-    top: var(--header-h);
     margin: 0 -2px;
+  }
+  /* Narrow window: the status is a short band under the tab row; a long message scrolls in it. */
+  #status {
+    max-height: 22vh;
   }
   .rail button {
     width: auto;
@@ -1681,6 +1696,15 @@ dialog.dlg[open] {
 dialog.dlg h2 {
   margin: 0 0 10px;
   font-size: 1.1rem;
+}
+/* A dialog that starts on its heading (Ports) shows the ring there. */
+dialog.dlg h2[tabindex] {
+  width: fit-content;
+}
+dialog.dlg h2:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 /* The focused control of a dialog always shows its ring, whatever opened the dialog: a mouse
    click leaves :focus-visible off, and the button Enter would press must be visible. */
@@ -2182,6 +2206,14 @@ button.primary.danger:focus-visible {
   font-weight: 600;
   line-height: 1.2;
   color: var(--err);
+}
+/* A team rule: "policy: forbid ^hostname…" wraps to at most two lines in the same width. */
+#swTable td.status.policy .st-what {
+  white-space: normal;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 #swTable button {
   height: 32px;
@@ -3050,6 +3082,16 @@ button.gate-jump:focus-visible {
 .dlg-kv tr.dlg-differs td {
   background: var(--warn-bg);
   font-weight: 650;
+}
+/* The fingerprint's severity at a glance: not verified (no record to compare with) in amber,
+   a match in green; DIFFERS keeps its highlighted row above. */
+.dlg-kv tr.dlg-unverified td {
+  color: var(--warn);
+  font-weight: 600;
+}
+.dlg-kv tr.dlg-verified td {
+  color: var(--ok);
+  font-weight: 600;
 }
 .dlg-copy {
   display: flex;
