@@ -7,9 +7,10 @@
   --line: #2a2a34;
   --line2: #363642;
   --text: #f3f0ea;
-  --muted: #9e998f;
-  --faint: #958f86; /* 5.6:1 on a card, 4.7:1 on a selected row: headers, footers, note counts */
+  --muted: #aaa59b; /* 7.3:1 on a card, 6.1:1 on an amber notice */
+  --faint: #9f998f; /* 6.4:1 on a card, 5.3:1 on an amber notice: headers, footers, note counts */
   --inherit: #a39d93; /* inherited (placeholder) grid values, italic: 7:1 on the table background */
+  --disabled-text: #6f6a63; /* text of a disabled button: 3.2:1 on a card, clearly dimmer than any live label */
   --accent: #2dd4a8;
   --accent2: #1fb88a;
   --accent-text: #2dd4a8; /* accent used as text (code, step badges): AA on every surface */
@@ -49,6 +50,7 @@
   --info-bg: rgba(125, 183, 255, 0.1);
   --info-line: rgba(125, 183, 255, 0.4);
   --backdrop: rgba(0, 0, 0, 0.72);
+  --backdrop-light: rgba(0, 0, 0, 0.4); /* the Ports dialog: the side panel stays readable */
   --header-h: 76px;
   --glow2: rgba(61, 139, 253, 0.055);
   --tab-hover: rgba(255, 255, 255, 0.03);
@@ -74,6 +76,7 @@
   --muted: #56524a; /* 7.8:1 on white, 6.5:1 on the table background */
   --faint: #666157; /* 6.2:1 on white, 5.1:1 on the table background */
   --inherit: #45413a; /* inherited (placeholder) grid values, italic: 8.6:1 on the table background */
+  --disabled-text: #908a80; /* text of a disabled button: 3.1:1 on white, clearly dimmer than any live label */
   --accent: #179c74;
   --accent2: #12805f;
   --accent-text: #0f6e52;
@@ -102,6 +105,7 @@
   --info-bg: rgba(30, 88, 168, 0.08);
   --info-line: rgba(30, 88, 168, 0.4);
   --backdrop: rgba(20, 20, 16, 0.5);
+  --backdrop-light: rgba(20, 20, 16, 0.28);
   --glow2: rgba(61, 139, 253, 0.06);
   --tab-hover: rgba(0, 0, 0, 0.04);
   --btn-hover: #e9e7e0;
@@ -124,6 +128,7 @@
     --muted: #56524a; /* 7.8:1 on white, 6.5:1 on the table background */
     --faint: #666157; /* 6.2:1 on white, 5.1:1 on the table background */
     --inherit: #45413a; /* inherited (placeholder) grid values, italic: 8.6:1 on the table background */
+    --disabled-text: #908a80;
     --accent: #179c74;
     --accent2: #12805f;
     --accent-text: #0f6e52;
@@ -152,6 +157,7 @@
     --info-bg: rgba(30, 88, 168, 0.08);
     --info-line: rgba(30, 88, 168, 0.4);
     --backdrop: rgba(20, 20, 16, 0.5);
+    --backdrop-light: rgba(20, 20, 16, 0.28);
     --glow2: rgba(61, 139, 253, 0.06);
     --tab-hover: rgba(0, 0, 0, 0.04);
     --btn-hover: #e9e7e0;
@@ -407,7 +413,7 @@ code {
     flex: none;
   }
   #build .card.pane > #preview {
-    flex: 0 1 auto;
+    flex: none; /* its height is set by sizeBuildPane and is final: never squeezed */
     max-height: none;
     min-height: 58px; /* 2 lines */
   }
@@ -637,8 +643,8 @@ button.primary:disabled,
 button.primary:disabled:hover {
   background: transparent;
   border: 1px dashed var(--line2);
-  color: var(--faint);
-  font-weight: 600;
+  color: var(--disabled-text);
+  font-weight: 500;
   opacity: 1;
   cursor: not-allowed;
   filter: none;
@@ -1132,6 +1138,13 @@ h3.ed-group:first-of-type {
 .actions.even > * {
   flex: 1 1 0;
 }
+/* A destructive action at the far end of its row, apart from the safe ones. */
+.actions > .aside {
+  margin-left: auto;
+}
+.dialog-actions > .aside {
+  margin-right: auto;
+}
 .hidden,
 [hidden] {
   display: none !important;
@@ -1286,16 +1299,17 @@ textarea.compact-xs {
   resize: vertical;
   font-size: 0.92em;
 }
-/* Allowed baseline labels sits beside a 40 px select: one line tall like it, and it grows a line
-   per label typed (up to 120 px, then scrolls). */
+/* Allowed baseline labels: three lines tall ("one per line" is visible as such), grows a line per
+   label typed (up to 180 px, then scrolls), and can be dragged taller. */
 #firmwareRule {
-  height: 40px;
-  min-height: 40px;
+  height: 80px;
+  min-height: 80px;
+  max-height: 180px;
   field-sizing: content;
   padding-top: 9px;
   padding-bottom: 9px;
   line-height: 20px;
-  resize: none;
+  resize: vertical;
 }
 .recipe-sku-row {
   margin-bottom: 8px;
@@ -1601,7 +1615,7 @@ button.primary.danger:hover {
 button.danger:disabled,
 button.danger:disabled:hover {
   border-color: var(--line2);
-  color: var(--faint);
+  color: var(--disabled-text);
 }
 /* The red buttons keep a ring of their own when focused (box-shadow is reset above). */
 button.danger:focus-visible,
@@ -2067,7 +2081,8 @@ button.primary.danger:focus-visible {
   font-size: 12.5px;
   font-weight: 650;
 }
-/* Below 1000 px the row's Copy and Remove live here (the icon columns are hidden). */
+/* The row's own Copy and Remove columns are there at every width, so the detail row does not
+   repeat them. */
 #swTable tr.sw-detail .sw-detail-actions {
   display: none;
   gap: 8px;
@@ -2168,25 +2183,37 @@ button.primary.danger:focus-visible {
 #preview {
   max-height: 338px; /* 16 lines */
 }
-/* IOS lines in the side panel never wrap (a wrapped command could read as two): every line is
-   whole, and the box scrolls sideways for the few comment lines wider than the panel. 12 px
-   gives 40 characters across, so "ip address a.b.c.d m.m.m.m" fits. */
+/* The side panel's text is never cut: a line wider than the panel wraps at a space, its
+   continuation rows hang 3 characters in with a tick in that gutter, so one command never reads
+   as two. 12 px gives 40 characters across, so "ip address a.b.c.d m.m.m.m" stays on one row. */
 #swPreview {
   max-height: 378px; /* 20 lines of 18 px */
   font-size: 12px;
   line-height: 18px;
-  white-space: pre;
-  overflow-wrap: normal;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
   padding: 0 10px;
 }
 #swPreview::before,
 #swPreview::after {
   margin: 0 -10px;
 }
-/* A wide line fades out at the right edge: there is more, and the box scrolls that way. */
-#swPreview.wide {
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), rgba(0, 0, 0, 0.2));
-  mask-image: linear-gradient(to right, #000 calc(100% - 36px), rgba(0, 0, 0, 0.2));
+#swPreview .pl {
+  display: block;
+  position: relative;
+  padding-left: 3ch;
+  text-indent: -3ch;
+}
+/* The tick: a bar beside every row after the first (a one-row block gives it no height). */
+#swPreview .pl::before {
+  content: "";
+  position: absolute;
+  left: 0.5ch;
+  top: 20px;
+  bottom: 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--cell-line);
 }
 #swPanelEmpty {
   margin: 0;
@@ -2216,6 +2243,18 @@ dialog.dlg.dlg-wide {
 }
 dialog.dlg textarea {
   width: 100%;
+}
+/* The Ports dialog keeps the side panel in view: it sits to the left and its veil is lighter, so
+   the panel's preview (which follows every keystroke) can be read while typing. */
+@media (min-width: 1300px) {
+  dialog.dlg.dlg-ports {
+    margin-left: 24px;
+    margin-right: auto;
+    max-width: min(920px, 100vw - 24px - 356px);
+  }
+  dialog.dlg.dlg-ports::backdrop {
+    background: var(--backdrop-light);
+  }
 }
 .sw-ports-table {
   min-width: 0;
@@ -2300,22 +2339,9 @@ dialog.dlg textarea {
     display: table-row;
   }
 }
-/* A half-screen window: the row fits without sideways scrolling once the two icon columns
-   fold into the selected row's detail line. */
-@media (max-width: 1000px) {
-  #swTable .c-copy,
-  #swTable .c-remove {
-    display: none;
-  }
-  #swTable tr.sw-detail .sw-detail-actions {
-    display: flex;
-  }
-  /* Ports is now the last column: a little room before the box's rounded edge. */
-  #swTable td.c-ports,
-  #swTable th.c-ports {
-    padding-right: 10px;
-  }
-}
+/* A half-screen window (900 px): the whole row, Copy and Remove included, still fits the box
+   (Site gives up its spare width first); narrower than that, the box scrolls sideways with its
+   edge fades and the hint above it. */
 /* No switches yet: the empty state alone, no placeholder panel beside it. */
 .sw-layout.sw-none {
   grid-template-columns: minmax(0, 1fr);

@@ -253,7 +253,7 @@ def test_boot_dialog_defaults_to_restore_and_says_a_backup_is_kept(page):
     page.wait_for_selector("dialog[open]")
     assert ev(page, "() => document.activeElement.textContent") == "Restore it"
     text = page.inner_text("dialog[open]")
-    assert "keeps a copy as an autosave backup" in text and "Restore autosave backup" in text
+    assert "keeps that autosave as a backup" in text and "Restore autosave backup" in text and "Nothing is deleted" in text
     page.keyboard.press("Escape")
     page.wait_for_function("bootDone === true")
     assert ev(page, "() => listAutosaveBackups().length") >= 1

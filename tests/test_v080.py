@@ -158,7 +158,7 @@ def test_boot_restore_dialog_for_other_version(page):
     assert ev(page, "() => recipes.some((r) => r.name === 'Seeded recipe')")
     _seed_old_autosave(page, "Second seed")
     page.reload(wait_until="domcontentloaded")
-    click_dialog(page, "Start with the examples")
+    click_dialog(page, "Not now")
     page.wait_for_function("bootDone === true")
     assert ev(page, "() => recipes.length") == 4
     assert not ev(page, "() => recipes.some((r) => r.name === 'Second seed')")

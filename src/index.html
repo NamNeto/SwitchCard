@@ -75,25 +75,26 @@
       </div>
       <!-- ===== Build workspace ===== -->
       <section id="build">
-        <!-- Quick-start tip. "Got it" hides it for good (flag stored under CONFIG.ONBOARD_KEY). -->
-        <div id="onboarding" class="onboard" hidden>
-          <div class="onboard-head">
-            <div>
-              <strong>Quick start</strong>
-              <ol>
-                <li>
-                  First time: <strong>Manage recipes &amp; baseline</strong> → load sync-export,
-                  shape recipes.
-                </li>
-                <li>Build → device + ports → review → <strong>Export SD-card ZIP</strong>.</li>
-                <li>Extract ZIP contents to the card <strong>root</strong> (examples block export).</li>
-              </ol>
-            </div>
-            <button type="button" id="dismissOnboarding">Got it</button>
-          </div>
-        </div>
         <div class="grid">
           <div>
+            <!-- Quick-start tip, first in the task column so it never takes height from the
+                 preview pane beside it. "Got it" hides it for good (CONFIG.ONBOARD_KEY). -->
+            <div id="onboarding" class="onboard" hidden>
+              <div class="onboard-head">
+                <div>
+                  <strong>Quick start</strong>
+                  <ol>
+                    <li>
+                      First time: <strong>Manage recipes &amp; baseline</strong> → load sync-export,
+                      shape recipes.
+                    </li>
+                    <li>Build → device + ports → review → <strong>Export SD-card ZIP</strong>.</li>
+                    <li>Extract ZIP contents to the card <strong>root</strong> (examples block export).</li>
+                  </ol>
+                </div>
+                <button type="button" id="dismissOnboarding">Got it</button>
+              </div>
+            </div>
             <div class="card">
               <!-- Step 1: recipe picker -->
               <h2><span class="step">1</span>Choose a configuration</h2>
@@ -370,9 +371,10 @@
                 <label for="editRecipe">Recipe to edit</label
                 ><select id="editRecipe"></select>
               </div>
-              <div class="actions even">
+              <!-- Delete stands apart at the far end: a destructive action never reads as a pair with a safe one. -->
+              <div class="actions">
                 <button id="duplicate">Duplicate recipe</button
-                ><button id="deleteRecipe" type="button" class="danger">Delete recipe</button>
+                ><button id="deleteRecipe" type="button" class="danger aside">Delete recipe</button>
               </div>
               <div class="notice warning" id="exampleNote">
                 Included recipes are fictional examples, not approved Cisco configurations. Replace
@@ -478,7 +480,7 @@
                 ><textarea
                   id="firmwareRule"
                   class="compact-xs"
-                  rows="2"
+                  rows="3"
                   placeholder="One per line; blank = any"
                 ></textarea>
               </div>
