@@ -665,9 +665,10 @@
         transform: none;
         box-shadow: none;
       }
-      /* The blocked export buttons carry a small drawn padlock before their label. */
+      /* The blocked export buttons carry a small drawn padlock before their label (on Cards all
+         three, so none of them looks allowed while a gate blocks). */
       #downloadCard:disabled::before,
-      #cdAll:disabled::before {
+      .cd-toolbar button.locked:disabled::before {
         content: "";
         flex: none;
         width: 9px;
@@ -755,6 +756,19 @@
       .notice li + li,
       .sw-checks li + li {
         margin-top: 4px;
+      }
+      /* The side panel's and the detail line's checks: dot and text side by side, whatever the text's
+         box is (a button in the panel, a link in the grid), so the dot shares the first line. */
+      .sw-checks li {
+        display: flex;
+        align-items: flex-start;
+        gap: 7px;
+        padding-left: 3px;
+      }
+      .sw-checks li::before {
+        position: static;
+        flex: none;
+        margin-top: 0.55em;
       }
       .notice-foot {
         display: block;
@@ -1235,6 +1249,17 @@
         resize: vertical;
         font-size: 0.92em;
       }
+      /* Allowed baseline labels sits beside a 40 px select: one line tall like it, and it grows a line
+         per label typed (up to 120 px, then scrolls). */
+      #firmwareRule {
+        height: 40px;
+        min-height: 40px;
+        field-sizing: content;
+        padding-top: 9px;
+        padding-bottom: 9px;
+        line-height: 20px;
+        resize: none;
+      }
       .recipe-sku-row {
         margin-bottom: 8px;
       }
@@ -1528,6 +1553,12 @@
         background: var(--danger-hover);
         border-color: var(--danger-hover);
       }
+      /* A disabled red button is as dead as any other disabled button. */
+      button.danger:disabled,
+      button.danger:disabled:hover {
+        border-color: var(--line2);
+        color: var(--faint);
+      }
       /* The red buttons keep a ring of their own when focused (box-shadow is reset above). */
       button.danger:focus-visible,
       button.primary.danger:focus-visible {
@@ -1604,18 +1635,12 @@
       .dlg-choices li {
         line-height: 1.5;
       }
-      /* A dialog button that a key also takes shows the key after its label (drawn by CSS, so the
-         button's text stays the label). */
-      .dialog-actions button[data-kbd]::after {
-        content: attr(data-kbd);
-        margin-left: 4px;
-        padding: 1px 6px;
-        font-size: 11px;
-        font-weight: 600;
-        line-height: 1.3;
+      /* A short note at the left of the action bar (what the buttons do or do not save). */
+      .dialog-actions .dialog-note {
+        margin-right: auto;
+        align-self: center;
+        font-size: 12.5px;
         color: var(--muted);
-        border: 1px solid var(--line2);
-        border-radius: 5px;
       }
       .dlg-kv td {
         overflow-wrap: anywhere;
@@ -1628,15 +1653,29 @@
         overflow-wrap: normal;
         padding-bottom: 4px;
       }
-      /* A per-row copy of the full hash in the bulk table. */
+      /* A per-row copy of the full hash in the bulk table, in a column of its own. */
       .dlg-rows button.dlg-copy-sha {
         min-height: 0;
         height: 22px;
-        margin-left: 6px;
         padding: 0 7px;
         font-size: 11px;
         font-weight: 600;
         vertical-align: middle;
+      }
+      .dlg-rows td.dlg-sha {
+        padding-right: 4px;
+      }
+      .dlg-rows td.dlg-sha-copy {
+        width: 56px;
+        padding-left: 4px;
+        padding-right: 2px;
+      }
+      /* A long list scrolls inside the summary box; the header stays. */
+      .dlg-rows thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--bg);
       }
       .dlg-kv tr.dlg-key th,
       .dlg-kv tr.dlg-key td {
@@ -1716,18 +1755,6 @@
       }
       .tool-end {
         margin-left: auto;
-      }
-      /* Remove all: red words, no box until hovered or focused, at the far end of the toolbar. */
-      button.tool-quiet,
-      button.tool-quiet:disabled {
-        background: transparent;
-        border-color: transparent;
-        padding-left: 10px;
-        padding-right: 10px;
-      }
-      button.tool-quiet:hover:not(:disabled) {
-        border-color: var(--err);
-        background: var(--err-bg);
       }
       .sw-add,
       .sw-template {
@@ -1930,6 +1957,16 @@
       #swTable td.status .pill-bad {
         padding: 0 8px;
       }
+      /* The kind of error, in a word under the count (the cell stays one row tall). */
+      #swTable td.status .st-what {
+        display: block;
+        margin-top: 2px;
+        padding-left: 1px;
+        font-size: 11.5px;
+        font-weight: 600;
+        line-height: 1.2;
+        color: var(--err);
+      }
       #swTable button {
         height: 32px;
         min-height: 32px;
@@ -2040,7 +2077,7 @@
         top: calc(var(--header-h) + 12px);
       }
       #swPanel {
-        padding: 16px 16px 14px;
+        padding: 16px 14px 14px;
       }
       #swPanel h2 {
         margin-bottom: 10px;
@@ -2063,19 +2100,36 @@
       #preview {
         max-height: 338px; /* 16 lines */
       }
-      /* IOS lines are never wrapped: a long line scrolls sideways inside the panel (a wrapped
-         "ip default-gateway" would read as two commands). */
+      /* IOS lines in the side panel wrap at spaces only (never inside an address, a date or a VLAN
+         list) and a continued line hangs 3 characters in, behind a faint bar, so it never reads as a
+         second command. A single token wider than the panel scrolls sideways instead. */
       #swPreview {
         max-height: 378px; /* 20 lines of 18 px */
-        font-size: 12px;
+        font-size: 11.5px; /* 39 characters across: an "ip address a.b.c.d m.m.m.m" line stays whole */
         line-height: 18px;
-        white-space: pre;
         overflow-wrap: normal;
-        padding: 0 12px;
+        padding: 0 8px;
       }
       #swPreview::before,
       #swPreview::after {
-        margin: 0 -12px;
+        margin: 0 -8px;
+      }
+      #swPreview .pl {
+        display: block;
+        position: relative;
+        padding-left: 3ch;
+        text-indent: -3ch;
+      }
+      #swPreview .tok {
+        white-space: nowrap;
+      }
+      #swPreview .pl::before {
+        content: "";
+        position: absolute;
+        left: 0.6ch;
+        top: 19px;
+        bottom: 3px;
+        border-left: 2px solid var(--faint); /* 5.6:1 dark, 6.2:1 light on the preview background */
       }
       #swPanelEmpty {
         margin: 0;
@@ -2139,6 +2193,8 @@
         min-height: 32px;
         padding: 0 10px;
         font-size: 12.5px;
+        color: var(--accent-text);
+        border-color: var(--accent);
       }
       /* A port this switch sets itself: accent edge on its name, and the only rows with Use table. */
       .sw-ports-table tr.own > td:first-child {
@@ -2229,10 +2285,6 @@
         #switches .sw-toolbar {
           gap: 8px;
         }
-        /* The CSV group keeps its order and titles; its small label gives the row back to the actions. */
-        #switches .sw-toolbar .tool-label {
-          display: none;
-        }
       }
 
       /* Build's port table fits its card: fixed narrow columns, Description takes the rest. */
@@ -2293,14 +2345,9 @@
       .pane::-webkit-scrollbar-thumb:hover {
         background: var(--faint);
       }
-      .scroll.more-right,
-      pre.more-right {
+      .scroll.more-right {
         -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
         mask-image: linear-gradient(to right, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
-      }
-      pre.more-right {
-        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), rgba(0, 0, 0, 0.25));
-        mask-image: linear-gradient(to right, #000 calc(100% - 40px), rgba(0, 0, 0, 0.25));
       }
       .scroll.more-left {
         -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.18), #000 40px);
@@ -2395,6 +2442,15 @@
       .gate:has(.gate-fix) .gate-list {
         order: 2;
         flex: 1 1 100%;
+      }
+      /* On Cards the gate is one line: headline, reason, way-out button at the end (the reasons are
+         short and the box is wide); only Build's narrow pane puts the reasons under the headline. */
+      #cdGates .gate-list {
+        order: 0;
+        flex: 1 1 auto;
+      }
+      #cdGates .gate-fix {
+        order: 0;
       }
       /* The three export buttons: one even 16 px gap, a little wider than a plain toolbar. */
       .cd-toolbar {
@@ -2657,19 +2713,42 @@
         white-space: normal;
         cursor: pointer;
       }
+      /* A dotted underline says "this goes somewhere" without reading as a hyperlink; hovering the row
+         makes it solid, tints the row and nudges the chevron. */
+      button.finding-link {
+        text-decoration: underline dotted;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+        text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
+      }
+      /* The chevron is drawn at the end of the item's last line (never alone on a line of its own). */
+      button.finding-link {
+        position: relative;
+        padding-right: 13px;
+      }
       button.finding-link::after {
         content: "\203A";
-        display: inline-block;
-        margin-left: 6px;
+        position: absolute;
+        right: 0;
+        bottom: 0;
         color: inherit;
+        font-size: 1.15em;
+        line-height: 1.25;
         font-weight: 700;
-        opacity: 0.7;
+        opacity: 0.85;
         text-decoration: none;
         transition: transform var(--ease), opacity var(--ease);
       }
       .notice li:has(> button.finding-link),
       .sw-checks li:has(> button.finding-link) {
         cursor: pointer;
+        border-radius: 4px;
+        margin-right: -4px;
+        padding-right: 4px;
+      }
+      .notice li:has(> button.finding-link):hover,
+      .sw-checks li:has(> button.finding-link):hover {
+        background: color-mix(in srgb, currentColor 9%, transparent);
       }
       button.finding-link:hover,
       li:hover > button.finding-link {
@@ -2678,6 +2757,7 @@
         text-decoration: underline;
         text-decoration-thickness: 1px;
         text-underline-offset: 3px;
+        text-decoration-color: currentColor;
       }
       button.finding-link:hover::after {
         opacity: 1;
@@ -3315,13 +3395,14 @@
           </div>
           <!-- Toolbar: counted-up rows, CSV in/out, remove all -->
           <div class="sw-toolbar">
-            <div class="tool-group" role="group" aria-label="Add switches">
+            <div class="tool-group" role="group" aria-labelledby="swAddLabel">
+              <label class="tool-label" id="swAddLabel" for="swCount">Add switches</label>
               <span class="sw-add"
                 ><input id="swCount" type="number" min="1" max="500" step="1" value="1" aria-label="Number of switches to add" /><button
                   type="button"
                   id="swAdd"
                   title="Adds this many rows after the last one, counting the hostname and management IP up from the last row (or from Device details)"
-                >Add switches</button></span
+                >Add, numbered from last</button></span
               >
             </div>
             <div class="tool-group" role="group" aria-labelledby="swCsvLabel">
@@ -3336,7 +3417,7 @@
                 ><button type="button" id="swTemplate" title="Download an empty CSV with these columns; row 1 is the switch on Build a card">Download template</button></span
               >
             </div>
-            <button type="button" id="swRemoveAll" class="danger tool-end tool-quiet" title="Remove every switch from the list">Remove all…</button>
+            <button type="button" id="swRemoveAll" class="danger tool-end" title="Remove every switch from the list">Remove all</button>
           </div>
           <p id="swNotes" class="muted" hidden></p>
         </div>
@@ -4312,20 +4393,20 @@
               nSwitches + (nSwitches === 1 ? " switch" : " switches") + (parsed.draft ? ", an unapplied recipe draft" : "");
             const base = p.baseline ? p.baseline.model + " / " + p.baseline.version + " (label only; firmware files are never stored)" : "none recorded";
             const kv = (k, v) => el("tr", {}, el("th", { scope: "row" }, k), el("td", {}, v));
-            // Two short lines, one per button; Esc takes the safe choice (nothing is deleted either way).
+            // One line per button; Esc takes the safe choice, and the sentence says nothing is deleted.
             body = el("div", {},
               el("p", {}, found),
               el("table", { className: "dlg-kv dlg-kv-plain" }, kv("Holds", holds), kv("Baseline", base)),
               el("ul", { className: "dlg-choices" },
-                el("li", {}, el("strong", {}, "Restore it:"), " open that v" + meta.release + " work in this page."),
-                el("li", {}, el("strong", {}, "Start with the examples:"), " keeps a copy as an autosave backup (Save your work → Restore autosave backup).")));
+                el("li", {}, el("strong", {}, "Restore it"), " opens that work in this page."),
+                el("li", {}, el("strong", {}, "Start with the examples"), " (or Esc) keeps a copy as an autosave backup," +
+                  " which Save your work → Restore autosave backup brings back. Nothing is deleted.")));
           }
           const ok = await confirmDialog(
             "Restore an autosave from v" + meta.release + "?",
             body,
-            // At boot the default is the user's own work, so Enter never hides it; Esc is the safe
-            // choice (keeps the backup) and the button says so.
-            { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples", focusOk: !fromBackup, cancelKbd: "Esc" },
+            // At boot the default is the user's own work, so Enter never hides it.
+            { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples", focusOk: !fromBackup },
           );
           if (!ok) return fail("declined", "you chose not to restore data saved by v" + meta.release);
         }
@@ -4997,7 +5078,8 @@
 
       // Resolves with the clicked action's value, or null on Esc. Resolved by our own handlers,
       // not the native close event (automated browsers can defer that indefinitely).
-      function showDialog({ title, body, actions, onOpen }) {
+      // note: a short sentence at the left of the action bar (what the buttons do or do not save).
+      function showDialog({ title, body, actions, onOpen, note }) {
         return new Promise((resolve) => {
           const dlg = el("dialog", { className: "dlg" });
           const opener = document.activeElement;
@@ -5013,16 +5095,13 @@
             resolve(value);
           };
           const bar = el("div", { className: "dialog-actions" });
+          if (note) bar.appendChild(el("span", { className: "dialog-note" }, note));
           for (const a of actions) {
-            // a.kbd ("Esc"): the key that also takes this choice, drawn after the label by CSS (the
-            // button's text stays the label alone).
             bar.appendChild(el("button", {
               type: "button",
               className: (a.primary ? "primary " : "") + (a.danger ? "danger" : ""),
               disabled: !!a.disabled,
               textContent: a.label,
-              dataKbd: a.kbd || null,
-              ariaKeyshortcuts: a.kbd === "Esc" ? "Escape" : a.kbd || null,
               onclick: () => finish(a.value),
             }));
           }
@@ -5062,8 +5141,7 @@
         const body = typeof textOrNode === "string" ? el("p", {}, textOrNode) : textOrNode;
         return showDialog({
           title, body,
-          // opts.cancelKbd: show that Esc takes the cancel choice (where the cancel label is not "Cancel").
-          actions: [{ label: o.cancel, value: false, kbd: o.cancelKbd }, { label: o.ok, value: true, primary: true, danger: o.danger }],
+          actions: [{ label: o.cancel, value: false }, { label: o.ok, value: true, primary: true, danger: o.danger }],
           // opts.focusOk: start on the OK button instead of Cancel (only where OK is the safe choice).
           onOpen: o.focusOk ? (dlg) => dlg.querySelector(".dialog-actions button.primary").focus() : undefined,
         }).then((v) => v === true);
@@ -5083,7 +5161,7 @@
       };
       function summaryRowsTable(rows) {
         return el("table", { className: "dlg-rows" },
-          el("thead", {}, el("tr", {}, ["#", "Hostname", "Mgmt IP", "State", "SHA-256", "Lines"].map((h) => el("th", {}, h)))),
+          el("thead", {}, el("tr", {}, ["#", "Hostname", "Mgmt IP", "State", "Lines", "SHA-256", ""].map((h) => el("th", {}, h)))),
           el("tbody", {}, rows.map((x) => {
             const [cls, label] = EXPORT_STATE_PILL[x.state] || EXPORT_STATE_PILL.nohost;
             return el("tr", {},
@@ -5091,12 +5169,13 @@
               el("td", {}, x.host || "(no hostname)"),
               el("td", { className: "mono" }, x.ip || ""),
               el("td", {}, el("span", { className: "pill " + cls }, label)),
-              el("td", { className: "mono", title: x.sha256 }, x.sha256.slice(0, 16) + "…",
-                el("button", {
-                  type: "button", className: "dlg-copy-sha", title: "Copy the full SHA-256 of this card's editcontent.txt",
-                  onclick: async (e) => { e.target.textContent = (await copyText(x.sha256)) ? "Copied" : "Copy failed"; },
-                }, "Copy")),
-              el("td", { className: "num" }, String(x.lines)));
+              el("td", { className: "num" }, String(x.lines)),
+              // The first 24 hex characters in mono; the whole hash is the cell's title and what Copy copies.
+              el("td", { className: "mono dlg-sha", title: x.sha256 }, x.sha256.slice(0, 24) + "…"),
+              el("td", { className: "dlg-sha-copy" }, el("button", {
+                type: "button", className: "dlg-copy-sha", title: "Copy the full SHA-256 of this card's editcontent.txt",
+                onclick: async (e) => { e.target.textContent = (await copyText(x.sha256)) ? "Copied" : "Copy failed"; },
+              }, "Copy")));
           })));
       }
       function summaryView(text, rows) {
@@ -6130,15 +6209,10 @@
           return;
         }
         const items = reasons.map((t) => {
+          // The checks box above already lists each error as a link: the gate only counts them.
           if (t === GATE_ERRORS && errors && errors.length) {
             const n = errors.length;
-            const li = el("li", { title: t }, n + (n === 1 ? " error: " : " errors: "));
-            errors.forEach((f, i) => {
-              if (i) li.append(", ");
-              li.append(el("button", { type: "button", className: "finding-link", title: f.text, onclick: () => focusFinding(f.where, { view: "build" }) },
-                findingShortName(f)));
-            });
-            return li;
+            return el("li", { title: t }, n + (n === 1 ? " error" : " errors") + " in the checks above");
           }
           return el("li", { title: t }, gateLabel(t));
         });
@@ -9594,8 +9668,13 @@
       function switchStatus(x) {
         const notes = x.warnings.length;
         const n = x.errors.length + x.policy.length;
+        // A duplicate says so under the count ("1 error · duplicate"): its red cell alone would not say
+        // what is wrong with it. Read off the checks, which keep their own wording.
+        const dup = x.errors.some((e) => /^duplicate /.test(e));
         return {
-          text: n ? n + (n === 1 ? " error" : " errors") : "OK" + (notes ? " · " + notes + (notes === 1 ? " note" : " notes") : ""),
+          text: n
+            ? n + (n === 1 ? " error" : " errors") + (dup ? " · duplicate" : "")
+            : "OK" + (notes ? " · " + notes + (notes === 1 ? " note" : " notes") : ""),
           title: [...x.errors, ...x.policy.map((p) => "Team policy: " + p), ...x.warnings].join("\n"),
           bad: n > 0,
         };
@@ -9641,10 +9720,15 @@
           pb.classList.toggle("has-set", set > 0);
           const st = switchStatus(x);
           const td = tr.querySelector("td.status");
-          // A clean row stays quiet: "OK" in muted text, the note count fainter still (same text).
-          const notesAt = st.bad ? -1 : st.text.indexOf(" · ");
-          td.replaceChildren(el("span", { className: "pill " + (st.bad ? "pill-bad" : "pill-quiet") },
-            notesAt < 0 ? st.text : el("span", {}, st.text.slice(0, notesAt), el("span", { className: "st-notes" }, st.text.slice(notesAt)))));
+          // A clean row stays quiet: "OK" in muted text, the note count fainter still (same text). On
+          // an error row the kind of error sits under the count ("1 error" / "duplicate"); the cell's
+          // text is still "1 error · duplicate" (the separator is there, only not drawn).
+          const sepAt = st.text.indexOf(" · ");
+          const head = sepAt < 0 ? st.text : st.text.slice(0, sepAt);
+          const tail = sepAt < 0 ? "" : st.text.slice(sepAt + 3);
+          const pill = el("span", { className: "pill " + (st.bad ? "pill-bad" : "pill-quiet") },
+            !tail || st.bad ? head : el("span", {}, head, el("span", { className: "st-notes" }, " · " + tail)));
+          td.replaceChildren(pill, tail && st.bad ? el("span", { className: "st-what" }, el("span", { className: "visually-hidden" }, " · "), tail) : "");
           td.title = st.title;
           td.className = "status " + (st.bad ? "bad" : "ok");
           tr.classList.toggle("row-bad", st.bad);
@@ -9654,13 +9738,11 @@
         // An empty list shows the empty state alone (no placeholder side panel).
         const layout = $("swPanel").closest(".sw-layout");
         if (layout) layout.classList.toggle("sw-none", !rows.length);
-        // Nothing to export or remove from an empty list: those two buttons leave the toolbar (the
-        // empty state's only jobs are Add and Import), and stay disabled while hidden.
+        // Nothing to export or remove from an empty list: the two buttons stay where they are (the
+        // toolbar keeps one shape) but are disabled, and their title says why.
         $("swExport").disabled = !rows.length;
-        $("swExport").hidden = !rows.length;
         $("swExport").title = rows.length ? "Download the list as CSV" : "No switches to export yet";
         $("swRemoveAll").disabled = !rows.length;
-        $("swRemoveAll").hidden = !rows.length;
         $("swRemoveAll").title = rows.length ? "Remove every switch from the list" : "The list is already empty";
         $("swNotes").textContent = res.warnings.join(" ");
         $("swNotes").hidden = !res.warnings.length;
@@ -9715,12 +9797,25 @@
                 el("button", { type: "button", title: "Copy this switch below itself", onclick: () => copySwitchRow(x.row.id) }, "Copy below"),
                 el("button", { type: "button", className: "danger", title: "Remove this switch", onclick: () => removeSwitchRow(x.row.id) }, "Remove")))));
         }
-        $("swPreview").textContent = x.text || "No output: fix the errors above.";
+        fillConfigPre($("swPreview"), x.text || "No output: fix the errors above.");
         const prev = lastExport(r, x.host);
         if (prev && !x.errors.length) {
           $("swDiffPanel").hidden = false;
           fillDiff($("swDiffSummary"), $("swDiff"), prev, x.text);
         }
+      }
+      // IOS text in the side panel: every line is a block that wraps only at spaces (a token such as
+      // 2026-10-01 or 255.255.255.0 is never split) with a hanging indent and a continuation bar, so a
+      // continued line can never read as a second command. The box's textContent stays the text byte
+      // for byte (the newline ends each block).
+      function fillConfigPre(pre, text) {
+        const lines = String(text).split("\n");
+        pre.replaceChildren(...lines.map((line, i) => {
+          const b = el("span", { className: "pl" });
+          for (const part of line.split(/( +)/)) if (part) b.append(/^ +$/.test(part) ? part : el("span", { className: "tok" }, part));
+          if (i < lines.length - 1) b.append("\n");
+          return b;
+        }).filter((b, i) => i < lines.length - 1 || lines[i] !== ""));
       }
       function selectSwitch(id) {
         if (id === swSelectedId) return;
@@ -10034,6 +10129,7 @@
           title: "Ports · switch " + n + (host ? " (" + host + ")" : ""),
           body: wrap,
           actions: [{ label: "Close", value: true, primary: true }],
+          note: "Changes apply as you type. Use table puts a port back on the table.",
           onOpen: (dlg) => {
             dlg.classList.add("dlg-wide");
             if (focus) draw(focus);
@@ -10246,8 +10342,7 @@
         if (hint) hint.hidden = !(max > 1 && box.scrollLeft < max - 1);
       }
       function watchScrollHints(root) {
-        // #swPreview never wraps, so it scrolls sideways like a table and fades the side that has more.
-        for (const box of (root || document).querySelectorAll(".scroll, #swPreview")) {
+        for (const box of (root || document).querySelectorAll(".scroll")) {
           if (box.__hint) continue;
           box.__hint = true;
           box.addEventListener("scroll", () => updateScrollHint(box), { passive: true });
@@ -10439,6 +10534,13 @@
         $("cdAll").disabled = blocked || !items.length;
         $("cdText").disabled = blocked || !items.length;
         $("cdChanged").disabled = blocked || changed === 0;
+        // While a gate blocks, all three carry the padlock and their title names the gate (one look
+        // says every export is off, text-only included); otherwise each title says what it exports.
+        const why = gates.length ? "Export blocked: " + gates.map(gateLabel).join(" · ") : busy ? "An export is running." : "";
+        for (const id of ["cdAll", "cdChanged", "cdText"]) $(id).classList.toggle("locked", blocked);
+        $("cdAll").title = why || (items.length ? "One SD-card ZIP per switch, plus a manifest" : "No switches to export yet");
+        $("cdText").title = why || (items.length ? "One ZIP holding every editcontent.txt (no baseline files)" : "No switches to export yet");
+        $("cdChanged").title = why || (changed ? "Only the switches that are new or changed since their last export" : "Nothing is new or changed since the last export");
       }
       // One switch's SD-card ZIP, with the same write dialog as Build's Export SD-card ZIP. Runs inside run().
       async function exportOneCard(r, result) {

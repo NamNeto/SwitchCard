@@ -37,7 +37,8 @@ def test_typo_duplicating_another_rows_ip_blocks_both_rows(page):
     assert "duplicate MGMT_IP (also row 2)" in res[2]
     assert res[0] == []
     for i in (1, 2):
-        assert ev(page, "(s) => document.querySelector(s).textContent", "#swRows tr[data-row='%s'] td.status" % ids[i]) == "1 error"
+        # gauntlet r5: the status names the kind of error under the count
+        assert ev(page, "(s) => document.querySelector(s).textContent", "#swRows tr[data-row='%s'] td.status" % ids[i]) == "1 error · duplicate"
     ev(page, "() => showView('cards')")
     assert page.is_disabled(_cd(ids[1], "button.cd-card"))
     assert page.is_disabled(_cd(ids[2], "button.cd-card"))

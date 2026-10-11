@@ -41,7 +41,8 @@ function restoreFocus(opener, nearest) {
 
 // Resolves with the clicked action's value, or null on Esc. Resolved by our own handlers,
 // not the native close event (automated browsers can defer that indefinitely).
-function showDialog({ title, body, actions, onOpen }) {
+// note: a short sentence at the left of the action bar (what the buttons do or do not save).
+function showDialog({ title, body, actions, onOpen, note }) {
   return new Promise((resolve) => {
     const dlg = el("dialog", { className: "dlg" });
     const opener = document.activeElement;
@@ -57,16 +58,13 @@ function showDialog({ title, body, actions, onOpen }) {
       resolve(value);
     };
     const bar = el("div", { className: "dialog-actions" });
+    if (note) bar.appendChild(el("span", { className: "dialog-note" }, note));
     for (const a of actions) {
-      // a.kbd ("Esc"): the key that also takes this choice, drawn after the label by CSS (the
-      // button's text stays the label alone).
       bar.appendChild(el("button", {
         type: "button",
         className: (a.primary ? "primary " : "") + (a.danger ? "danger" : ""),
         disabled: !!a.disabled,
         textContent: a.label,
-        dataKbd: a.kbd || null,
-        ariaKeyshortcuts: a.kbd === "Esc" ? "Escape" : a.kbd || null,
         onclick: () => finish(a.value),
       }));
     }
@@ -106,8 +104,7 @@ function confirmDialog(title, textOrNode, opts) {
   const body = typeof textOrNode === "string" ? el("p", {}, textOrNode) : textOrNode;
   return showDialog({
     title, body,
-    // opts.cancelKbd: show that Esc takes the cancel choice (where the cancel label is not "Cancel").
-    actions: [{ label: o.cancel, value: false, kbd: o.cancelKbd }, { label: o.ok, value: true, primary: true, danger: o.danger }],
+    actions: [{ label: o.cancel, value: false }, { label: o.ok, value: true, primary: true, danger: o.danger }],
     // opts.focusOk: start on the OK button instead of Cancel (only where OK is the safe choice).
     onOpen: o.focusOk ? (dlg) => dlg.querySelector(".dialog-actions button.primary").focus() : undefined,
   }).then((v) => v === true);
@@ -127,7 +124,7 @@ const EXPORT_STATE_PILL = {
 };
 function summaryRowsTable(rows) {
   return el("table", { className: "dlg-rows" },
-    el("thead", {}, el("tr", {}, ["#", "Hostname", "Mgmt IP", "State", "SHA-256", "Lines"].map((h) => el("th", {}, h)))),
+    el("thead", {}, el("tr", {}, ["#", "Hostname", "Mgmt IP", "State", "Lines", "SHA-256", ""].map((h) => el("th", {}, h)))),
     el("tbody", {}, rows.map((x) => {
       const [cls, label] = EXPORT_STATE_PILL[x.state] || EXPORT_STATE_PILL.nohost;
       return el("tr", {},
@@ -135,12 +132,13 @@ function summaryRowsTable(rows) {
         el("td", {}, x.host || "(no hostname)"),
         el("td", { className: "mono" }, x.ip || ""),
         el("td", {}, el("span", { className: "pill " + cls }, label)),
-        el("td", { className: "mono", title: x.sha256 }, x.sha256.slice(0, 16) + "…",
-          el("button", {
-            type: "button", className: "dlg-copy-sha", title: "Copy the full SHA-256 of this card's editcontent.txt",
-            onclick: async (e) => { e.target.textContent = (await copyText(x.sha256)) ? "Copied" : "Copy failed"; },
-          }, "Copy")),
-        el("td", { className: "num" }, String(x.lines)));
+        el("td", { className: "num" }, String(x.lines)),
+        // The first 24 hex characters in mono; the whole hash is the cell's title and what Copy copies.
+        el("td", { className: "mono dlg-sha", title: x.sha256 }, x.sha256.slice(0, 24) + "…"),
+        el("td", { className: "dlg-sha-copy" }, el("button", {
+          type: "button", className: "dlg-copy-sha", title: "Copy the full SHA-256 of this card's editcontent.txt",
+          onclick: async (e) => { e.target.textContent = (await copyText(x.sha256)) ? "Copied" : "Copy failed"; },
+        }, "Copy")));
     })));
 }
 function summaryView(text, rows) {

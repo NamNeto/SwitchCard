@@ -49,15 +49,10 @@ function renderGate(box, reasons, okText, fixId, errors) {
     return;
   }
   const items = reasons.map((t) => {
+    // The checks box above already lists each error as a link: the gate only counts them.
     if (t === GATE_ERRORS && errors && errors.length) {
       const n = errors.length;
-      const li = el("li", { title: t }, n + (n === 1 ? " error: " : " errors: "));
-      errors.forEach((f, i) => {
-        if (i) li.append(", ");
-        li.append(el("button", { type: "button", className: "finding-link", title: f.text, onclick: () => focusFinding(f.where, { view: "build" }) },
-          findingShortName(f)));
-      });
-      return li;
+      return el("li", { title: t }, n + (n === 1 ? " error" : " errors") + " in the checks above");
     }
     return el("li", { title: t }, gateLabel(t));
   });

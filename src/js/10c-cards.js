@@ -125,6 +125,13 @@ function renderCards() {
   $("cdAll").disabled = blocked || !items.length;
   $("cdText").disabled = blocked || !items.length;
   $("cdChanged").disabled = blocked || changed === 0;
+  // While a gate blocks, all three carry the padlock and their title names the gate (one look
+  // says every export is off, text-only included); otherwise each title says what it exports.
+  const why = gates.length ? "Export blocked: " + gates.map(gateLabel).join(" · ") : busy ? "An export is running." : "";
+  for (const id of ["cdAll", "cdChanged", "cdText"]) $(id).classList.toggle("locked", blocked);
+  $("cdAll").title = why || (items.length ? "One SD-card ZIP per switch, plus a manifest" : "No switches to export yet");
+  $("cdText").title = why || (items.length ? "One ZIP holding every editcontent.txt (no baseline files)" : "No switches to export yet");
+  $("cdChanged").title = why || (changed ? "Only the switches that are new or changed since their last export" : "Nothing is new or changed since the last export");
 }
 // One switch's SD-card ZIP, with the same write dialog as Build's Export SD-card ZIP. Runs inside run().
 async function exportOneCard(r, result) {

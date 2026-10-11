@@ -611,7 +611,7 @@ def test_switches_duplicate_flagged_and_cleared(page):
     page.fill(_sw_input(ids[1], "HOSTNAME"), host1)
     status = "#swRows tr[data-row='%s'] td.status" % ids[1]
     assert "duplicate HOSTNAME" in page.get_attribute(status, "title")
-    assert page.inner_text(status) == "1 error"
+    assert page.text_content(status) == "1 error · duplicate"  # gauntlet r5: the kind of error under the count
     page.fill(_sw_input(ids[1], "HOSTNAME"), "SW-OTHER-07")
     # the example recipe carries one soft note (no enable secret), so OK shows "OK · 1 note"
     assert page.inner_text(status) in ("OK", "OK · 1 note")
