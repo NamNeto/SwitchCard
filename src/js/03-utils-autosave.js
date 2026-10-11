@@ -270,9 +270,9 @@ function cleanInput(el, label, trim = false) {
   }
   return c.text;
 }
+// One date format everywhere on the page: "YYYY-MM-DD HH:MM" in local time (formatExportAt).
 function formatSavedAt(iso) {
-  const d = new Date(iso);
-  return typeof iso === "string" && !isNaN(d) ? d.toLocaleString() : "unknown time";
+  return formatExportAt(iso);
 }
 // --- Autosave backups ---
 // Up to MAX_AUTOSAVE_BACKUPS entries in ONE localStorage key (newest first), so every change
