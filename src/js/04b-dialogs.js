@@ -197,7 +197,7 @@ function infoDialog(title, textOrNode) {
 // switch list of a bulk export becomes a table with each card's export state, and every other
 // line stays a sentence. Copy summary still copies the plain text.
 const EXPORT_STATE_PILL = {
-  current: ["pill-ok", "up to date"], changed: ["pill-warn", "changed"], new: ["pill-new", "new"], nohost: ["pill-muted", "not tracked"],
+  current: ["pill-ok", "up to date"], changed: ["pill-warn", "changed"], new: ["pill-new", "not exported"], nohost: ["pill-muted", "not tracked"],
 };
 // A long list (200 switches) is built in chunks: the rows that fit the scrolling box come with
 // the dialog, the rest follow after its first paint, so opening stays quick.

@@ -36,16 +36,16 @@ def test_policy_row_marks_its_status_cell(page):
     assert page.problems == []
 
 
-# --- (3) the Ports dialog is placed over the content column, beside the panel ---
-def test_ports_dialog_sits_over_the_content_column(page):
+# --- (3) the Ports dialog is centred in the window like every dialog (round 9), clear of the rail ---
+def test_ports_dialog_is_centred_and_clear_of_the_rail(page):
     page.set_viewport_size({"width": 1440, "height": 900})
     _real(page)
     ev(page, "() => { const r = current(); r.switches = countedUpRows(r, [], 3).rows; renderAll(); showView('switches'); openPortsDialog(r.switches[1]); }")
     page.wait_for_selector("dialog[open]")
     m = ev(page, """() => { const d = document.querySelector('dialog[open]').getBoundingClientRect();
-        const grid = document.querySelector('#switches .scroll').getBoundingClientRect(), panel = $('swPanel').getBoundingClientRect();
-        return { left: d.left, right: d.right, gridLeft: grid.left, panelLeft: panel.left, centred: Math.abs((d.left + d.right) / 2 - (grid.left + grid.right) / 2) }; }""")
-    assert m["right"] <= m["panelLeft"] + 1 and m["left"] >= m["gridLeft"] - 1 and m["centred"] < 4, m
+        const rail = $('rail').getBoundingClientRect();
+        return { left: d.left, width: d.width, railRight: rail.right, centred: Math.abs((d.left + d.right) / 2 - innerWidth / 2) }; }""")
+    assert m["left"] >= m["railRight"] + 8 and m["width"] <= 920 and m["centred"] < 4, m
     page.keyboard.press("Escape")
     assert page.problems == []
 

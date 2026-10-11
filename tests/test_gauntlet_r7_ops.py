@@ -93,7 +93,7 @@ def test_ports_dialog_edits_are_not_autosaved_before_done(page):
     page.wait_for_selector("dialog[open]")
     page.locator("dialog[open] input[data-attr=description]").first.fill("UNCOMMITTED PORT EDIT")
     # the grid follows while the dialog is open
-    assert page.inner_text('#swRows tr[data-row="%s"] button.sw-ports' % ids[0]) == "1 own setting"
+    assert page.inner_text('#swRows tr[data-row="%s"] button.sw-ports' % ids[0]) == "1 override"
     page.wait_for_timeout(1200)
     saved = ev(page, "() => localStorage.getItem(AUTOSAVE_KEY)")
     assert "UNCOMMITTED PORT EDIT" not in saved
@@ -141,7 +141,7 @@ def test_build_gate_merges_two_checks_on_one_cell(page):
     ev(page, """() => { const r = current(); normalizePorts(r);
         const p = r.ports.find((x) => x.role === 'access') || r.ports[0]; p.role = 'access'; p.vlan = '';
         renderAll(); renderPreview(); }""")
-    li = ev(page, """() => [...document.querySelectorAll('#exportWhy li')].map((l) => l.textContent).find((t) => /errors?:/.test(t)) || ''""")
+    li = ev(page, """() => [...document.querySelectorAll('#exportWhy li')].map((l) => l.textContent).find((t) => /errors?(?: above)?:/.test(t)) || ''""")
     names = [x.strip() for x in li.split(":", 1)[1].split(",")]
     assert len(names) == len(set(names)) and "(2)" in li, li
 

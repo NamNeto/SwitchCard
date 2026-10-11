@@ -690,7 +690,7 @@ async function exportSwitchCards(r, results, opts) {
   const n = results.length;
   const dkeys = deviceKeys(r);
   const lines = [
-    (textOnly ? "Export ONE text-only ZIP for " : "Export ") + n + " switch" + (n === 1 ? "" : "es") + (textOnly ? "?" : " as separate SD-card ZIPs?"),
+    (textOnly ? "One text-only ZIP for " : "One SD-card ZIP for each of ") + n + " switch" + (n === 1 ? "" : "es"),
     "",
     "Recipe: " + r.name,
     "Baseline: " + (baseline ? baseline.model + " / " + baseline.version : "(none)"),
@@ -786,7 +786,7 @@ async function exportSwitchCards(r, results, opts) {
         message(
           "Export cancelled after card " + recorded + " of " + n + ". Written: " +
             (done.slice(0, 5).join(", ") || "none") + (recorded > 5 ? " and " + (recorded - 5) + " more" : "") +
-            ". The manifest lists only those, and they are recorded as exported. Use Changed and new only to write the rest.",
+            ". The manifest lists only those, and they are recorded as exported. Use Changed and not exported to write the rest.",
         );
         return true;
       }

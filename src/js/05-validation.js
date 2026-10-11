@@ -374,7 +374,7 @@ function baselineDiffersWarning() {
 }
 function exportConfirmSummary(r, g) {
   const lines = [
-    "Export SD-card ZIP with this editcontent.txt?",
+    "What goes on the card",
     "",
     "Recipe: " + (r.name || "(unnamed)"),
     "Hostname: " + boundIdentityLabel(r, "HOSTNAME"),

@@ -937,6 +937,7 @@ pre::after {
   gap: 12px;
   flex-wrap: wrap;
   line-height: 1.5;
+  margin-bottom: 0; /* the export buttons follow at their own 16 px, always the same gap */
   padding-bottom: 2px;
   overflow: visible;
 }
@@ -1178,6 +1179,17 @@ h3.ed-group:first-of-type {
 .actions.even > * {
   flex: 1 1 0;
 }
+/* The recipe editor's Apply bar: sticks to the window's bottom while the editor continues below
+   it, on the card's own background, so Apply is in reach at any scroll position. */
+.ed-apply {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin: calc(var(--space) * 2) calc(var(--space) * -2.5) 0;
+  padding: 12px calc(var(--space) * 2.5);
+  background: var(--card);
+  border-top: 1px solid var(--line);
+}
 /* A destructive action at the far end of its row, apart from the safe ones. */
 .actions > .aside {
   margin-left: auto;
@@ -1345,11 +1357,11 @@ textarea.compact-xs {
   resize: vertical;
   font-size: 0.92em;
 }
-/* Allowed baseline labels: one control-height line beside Model family (the row stays aligned),
-   grows a line per label typed (up to 180 px, then scrolls), and can be dragged taller. */
+/* Allowed baseline labels: three lines beside Model family (a one-per-line field), grows a line
+   per label typed beyond that (up to 180 px, then scrolls), and can be dragged taller. */
 #firmwareRule {
   height: auto; /* field-sizing: content sizes it; an explicit height would pin it */
-  min-height: var(--control-h);
+  min-height: 80px; /* 3 lines of 20 px + padding + border */
   max-height: 180px;
   field-sizing: content;
   padding-top: 9px;
@@ -1394,10 +1406,10 @@ textarea.compact-xs {
   margin: 0 0 8px;
 }
 .template-chips-label {
+  flex: 1 1 100%; /* its own line; the chips wrap below it with one gap everywhere */
   font-size: 12px;
   font-weight: 600;
   color: var(--muted);
-  margin-right: 2px;
 }
 button.template-chip {
   min-height: 0;
@@ -2074,6 +2086,7 @@ button.primary.danger:focus-visible {
 }
 #swTable tr.row-bad.selected {
   background: linear-gradient(var(--accent-dim), var(--accent-dim)), var(--err-bg);
+  outline-color: var(--text); /* one accent: red is the error's, the frame is neutral */
 }
 #swTable tr.row-bad > td:first-child {
   box-shadow: inset 3px 0 0 var(--err);
@@ -2156,16 +2169,19 @@ button.primary.danger:focus-visible {
    (focus selects a row, so the row that has focus always shows it, and a Tab across the other
    rows never lands on an invisible control). It opens a two-item menu for that row. */
 #swTable td.c-more {
-  width: 36px;
-  padding-left: 2px;
-  padding-right: 6px;
+  width: 30px;
+  padding-left: 0;
+  padding-right: 2px;
+}
+#swTable button.sw-ports {
+  padding: 0 7px;
 }
 #swTable th.c-more {
-  width: 36px;
+  width: 30px;
 }
 #swTable button.sw-more {
-  width: 30px;
-  min-width: 30px;
+  width: 26px;
+  min-width: 26px;
   padding: 0;
   font-size: 17px;
   line-height: 1;
@@ -2336,15 +2352,12 @@ dialog.dlg.dlg-wide {
 dialog.dlg textarea {
   width: 100%;
 }
-/* The Ports dialog keeps the side panel in view: it sits to the left and its veil is lighter, so
-   the panel's preview (which follows every keystroke) can be read while typing. */
+/* The Ports dialog is centred like every other dialog, at most 920 px wide and never over the
+   rail (258 px: 24 px gutter + 210 px + 24 px gap); its veil is lighter, so the side panel's
+   preview (which follows every keystroke) stays readable beside it. */
 @media (min-width: 1300px) {
-  /* Centred over the content column: between the rail (24 px gutter + 210 px + 24 px gap) and
-     the side panel (308 px + 12 px gap + 24 px gutter), so it reads as placed over the grid. */
   dialog.dlg.dlg-ports[open] {
-    left: 258px;
-    right: 344px;
-    width: min(920px, 100vw - 602px); /* auto margins then centre it in that band */
+    width: min(920px, 100vw - 516px);
     max-width: 920px;
   }
   .dlg-veil:has(+ dialog.dlg-ports) {
@@ -2575,6 +2588,22 @@ pre::-webkit-scrollbar-thumb:hover,
 }
 .gate.gate-bad .gate-head {
   color: var(--err);
+}
+/* Input errors alone: the checks box above is the red one; the gate is a plain line with the
+   count and the links (red words, no box). */
+.gate.gate-bad.gate-quiet {
+  background: none;
+  border-color: transparent;
+  border-left-color: var(--err);
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+.gate.gate-quiet .gate-list li button.finding-link {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.gate.gate-quiet .gate-list li button.finding-link::after {
+  content: none;
 }
 /* Ready to export, with a review note that does not block (baseline fingerprint differs). */
 .gate.gate-warn {

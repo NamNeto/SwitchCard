@@ -79,9 +79,12 @@ function renderCards() {
     if (st.state === "current")
       last = el("td", { className: "cd-last cd-current" },
         el("span", { className: "pill pill-ok" }, "up to date"), el("span", { className: "cd-when" }, " · " + formatExportAt(st.at)));
+    // "changed" is the pill (it opens the diff); the date sits beside it in the same muted text
+    // as an up-to-date row's.
     else if (st.state === "changed")
       last = el("td", { className: "cd-last" },
-        el("button", { type: "button", className: "cd-diff", title: "Show the changes since the last export" }, "changed since " + formatExportAt(st.at)));
+        el("button", { type: "button", className: "cd-diff", title: "Show the changes since the last export on " + formatExportAt(st.at) }, "changed"),
+        el("span", { className: "cd-when" }, " since " + formatExportAt(st.at)));
     else if (st.state === "new") last = el("td", { className: "cd-last" }, el("span", { className: "pill pill-new" }, "not exported"));
     else
       last = el("td", { className: "cd-last", title: "The recipe does not use HOSTNAME, so exports are not remembered." },
@@ -118,17 +121,17 @@ function renderCards() {
   renderGate($("cdGates"), reasons, items.length ? "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + "." : "", "cdFixGate",
     null, items.length ? [baselineDiffersWarning()].filter(Boolean) : []);
   const changed = items.filter(({ st }) => st.state === "new" || st.state === "changed").length;
-  // Counts at a glance: "12 switches · 6 up to date · 3 changed · 3 new · 1 with errors".
+  // Counts at a glance: "12 switches · 6 up to date · 3 changed · 3 not exported · 1 with errors".
   const count = (state) => items.filter(({ st }) => st.state === state).length;
   const sum = [["sum-total", items.length + (items.length === 1 ? " switch" : " switches")]];
   if (count("current")) sum.push(["sum-ok", count("current") + " up to date"]);
   if (count("changed")) sum.push(["sum-warn", count("changed") + " changed"]);
-  if (count("new")) sum.push(["sum-new", count("new") + " new"]);
+  if (count("new")) sum.push(["sum-new", count("new") + " not exported"]);
   if (count("nohost")) sum.push(["sum-muted", count("nohost") + " not tracked"]);
   if (badRows.length) sum.push(["sum-bad", badRows.length + " with errors"]);
   $("cdSummary").replaceChildren(...(items.length ? sum.map(([c, t]) =>
     el("span", { className: c }, t)) : []));
-  $("cdChanged").textContent = "Changed and new only (" + changed + ")";
+  $("cdChanged").textContent = "Changed and not exported (" + changed + ")";
   $("cdAll").disabled = blocked || !items.length;
   $("cdText").disabled = blocked || !items.length;
   $("cdChanged").disabled = blocked || changed === 0;
@@ -137,7 +140,7 @@ function renderCards() {
   const why = gates.length ? "Export blocked: " + gates.map(gateLabel).join(" · ") : busy ? "An export is running." : "";
   $("cdAll").title = why || (items.length ? "One SD-card ZIP per switch, plus a manifest" : "No switches to export yet");
   $("cdText").title = why || (items.length ? "One ZIP holding every editcontent.txt (no baseline files)" : "No switches to export yet");
-  $("cdChanged").title = why || (changed ? "Only the switches that are new or changed since their last export" : "Nothing is new or changed since the last export");
+  $("cdChanged").title = why || (changed ? "Only the switches never exported or changed since their last export" : "Nothing is changed or unexported since the last export");
 }
 // One switch's SD-card ZIP, with the same write dialog as Build's Export SD-card ZIP. Runs inside run().
 async function exportOneCard(r, result) {

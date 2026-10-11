@@ -719,7 +719,7 @@ def test_ports_dialog_overrides_and_use_table(page):
     page.click(dlg + "button.remove-unknown[data-port='Gi9/9']")
     assert ev(page, "() => current().switches[0].ports") == {"GigabitEthernet1/3": {"description": "own text"}}
     click_dialog(page, "Done")  # gauntlet r6: the Ports dialog closes with Done (Cancel reverts)
-    assert page.inner_text("#swRows tr[data-row='sw-a'] button.sw-ports") == "1 own setting"
+    assert page.inner_text("#swRows tr[data-row='sw-a'] button.sw-ports") == "1 override"
     # focus option
     ev(page, "() => { openPortsDialog(current().switches[0], { name: 'GigabitEthernet1/3', attr: 'vlan' }); }")
     page.wait_for_selector("dialog[open]")
@@ -803,7 +803,7 @@ def test_cards_single_and_all_exports_record_history(page):
     assert ev(page, "() => $('cdRows').querySelectorAll('tr[data-row]').length") == 3
     assert "Ready to export 3 cards." in page.inner_text("#cdGates")
     assert page.inner_text(_cd_row(ids[1], "td.cd-last")) == "not exported"
-    assert page.inner_text("#cdChanged") == "Changed and new only (3)"
+    assert page.inner_text("#cdChanged") == "Changed and not exported (3)"
     stub_downloads(page)
     rel = ev(page, "() => RELEASE")
     page.click(_cd_row(ids[1], "button.cd-card"))
@@ -816,7 +816,7 @@ def test_cards_single_and_all_exports_record_history(page):
     assert downloads(page)[0]["name"] == "IE3100-DEMO-02-switchcard-%s-sdcard.zip" % rel
     page.wait_for_function("(s) => document.querySelector(s).textContent.startsWith('up to date')", arg=_cd_row(ids[1], "td.cd-last"))
     assert ev(page, "() => Object.keys(current().exports)") == ["ie3100-demo-02"]
-    assert page.inner_text("#cdChanged") == "Changed and new only (2)"
+    assert page.inner_text("#cdChanged") == "Changed and not exported (2)"
     # status button opens Switches with the row selected
     page.click(_cd_row(ids[0], "button.cd-status"))
     assert ev(page, "() => [currentView, swSelectedId]") == ["switches", ids[0]]
@@ -830,7 +830,7 @@ def test_cards_single_and_all_exports_record_history(page):
     page.wait_for_function("() => (window.__dl || []).length === 4", timeout=10000)
     assert _zip_names(downloads(page)) == sorted(
         ["IE3100-DEMO-0%d-switchcard-%s-sdcard.zip" % (i, rel) for i in (1, 2, 3)] + ["switchcard-fleet-%s-manifest.txt" % rel])
-    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and new only (0)'")
+    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and not exported (0)'")
     assert page.is_disabled("#cdChanged")
     assert page.problems == []
 
@@ -842,12 +842,13 @@ def test_changed_only_after_template_edit(page):
     page.check("dialog[open] input[type=checkbox]")
     click_dialog(page, "Download ZIPs")
     page.wait_for_function("() => (window.__dl || []).length === 4", timeout=10000)
-    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and new only (0)'")
+    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and not exported (0)'")
     # only row 3's SITE changes
     ev(page, "() => { current().switches[2].values.SITE = 'Plant C'; touch(); renderPreview(); }")
-    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and new only (1)'")
+    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and not exported (1)'")
     assert page.is_enabled("#cdChanged")
-    assert page.inner_text(_cd_row(ids[2], "button.cd-diff")).startswith("changed since")
+    assert page.inner_text(_cd_row(ids[2], "button.cd-diff")) == "changed"
+    assert page.inner_text(_cd_row(ids[2], "td.cd-last")).startswith("changed since")
     page.click(_cd_row(ids[2], "button.cd-diff"))
     page.wait_for_selector("dialog[open]")
     assert "Plant C" in page.inner_text("dialog[open]")
@@ -862,7 +863,7 @@ def test_changed_only_after_template_edit(page):
     page.wait_for_function("() => (window.__dl || []).length === 2", timeout=10000)
     names = _zip_names(downloads(page))
     assert len(names) == 2 and names[0].startswith("IE3100-DEMO-03-") and "manifest" in names[1]
-    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and new only (0)'")
+    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and not exported (0)'")
     # a template edit applied in Manage marks every card changed
     ev(page, r"""() => { showView('manage'); const el = document.getElementById('template');
         el.value = el.value.replace('\nend\n', '\nntp server 192.0.2.250\nend\n');
@@ -870,7 +871,7 @@ def test_changed_only_after_template_edit(page):
     page.wait_for_function("() => !editorPending")
     assert ev(page, "() => current().template.includes('ntp server 192.0.2.250')") is True
     ev(page, "() => showView('cards')")
-    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and new only (3)'")
+    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and not exported (3)'")
     lasts = ev(page, "() => [...document.querySelectorAll('#cdRows td.cd-last')].map((t) => t.textContent)")
     assert all(s.startswith("changed since") for s in lasts), lasts
 
@@ -1076,7 +1077,7 @@ def test_cards_export_states_beyond_history_bound(page):
     click_dialog(page, "Download ZIP")
     page.wait_for_function("() => (window.__dl || []).length === 1", timeout=20000)
     page.wait_for_function("() => $('chipCards').textContent === '120 of 120 up to date'", timeout=10000)
-    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and new only (0)'")
+    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and not exported (0)'")
     assert page.is_disabled("#cdChanged")
     lasts = ev(page, "() => [...document.querySelectorAll('#cdRows td.cd-last')].map((t) => t.textContent)")
     assert len(lasts) == n and all(s.startswith("up to date") for s in lasts)
@@ -1087,7 +1088,7 @@ def test_cards_export_states_beyond_history_bound(page):
         return r.switches.findIndex((x) => !keys.includes(x.values.HOSTNAME.toLowerCase())); }""")
     assert i >= 0
     ev(page, "(i) => { current().switches[i].values.SITE = 'Plant Q'; touch(); renderPreview(); }", i)
-    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and new only (1)'")
+    page.wait_for_function("() => $('cdChanged').textContent === 'Changed and not exported (1)'")
     page.wait_for_function("() => $('chipCards').textContent === '119 of 120 up to date'")
     page.click(_cd_row(ids[i], "button.cd-diff"))
     page.wait_for_selector("dialog[open]")

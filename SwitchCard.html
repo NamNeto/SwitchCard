@@ -969,6 +969,7 @@
         gap: 12px;
         flex-wrap: wrap;
         line-height: 1.5;
+        margin-bottom: 0; /* the export buttons follow at their own 16 px, always the same gap */
         padding-bottom: 2px;
         overflow: visible;
       }
@@ -1210,6 +1211,17 @@
       .actions.even > * {
         flex: 1 1 0;
       }
+      /* The recipe editor's Apply bar: sticks to the window's bottom while the editor continues below
+         it, on the card's own background, so Apply is in reach at any scroll position. */
+      .ed-apply {
+        position: sticky;
+        bottom: 0;
+        z-index: 2;
+        margin: calc(var(--space) * 2) calc(var(--space) * -2.5) 0;
+        padding: 12px calc(var(--space) * 2.5);
+        background: var(--card);
+        border-top: 1px solid var(--line);
+      }
       /* A destructive action at the far end of its row, apart from the safe ones. */
       .actions > .aside {
         margin-left: auto;
@@ -1377,11 +1389,11 @@
         resize: vertical;
         font-size: 0.92em;
       }
-      /* Allowed baseline labels: one control-height line beside Model family (the row stays aligned),
-         grows a line per label typed (up to 180 px, then scrolls), and can be dragged taller. */
+      /* Allowed baseline labels: three lines beside Model family (a one-per-line field), grows a line
+         per label typed beyond that (up to 180 px, then scrolls), and can be dragged taller. */
       #firmwareRule {
         height: auto; /* field-sizing: content sizes it; an explicit height would pin it */
-        min-height: var(--control-h);
+        min-height: 80px; /* 3 lines of 20 px + padding + border */
         max-height: 180px;
         field-sizing: content;
         padding-top: 9px;
@@ -1426,10 +1438,10 @@
         margin: 0 0 8px;
       }
       .template-chips-label {
+        flex: 1 1 100%; /* its own line; the chips wrap below it with one gap everywhere */
         font-size: 12px;
         font-weight: 600;
         color: var(--muted);
-        margin-right: 2px;
       }
       button.template-chip {
         min-height: 0;
@@ -2106,6 +2118,7 @@
       }
       #swTable tr.row-bad.selected {
         background: linear-gradient(var(--accent-dim), var(--accent-dim)), var(--err-bg);
+        outline-color: var(--text); /* one accent: red is the error's, the frame is neutral */
       }
       #swTable tr.row-bad > td:first-child {
         box-shadow: inset 3px 0 0 var(--err);
@@ -2188,16 +2201,19 @@
          (focus selects a row, so the row that has focus always shows it, and a Tab across the other
          rows never lands on an invisible control). It opens a two-item menu for that row. */
       #swTable td.c-more {
-        width: 36px;
-        padding-left: 2px;
-        padding-right: 6px;
+        width: 30px;
+        padding-left: 0;
+        padding-right: 2px;
+      }
+      #swTable button.sw-ports {
+        padding: 0 7px;
       }
       #swTable th.c-more {
-        width: 36px;
+        width: 30px;
       }
       #swTable button.sw-more {
-        width: 30px;
-        min-width: 30px;
+        width: 26px;
+        min-width: 26px;
         padding: 0;
         font-size: 17px;
         line-height: 1;
@@ -2368,15 +2384,12 @@
       dialog.dlg textarea {
         width: 100%;
       }
-      /* The Ports dialog keeps the side panel in view: it sits to the left and its veil is lighter, so
-         the panel's preview (which follows every keystroke) can be read while typing. */
+      /* The Ports dialog is centred like every other dialog, at most 920 px wide and never over the
+         rail (258 px: 24 px gutter + 210 px + 24 px gap); its veil is lighter, so the side panel's
+         preview (which follows every keystroke) stays readable beside it. */
       @media (min-width: 1300px) {
-        /* Centred over the content column: between the rail (24 px gutter + 210 px + 24 px gap) and
-           the side panel (308 px + 12 px gap + 24 px gutter), so it reads as placed over the grid. */
         dialog.dlg.dlg-ports[open] {
-          left: 258px;
-          right: 344px;
-          width: min(920px, 100vw - 602px); /* auto margins then centre it in that band */
+          width: min(920px, 100vw - 516px);
           max-width: 920px;
         }
         .dlg-veil:has(+ dialog.dlg-ports) {
@@ -2607,6 +2620,22 @@
       }
       .gate.gate-bad .gate-head {
         color: var(--err);
+      }
+      /* Input errors alone: the checks box above is the red one; the gate is a plain line with the
+         count and the links (red words, no box). */
+      .gate.gate-bad.gate-quiet {
+        background: none;
+        border-color: transparent;
+        border-left-color: var(--err);
+        padding-top: 4px;
+        padding-bottom: 4px;
+      }
+      .gate.gate-quiet .gate-list li button.finding-link {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+      .gate.gate-quiet .gate-list li button.finding-link::after {
+        content: none;
       }
       /* Ready to export, with a review note that does not block (baseline fingerprint differs). */
       .gate.gate-warn {
@@ -3479,15 +3508,15 @@
                   <option>IE9300</option>
                 </select>
               </div>
-              <!-- One control-height line beside Model family (the row stays aligned); it grows a
-                   line per label typed. -->
+              <!-- Three lines beside Model family (a one-per-line field reads as one); it grows a
+                   line per label typed beyond that. -->
               <div class="field">
                 <label for="firmwareRule">Allowed baseline labels</label
                 ><textarea
                   id="firmwareRule"
                   class="compact-xs"
-                  rows="1"
-                  placeholder="One per line"
+                  rows="3"
+                  placeholder="One per line; blank = any"
                   title="Blank: any baseline label of this model family"
                 ></textarea>
               </div>
@@ -3638,7 +3667,9 @@
                 >
               </p>
             </details>
-            <div class="actions even">
+            <!-- Pinned to the window's bottom while the editor runs below it: Apply is in reach at
+                 any scroll position. -->
+            <div class="actions even ed-apply">
               <button class="primary" id="applyRecipe">Apply recipe changes</button
               ><button id="discardDraft" type="button" hidden>Discard unapplied draft</button
               ><button id="saveProjectDraft" type="button" hidden title="Save project from here while the draft is unapplied (the draft itself is not included)">Save project</button>
@@ -5528,7 +5559,7 @@
       // switch list of a bulk export becomes a table with each card's export state, and every other
       // line stays a sentence. Copy summary still copies the plain text.
       const EXPORT_STATE_PILL = {
-        current: ["pill-ok", "up to date"], changed: ["pill-warn", "changed"], new: ["pill-new", "new"], nohost: ["pill-muted", "not tracked"],
+        current: ["pill-ok", "up to date"], changed: ["pill-warn", "changed"], new: ["pill-new", "not exported"], nohost: ["pill-muted", "not tracked"],
       };
       // A long list (200 switches) is built in chunks: the rows that fit the scrolling box come with
       // the dialog, the rest follow after its first paint, so opening stays quick.
@@ -6024,7 +6055,7 @@
       }
       function exportConfirmSummary(r, g) {
         const lines = [
-          "Export SD-card ZIP with this editcontent.txt?",
+          "What goes on the card",
           "",
           "Recipe: " + (r.name || "(unnamed)"),
           "Hostname: " + boundIdentityLabel(r, "HOSTNAME"),
@@ -6621,6 +6652,9 @@
         const warn = (warnings || []).map((t) => el("li", { className: "gate-warn-item", title: t }, gateWarnLabel(t)));
         box.replaceChildren();
         box.classList.toggle("gate-bad", reasons.length > 0);
+        // Input errors alone: the red checks box above lists them, so the gate is a quiet line that
+        // counts them and links to each (no second red box in the same column).
+        box.classList.toggle("gate-quiet", reasons.length > 0 && reasons.every((t) => t === GATE_ERRORS) && !!(errors && errors.length));
         box.classList.toggle("gate-ok", !reasons.length && !!okText && !warn.length);
         box.classList.toggle("gate-warn", !reasons.length && !!okText && warn.length > 0);
         if (!reasons.length) {
@@ -6633,7 +6667,7 @@
           // a link to the field or cell it is about.
           if (t === GATE_ERRORS && errors && errors.length) {
             const n = errors.length;
-            const li = el("li", { title: t }, n + (n === 1 ? " error: " : " errors: "));
+            const li = el("li", { title: t }, n + (n === 1 ? " error" : " errors") + (box.classList.contains("gate-quiet") ? " above: " : ": "));
             // Two checks on one cell ("Gi1/5 VLAN" twice) share one link: "Gi1/5 VLAN (2)", both texts
             // in its title.
             const byName = new Map();
@@ -7755,7 +7789,7 @@
           });
           renderPreview();
           // Re-enabling restored the states from before the run; let the rail and Cards view set the
-          // current ones (a now-empty "Changed and new only" turns off) before focus goes back.
+          // current ones (a now-empty "Changed and not exported" turns off) before focus goes back.
           if (typeof updateRail === "function") updateRail();
           restoreFocus(opener);
         }
@@ -8452,7 +8486,7 @@
         const n = results.length;
         const dkeys = deviceKeys(r);
         const lines = [
-          (textOnly ? "Export ONE text-only ZIP for " : "Export ") + n + " switch" + (n === 1 ? "" : "es") + (textOnly ? "?" : " as separate SD-card ZIPs?"),
+          (textOnly ? "One text-only ZIP for " : "One SD-card ZIP for each of ") + n + " switch" + (n === 1 ? "" : "es"),
           "",
           "Recipe: " + r.name,
           "Baseline: " + (baseline ? baseline.model + " / " + baseline.version : "(none)"),
@@ -8548,7 +8582,7 @@
               message(
                 "Export cancelled after card " + recorded + " of " + n + ". Written: " +
                   (done.slice(0, 5).join(", ") || "none") + (recorded > 5 ? " and " + (recorded - 5) + " more" : "") +
-                  ". The manifest lists only those, and they are recorded as exported. Use Changed and new only to write the rest.",
+                  ". The manifest lists only those, and they are recorded as exported. Use Changed and not exported to write the rest.",
               );
               return true;
             }
@@ -9213,12 +9247,18 @@
         const fit = Math.floor((limit - rest - 18) / 20);
         const floor = Math.min(total, pinned ? PREVIEW_MIN_LINES_PINNED : PREVIEW_MIN_LINES);
         let lines = Math.min(total, Math.max(fit, floor));
-        // One line less when that alone keeps the unpinned pane above the fold.
-        if (!pinned && lines > fit && lines === fit + 1 && lines > 2) lines = fit;
+        // One row less when that alone keeps the unpinned pane above the fold, unless a wrapped line
+        // in those rows would then leave fewer than 11 text lines in view (the rows are rows, not lines).
+        if (!pinned && lines > fit && lines === fit + 1 && lines > 2) {
+          const top = preview.getBoundingClientRect().top + 17 - preview.scrollTop;
+          const shown = [...preview.querySelectorAll(".pl")].filter((b) => b.getBoundingClientRect().top < top + fit * 20 - 1).length;
+          if (shown >= PREVIEW_MIN_LINES - 1 || shown >= total) lines = fit;
+        }
         preview.style.height = lines * 20 + 18 + "px";
-        // Unpinned, the pane grows to hold the floor; pinned, it never exceeds the window.
+        // Unpinned, the pane grows to hold the floor; pinned, it never exceeds the window and ends
+        // with its footer (no leftover padding under it when the box took whole lines only).
         const need = rest + lines * 20 + 18;
-        buildPane.style.maxHeight = (pinned ? limit : Math.max(limit, need)) + "px";
+        buildPane.style.maxHeight = (pinned ? Math.min(limit, need) : Math.max(limit, need)) + "px";
         updatePreviewCue();
       }
       // "Showing lines 1–20 of 76 · scroll for more" under the box while it scrolls; nothing when it all
@@ -10225,7 +10265,7 @@
           el("tr", { className: "defaults" },
             el("td", { colSpan: 2, title: "Device details and the port table on Build a card" }, "Defaults"),
             cols.map((k) => el("td", { className: "c-" + k, dataKey: k })),
-            el("td", { className: "c-ports", title: "The port table on Build a card" }, "from Build a card"),
+            el("td", { className: "c-ports", title: "Every port follows the port table on Build a card" }, "Build a card"),
             el("td", { className: "c-more" })),
         ];
         rows.forEach((row, i) => {
@@ -10315,7 +10355,7 @@
           }
           const set = Object.values(x.row.ports || {}).filter((p) => p && Object.keys(p).length).length;
           const pb = tr.querySelector("button.sw-ports");
-          pb.textContent = set ? set + (set === 1 ? " own setting" : " own settings") : "Port table";
+          pb.textContent = set ? set + (set === 1 ? " override" : " overrides") : "Port table";
           const label = "Ports of switch " + x.n + ", " + (set ? set + (set === 1 ? " setting of its own" : " settings of its own") : "all from the port table");
           if (pb.getAttribute("aria-label") !== label) pb.setAttribute("aria-label", label);
           pb.classList.toggle("has-set", set > 0);
@@ -11237,9 +11277,12 @@
           if (st.state === "current")
             last = el("td", { className: "cd-last cd-current" },
               el("span", { className: "pill pill-ok" }, "up to date"), el("span", { className: "cd-when" }, " · " + formatExportAt(st.at)));
+          // "changed" is the pill (it opens the diff); the date sits beside it in the same muted text
+          // as an up-to-date row's.
           else if (st.state === "changed")
             last = el("td", { className: "cd-last" },
-              el("button", { type: "button", className: "cd-diff", title: "Show the changes since the last export" }, "changed since " + formatExportAt(st.at)));
+              el("button", { type: "button", className: "cd-diff", title: "Show the changes since the last export on " + formatExportAt(st.at) }, "changed"),
+              el("span", { className: "cd-when" }, " since " + formatExportAt(st.at)));
           else if (st.state === "new") last = el("td", { className: "cd-last" }, el("span", { className: "pill pill-new" }, "not exported"));
           else
             last = el("td", { className: "cd-last", title: "The recipe does not use HOSTNAME, so exports are not remembered." },
@@ -11276,17 +11319,17 @@
         renderGate($("cdGates"), reasons, items.length ? "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + "." : "", "cdFixGate",
           null, items.length ? [baselineDiffersWarning()].filter(Boolean) : []);
         const changed = items.filter(({ st }) => st.state === "new" || st.state === "changed").length;
-        // Counts at a glance: "12 switches · 6 up to date · 3 changed · 3 new · 1 with errors".
+        // Counts at a glance: "12 switches · 6 up to date · 3 changed · 3 not exported · 1 with errors".
         const count = (state) => items.filter(({ st }) => st.state === state).length;
         const sum = [["sum-total", items.length + (items.length === 1 ? " switch" : " switches")]];
         if (count("current")) sum.push(["sum-ok", count("current") + " up to date"]);
         if (count("changed")) sum.push(["sum-warn", count("changed") + " changed"]);
-        if (count("new")) sum.push(["sum-new", count("new") + " new"]);
+        if (count("new")) sum.push(["sum-new", count("new") + " not exported"]);
         if (count("nohost")) sum.push(["sum-muted", count("nohost") + " not tracked"]);
         if (badRows.length) sum.push(["sum-bad", badRows.length + " with errors"]);
         $("cdSummary").replaceChildren(...(items.length ? sum.map(([c, t]) =>
           el("span", { className: c }, t)) : []));
-        $("cdChanged").textContent = "Changed and new only (" + changed + ")";
+        $("cdChanged").textContent = "Changed and not exported (" + changed + ")";
         $("cdAll").disabled = blocked || !items.length;
         $("cdText").disabled = blocked || !items.length;
         $("cdChanged").disabled = blocked || changed === 0;
@@ -11295,7 +11338,7 @@
         const why = gates.length ? "Export blocked: " + gates.map(gateLabel).join(" · ") : busy ? "An export is running." : "";
         $("cdAll").title = why || (items.length ? "One SD-card ZIP per switch, plus a manifest" : "No switches to export yet");
         $("cdText").title = why || (items.length ? "One ZIP holding every editcontent.txt (no baseline files)" : "No switches to export yet");
-        $("cdChanged").title = why || (changed ? "Only the switches that are new or changed since their last export" : "Nothing is new or changed since the last export");
+        $("cdChanged").title = why || (changed ? "Only the switches never exported or changed since their last export" : "Nothing is changed or unexported since the last export");
       }
       // One switch's SD-card ZIP, with the same write dialog as Build's Export SD-card ZIP. Runs inside run().
       async function exportOneCard(r, result) {
