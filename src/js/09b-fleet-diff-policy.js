@@ -667,8 +667,14 @@ async function exportSwitchCards(r, results, opts) {
     "Baseline: " + (baseline ? baseline.model + " / " + baseline.version : "(none)"),
     "",
   ];
-  for (const row of results.slice(0, 20))
-    lines.push(row.n + ". " + (row.host || "(no hostname)") + "  " + (row.ip || "") + "  " + row.sha256.slice(0, 16) + "…  " + row.lines + " lines");
+  // Padded columns, so rows 1-9 and 10+ line up in the monospace summary.
+  const shown = results.slice(0, 20);
+  const wN = Math.max(...shown.map((row) => String(row.n).length));
+  const wHost = Math.max(...shown.map((row) => (row.host || "(no hostname)").length));
+  const wIp = Math.max(...shown.map((row) => String(row.ip || "").length));
+  for (const row of shown)
+    lines.push(String(row.n).padStart(wN) + ". " + (row.host || "(no hostname)").padEnd(wHost) + "  " + String(row.ip || "").padEnd(wIp) + "  " +
+      row.sha256.slice(0, 16) + "…  " + row.lines + " lines");
   if (n > 20) lines.push("… and " + (n - 20) + " more (all listed in the manifest).");
   lines.push("", "Every editcontent.txt is exactly the text checked for that row.", "", "Cancel = no download.");
   const ok = await writeDialog({
