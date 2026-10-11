@@ -58,11 +58,15 @@ function showDialog({ title, body, actions, onOpen }) {
     };
     const bar = el("div", { className: "dialog-actions" });
     for (const a of actions) {
+      // a.kbd ("Esc"): the key that also takes this choice, drawn after the label by CSS (the
+      // button's text stays the label alone).
       bar.appendChild(el("button", {
         type: "button",
         className: (a.primary ? "primary " : "") + (a.danger ? "danger" : ""),
         disabled: !!a.disabled,
         textContent: a.label,
+        dataKbd: a.kbd || null,
+        ariaKeyshortcuts: a.kbd === "Esc" ? "Escape" : a.kbd || null,
         onclick: () => finish(a.value),
       }));
     }
@@ -102,7 +106,8 @@ function confirmDialog(title, textOrNode, opts) {
   const body = typeof textOrNode === "string" ? el("p", {}, textOrNode) : textOrNode;
   return showDialog({
     title, body,
-    actions: [{ label: o.cancel, value: false }, { label: o.ok, value: true, primary: true, danger: o.danger }],
+    // opts.cancelKbd: show that Esc takes the cancel choice (where the cancel label is not "Cancel").
+    actions: [{ label: o.cancel, value: false, kbd: o.cancelKbd }, { label: o.ok, value: true, primary: true, danger: o.danger }],
     // opts.focusOk: start on the OK button instead of Cancel (only where OK is the safe choice).
     onOpen: o.focusOk ? (dlg) => dlg.querySelector(".dialog-actions button.primary").focus() : undefined,
   }).then((v) => v === true);
@@ -160,10 +165,22 @@ function summaryView(text, rows) {
     }
     if (!kv) box.append((kv = el("table", { className: "dlg-kv" })));
     // A hash never breaks inside (it is compared with a manifest by eye): one line that scrolls.
-    kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : "" }, el("th", { scope: "row" }, m[1]),
+    kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : "" }, el("th", { scope: "row" }, summaryKeyLabel(m[1])),
       el("td", { className: /^[0-9a-f]{64}$/i.test(m[2]) ? "dlg-hash" : "" }, m[2])));
   }
   return box;
+}
+// One label style on every row: the plain-language name, with the template placeholder in mono
+// beside it ("Default gateway GATEWAY"). The plain-text summary (Copy summary) keeps the keys.
+function summaryKeyLabel(key) {
+  const code = (k) => el("code", { className: "dlg-ph" }, k);
+  if (key === "Hostname") return ["Hostname ", code("HOSTNAME")];
+  if (key === "Management interface") return ["Management interface ", code("MGMT_INTERFACE")];
+  if (/^[A-Z][A-Z0-9_]*$/.test(key) && typeof fieldLabel === "function") {
+    const label = fieldLabel(key);
+    return label === key.replaceAll("_", " ") ? [code(key)] : [label + " ", code(key)];
+  }
+  return [key];
 }
 // Review-before-download gate: the primary action stays disabled until the box is ticked.
 // rows (bulk exports): [{ n, host, ip, sha256, lines, state }] for the switch table.

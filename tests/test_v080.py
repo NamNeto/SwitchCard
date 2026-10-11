@@ -546,7 +546,7 @@ def test_rail_switches_views_and_locks_with_a_draft(page):
     # chips follow the switch list after typing stops
     ev(page, "() => { current().switches = [{ id: 'a', values: { HOSTNAME: 'sw-a' }, ports: {} }, { id: 'b', values: { HOSTNAME: 'sw-a' }, ports: {} }]; renderPreview(); }")
     page.wait_for_timeout(400)
-    assert ev(page, "() => $('chipSwitches').textContent") == "2 · 2 errors"  # both rows of a duplicate (gauntlet r1, C1)
+    assert ev(page, "() => $('chipSwitches').textContent") == "2 switches · 2 errors"  # both rows of a duplicate (gauntlet r1, C1)
     assert ev(page, "() => $('chipCards').textContent").endswith("up to date")
     assert ev(page, "() => $('chipManage').textContent") != ""
     # pending draft locks the other views
@@ -755,7 +755,7 @@ def test_switches_team_policy_hit_is_an_error(page):
     assert "Team policy: forbidden pattern present" in page.get_attribute(status, "title")
     page.click("#swRows tr[data-row='sw-a'] td.num")
     assert ev(page, "() => [...$('swChecks').querySelectorAll('li.bad')].some((li) => li.textContent.startsWith('Team policy'))") is True
-    page.wait_for_function("() => $('chipSwitches').textContent === '2 · 1 error'")
+    page.wait_for_function("() => $('chipSwitches').textContent === '2 switches · 1 error'")
 
 
 def test_switches_minor_fixes_role_and_trim(page):

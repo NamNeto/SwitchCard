@@ -298,7 +298,8 @@
                 <summary id="diffSummary">Changes since the last export</summary>
                 <pre id="diffOut" class="diff"></pre>
               </details>
-              <p>
+              <!-- Shown once export is possible (while blocked, the gate says what to do instead). -->
+              <p id="exportNote">
                 <small
                   >Extract ZIP contents to the SD card <strong>root</strong> (so
                   <code>editcontent.txt</code> sits beside baseline files). Source folder is never
@@ -477,18 +478,19 @@
                 ></textarea>
               </div>
             </div>
-            <label class="example-flag"
-              ><input id="exampleFlag" type="checkbox" /><span>Example recipe — blocks
-              SD-card export until unticked + Apply (replace the "! EXAMPLE ONLY" header line in the template first)</span></label
+            <label class="example-flag" title="An example recipe cannot export a card or its text. Untick, replace the &quot;! EXAMPLE ONLY&quot; header line in the template, then Apply recipe changes."
+              ><input id="exampleFlag" type="checkbox" /><span>Example recipe <small>(blocks export until unticked and applied)</small></span></label
             >
             <h3 class="ed-group">Template</h3>
             <div class="field">
-              <label for="template">Configuration template</label
-              ><textarea id="template" rows="24" spellcheck="false"></textarea
+              <label for="template">Configuration template</label>
+              <!-- Placeholders as chips: a click inserts one at the caret (filled by 10-events-boot). -->
+              <div id="templateChips" class="template-chips" aria-label="Placeholders: click one to insert it at the cursor">
+                <span class="template-chips-label">Insert placeholder</span>
+              </div>
+              <textarea id="template" rows="24" spellcheck="false"></textarea
               ><small class="template-help"
-                >Placeholders: {{HOSTNAME}}, {{MGMT_IP}}, {{MGMT_MASK}}, {{MGMT_VLAN}}, {{GATEWAY}},
-                {{SITE}}, {{VLANS}}, {{PORTS}}, {{MGMT_INTERFACE}}, {{MGMT_SOURCES}}. Add fields with
-                {{UPPER_SNAKE}}. Apply, then Back to card builder to see new fields.</small
+                >Add your own fields with <code>{{UPPER_SNAKE}}</code>; they appear under Device details after Apply.</small
               >
             </div>
             <div class="field">
@@ -635,14 +637,13 @@
           </div>
           <!-- Toolbar: counted-up rows, CSV in/out, remove all -->
           <div class="sw-toolbar">
-            <div class="tool-group" role="group" aria-labelledby="swAddLabel">
-              <label class="tool-label" id="swAddLabel" for="swCount">Add switches</label>
+            <div class="tool-group" role="group" aria-label="Add switches">
               <span class="sw-add"
                 ><input id="swCount" type="number" min="1" max="500" step="1" value="1" aria-label="Number of switches to add" /><button
                   type="button"
                   id="swAdd"
-                  title="Adds rows after the last one, counting the hostname and management IP up from the last row (or from Device details)"
-                >Add, numbered from last</button></span
+                  title="Adds this many rows after the last one, counting the hostname and management IP up from the last row (or from Device details)"
+                >Add switches</button></span
               >
             </div>
             <div class="tool-group" role="group" aria-labelledby="swCsvLabel">
@@ -650,14 +651,14 @@
               <button type="button" id="swImport" title="Add or replace switches from a CSV file or pasted text">Import</button>
               <button type="button" id="swExport">Export</button>
               <span class="sw-template"
-                ><select id="swTemplateMode" aria-label="Columns in the CSV template">
-                  <option value="description">Template: fields + port descriptions</option>
-                  <option value="all">Template: fields + all port settings</option>
-                  <option value="none">Template: switch fields only</option></select
+                ><select id="swTemplateMode" aria-label="Columns in the CSV template" title="Columns in the CSV template">
+                  <option value="description">Fields + port descriptions</option>
+                  <option value="all">Fields + all port settings</option>
+                  <option value="none">Switch fields only</option></select
                 ><button type="button" id="swTemplate" title="Download an empty CSV with these columns; row 1 is the switch on Build a card">Download template</button></span
               >
             </div>
-            <button type="button" id="swRemoveAll" class="danger tool-end">Remove all</button>
+            <button type="button" id="swRemoveAll" class="danger tool-end tool-quiet" title="Remove every switch from the list">Remove all…</button>
           </div>
           <p id="swNotes" class="muted" hidden></p>
         </div>
@@ -701,7 +702,7 @@
           </div>
           <div id="cdGates" class="gate" role="status"></div>
           <!-- Bulk exports: every row, only new and changed rows, or one text-only ZIP -->
-          <div class="sw-toolbar">
+          <div class="sw-toolbar cd-toolbar">
             <button type="button" id="cdAll" class="primary">All card ZIPs</button>
             <button type="button" id="cdChanged">Changed and new only</button>
             <button type="button" id="cdText">Text-only ZIP</button>

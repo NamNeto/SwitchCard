@@ -474,19 +474,20 @@ async function restoreAutosaveRaw(raw, key, opts) {
         nSwitches + (nSwitches === 1 ? " switch" : " switches") + (parsed.draft ? ", an unapplied recipe draft" : "");
       const base = p.baseline ? p.baseline.model + " / " + p.baseline.version + " (label only; firmware files are never stored)" : "none recorded";
       const kv = (k, v) => el("tr", {}, el("th", { scope: "row" }, k), el("td", {}, v));
+      // Two short lines, one per button; Esc takes the safe choice (nothing is deleted either way).
       body = el("div", {},
         el("p", {}, found),
-        el("table", { className: "dlg-kv" }, kv("Holds", holds), kv("Baseline", base)),
+        el("table", { className: "dlg-kv dlg-kv-plain" }, kv("Holds", holds), kv("Baseline", base)),
         el("ul", { className: "dlg-choices" },
-          el("li", {}, el("strong", {}, "Restore it"), " opens that work in this page."),
-          el("li", {}, el("strong", {}, "Start with the examples"), " (or Esc) keeps a copy as an autosave backup," +
-            " which Save your work → Restore autosave backup brings back. Nothing is deleted.")));
+          el("li", {}, el("strong", {}, "Restore it:"), " open that v" + meta.release + " work in this page."),
+          el("li", {}, el("strong", {}, "Start with the examples:"), " keeps a copy as an autosave backup (Save your work → Restore autosave backup).")));
     }
     const ok = await confirmDialog(
       "Restore an autosave from v" + meta.release + "?",
       body,
-      // At boot the default is the user's own work, so Enter never hides it.
-      { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples", focusOk: !fromBackup },
+      // At boot the default is the user's own work, so Enter never hides it; Esc is the safe
+      // choice (keeps the backup) and the button says so.
+      { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples", focusOk: !fromBackup, cancelKbd: "Esc" },
     );
     if (!ok) return fail("declined", "you chose not to restore data saved by v" + meta.release);
   }

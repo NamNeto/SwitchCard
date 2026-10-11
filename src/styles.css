@@ -9,6 +9,7 @@
   --text: #f3f0ea;
   --muted: #9e998f;
   --faint: #958f86; /* 5.6:1 on a card, 4.7:1 on a selected row: headers, footers, note counts */
+  --chip: #b9b3a8; /* rail chips: 8.6:1 on the rail, 8.1:1 on the active item */
   --accent: #2dd4a8;
   --accent2: #1fb88a;
   --accent-text: #2dd4a8; /* accent used as text (code, step badges): AA on every surface */
@@ -72,6 +73,7 @@
   --text: #1c1b18;
   --muted: #56524a; /* 7.8:1 on white, 6.5:1 on the table background */
   --faint: #666157; /* 6.2:1 on white, 5.1:1 on the table background */
+  --chip: #4a463f; /* rail chips: 8.3:1 on the rail, 9.1:1 on the active item */
   --accent: #179c74;
   --accent2: #12805f;
   --accent-text: #0f6e52;
@@ -121,6 +123,7 @@
     --text: #1c1b18;
     --muted: #56524a; /* 7.8:1 on white, 6.5:1 on the table background */
     --faint: #666157; /* 6.2:1 on white, 5.1:1 on the table background */
+    --chip: #4a463f; /* rail chips: 8.3:1 on the rail, 9.1:1 on the active item */
     --accent: #179c74;
     --accent2: #12805f;
     --accent-text: #0f6e52;
@@ -360,13 +363,15 @@ code {
   background: var(--tab-hover);
 }
 .rail .chip {
-  font-size: 12px;
+  font-size: 12.5px;
   font-weight: 500;
-  color: var(--muted);
+  line-height: 1.3;
+  color: var(--chip);
 }
-.rail .chip.chip-bad {
+/* The error count is red text of its own; the number of switches keeps the chip colour. */
+.rail .chip .chip-err {
   color: var(--err);
-  font-weight: 600;
+  font-weight: 650;
 }
 .rail .chip:empty {
   display: none;
@@ -400,7 +405,7 @@ code {
   }
   #build .card.pane > #preview {
     flex: 0 1 auto;
-    min-height: 190px; /* 8 lines */
+    min-height: 118px; /* 5 lines */
   }
 }
 
@@ -611,19 +616,34 @@ button.primary:active:not(:disabled) {
 button.primary:focus-visible {
   box-shadow: 0 0 0 3px var(--accent-dim);
 }
-/* Disabled buttons are flat, dashed and muted in both themes, so none of them reads as live. */
+/* Disabled buttons: flat, a solid muted border and faint text, the same whether the button is
+   primary or not, so none of them reads as live (a dashed border means "inherited", only in
+   the grids). */
 button:disabled,
 button:disabled:hover,
 button.primary:disabled,
 button.primary:disabled:hover {
   background: transparent;
-  border: 1px dashed var(--line2);
+  border: 1px solid var(--line2);
   color: var(--faint);
+  font-weight: 600;
   opacity: 1;
   cursor: not-allowed;
   filter: none;
   transform: none;
   box-shadow: none;
+}
+/* The blocked export buttons carry a small drawn padlock before their label. */
+#downloadCard:disabled::before,
+#cdAll:disabled::before {
+  content: "";
+  flex: none;
+  width: 9px;
+  height: 11px;
+  border: 1.5px solid currentColor;
+  border-radius: 5px 5px 2px 2px;
+  background: linear-gradient(transparent 4px, currentColor 4px);
+  opacity: 0.85;
 }
 .row {
   display: flex;
@@ -785,10 +805,11 @@ h1:focus {
   /* Stay display:block so the ::before placeholder shows when there are no team hints. */
   min-height: 1.2em;
 }
-/* Whole-pixel line boxes (20 px). The visible area of a scrolling box is (lines * 20 + 30) px:
-   2 px border, a 16 px top band and 12 px of the next line. The bands are sticky fades drawn
-   over the text at both edges, so a line cut by the edge fades out instead of reading as
-   truncated config; at either end of the scroll they sit in the blank padding and show nothing. */
+/* Whole-pixel line boxes (20 px). The visible area of a scrolling box is (lines * 20 + 18) px:
+   2 px border, a 16 px top band and whole lines, so the box edge is always a line boundary and
+   no glyph is ever cut. The bands are sticky fades drawn over the text at both edges: the last
+   visible line fades out towards the edge instead of reading as truncated config; at either end
+   of the scroll they sit in the blank padding and show nothing. */
 pre {
   font: 13px/20px var(--mono);
   font-variant-ligatures: none;
@@ -800,7 +821,7 @@ pre {
   border: 1px solid var(--line);
   padding: 0 calc(var(--space) * 2);
   border-radius: var(--radius);
-  max-height: 450px; /* 21 lines */
+  max-height: 438px; /* 21 lines */
   overflow: auto;
 }
 pre::before,
@@ -819,7 +840,7 @@ pre::before {
 pre::after {
   bottom: 0;
   height: 20px;
-  background: linear-gradient(transparent, var(--pre-bg) 80%);
+  background: linear-gradient(transparent, var(--pre-bg) 92%);
 }
 
 /* --- Ports table --- */
@@ -1072,7 +1093,7 @@ h3.ed-group:first-of-type {
   width: auto;
 }
 pre.diff {
-  max-height: 318px; /* 16 lines of 18 px */
+  max-height: 306px; /* 16 lines of 18 px */
   font-size: 12px;
   line-height: 18px;
 }
@@ -1206,9 +1227,48 @@ textarea.compact-xs {
   margin: 0;
 }
 .template-help {
-  color: var(--faint);
+  color: var(--muted);
   display: block;
-  margin-top: 4px;
+  margin-top: 6px;
+}
+/* Placeholder chips above the template: mono, accent, one click inserts at the caret. */
+.template-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 8px;
+}
+.template-chips-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  margin-right: 2px;
+}
+button.template-chip {
+  min-height: 0;
+  height: 26px;
+  padding: 0 8px;
+  font: 12px/1 var(--mono);
+  font-weight: 500;
+  color: var(--accent-text);
+  background: var(--accent-dim);
+  border: 1px solid transparent;
+  border-radius: 6px;
+}
+button.template-chip:hover {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+}
+/* The Example recipe tick is one short line; the full rule is in its title. */
+label.example-flag {
+  margin: 2px 0 0;
+  font-size: 13.5px;
+}
+label.example-flag small {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
 }
 .custom-sku-row {
   align-items: flex-end;
@@ -1401,6 +1461,9 @@ dialog.dlg h2 {
 }
 /* Write dialogs: the summary scrolls on its own; Copy summary, the review tick and the buttons
    stay in place, so opening the dialog never scrolls the summary away. */
+dialog.dlg.dlg-write {
+  max-width: min(780px, 94vw);
+}
 .dlg-write .dialog-body {
   max-height: none;
   overflow: visible;
@@ -1476,7 +1539,7 @@ button.primary.danger:focus-visible {
   vertical-align: top;
 }
 .dlg-kv th {
-  width: 30%;
+  width: 34%;
   padding-right: 12px;
   color: var(--muted);
   font-size: 12.5px;
@@ -1489,6 +1552,38 @@ button.primary.danger:focus-visible {
 .dlg-summary .dlg-kv td {
   font-family: var(--mono);
   font-size: 12.5px;
+}
+.dlg-kv th {
+  white-space: normal;
+}
+.dlg-kv th code.dlg-ph {
+  font-size: 11px;
+  padding: 0.05em 0.35em;
+  white-space: nowrap;
+}
+/* The boot restore question: its two facts read in full text colour. */
+.dlg-kv-plain th,
+.dlg-kv-plain td {
+  color: var(--text);
+}
+.dlg-kv-plain th {
+  font-weight: 600;
+}
+.dlg-choices li {
+  line-height: 1.5;
+}
+/* A dialog button that a key also takes shows the key after its label (drawn by CSS, so the
+   button's text stays the label). */
+.dialog-actions button[data-kbd]::after {
+  content: attr(data-kbd);
+  margin-left: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--muted);
+  border: 1px solid var(--line2);
+  border-radius: 5px;
 }
 .dlg-kv td {
   overflow-wrap: anywhere;
@@ -1590,6 +1685,18 @@ button.primary.danger:focus-visible {
 .tool-end {
   margin-left: auto;
 }
+/* Remove all: red words, no box until hovered or focused, at the far end of the toolbar. */
+button.tool-quiet,
+button.tool-quiet:disabled {
+  background: transparent;
+  border-color: transparent;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+button.tool-quiet:hover:not(:disabled) {
+  border-color: var(--err);
+  background: var(--err-bg);
+}
 .sw-add,
 .sw-template {
   display: inline-flex;
@@ -1604,8 +1711,8 @@ button.primary.danger:focus-visible {
 }
 .sw-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 250px);
-  gap: calc(var(--space) * 2);
+  grid-template-columns: minmax(0, 1fr) 292px;
+  gap: 12px;
   align-items: start;
   margin-top: calc(var(--space) * 2);
 }
@@ -1686,8 +1793,8 @@ button.primary.danger:focus-visible {
 }
 #swTable th:first-child,
 #swTable td.num {
-  padding-left: 9px;
-  padding-right: 5px;
+  padding-left: 8px;
+  padding-right: 4px;
 }
 #swTable th.c-copy,
 #swTable th.c-remove,
@@ -1697,14 +1804,14 @@ button.primary.danger:focus-visible {
   padding-right: 2px;
 }
 #swTable td.c-remove {
-  padding-right: 6px;
+  padding-right: 4px;
 }
 /* Cell widths: the whole row fits beside the side panel at 1440 px and alone at 900 px. An
    address (255.255.255.0) fits an address cell; Site takes whatever width is left (at least
    160 px) because it holds free text; a value longer than its cell ends in an ellipsis and the
    whole value is in the cell's title. */
 #swTable td input {
-  width: 100px;
+  width: 96px;
   min-width: 0;
   height: 32px;
   min-height: 32px;
@@ -1714,14 +1821,14 @@ button.primary.danger:focus-visible {
   border-color: var(--cell-line); /* the solid/dashed cue holds 3:1 on the table background */
 }
 #swTable td input[data-key="HOSTNAME"] {
-  width: 112px;
+  width: 106px;
 }
 #swTable td.c-SITE {
   width: 100%;
 }
 #swTable td input[data-key="SITE"] {
   width: 100%;
-  min-width: 150px;
+  min-width: 140px;
 }
 #swTable td input[data-key$="VLAN"],
 #swTable td input[data-key$="LOOPBACK"] {
@@ -1729,7 +1836,7 @@ button.primary.danger:focus-visible {
 }
 #swTable td.c-SITE,
 #swTable th.c-SITE {
-  min-width: 160px;
+  min-width: 148px;
 }
 /* Typed values: solid field, normal text. Inherited values: dashed, transparent, italic grey. */
 #swTable input:not(.inherit) {
@@ -1810,6 +1917,13 @@ button.primary.danger:focus-visible {
 #swTable tr.sw-detail .sw-checks {
   margin: 0;
 }
+/* The checks in the detail line are text links, not 32 px grid buttons. */
+#swTable tr.sw-detail button.finding-link {
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  font-size: inherit;
+}
 #swTable tr.sw-detail .sw-detail-title {
   display: block;
   margin-bottom: 4px;
@@ -1874,7 +1988,7 @@ button.primary.danger:focus-visible {
 .sw-empty {
   margin: 12px 0 0;
   padding: 18px 20px;
-  border: 1px dashed var(--line2);
+  border: 1px solid var(--line2);
   border-radius: var(--radius);
   background: var(--card);
 }
@@ -1892,6 +2006,9 @@ button.primary.danger:focus-visible {
 #swPanel {
   position: sticky;
   top: calc(var(--header-h) + 12px);
+}
+#swPanel {
+  padding: 16px 16px 14px;
 }
 #swPanel h2 {
   margin-bottom: 10px;
@@ -1912,12 +2029,21 @@ button.primary.danger:focus-visible {
 }
 /* Short enough that the export buttons under the Build preview stay above the fold at 900 px. */
 #preview {
-  max-height: 350px; /* 16 lines */
+  max-height: 338px; /* 16 lines */
 }
+/* IOS lines are never wrapped: a long line scrolls sideways inside the panel (a wrapped
+   "ip default-gateway" would read as two commands). */
 #swPreview {
-  max-height: 390px; /* 20 lines of 18 px */
+  max-height: 378px; /* 20 lines of 18 px */
   font-size: 12px;
   line-height: 18px;
+  white-space: pre;
+  overflow-wrap: normal;
+  padding: 0 12px;
+}
+#swPreview::before,
+#swPreview::after {
+  margin: 0 -12px;
 }
 #swPanelEmpty {
   margin: 0;
@@ -2039,6 +2165,11 @@ dialog.dlg textarea {
   #swTable tr.sw-detail .sw-detail-actions {
     display: flex;
   }
+  /* Ports is now the last column: a little room before the box's rounded edge. */
+  #swTable td.c-ports,
+  #swTable th.c-ports {
+    padding-right: 10px;
+  }
 }
 /* No switches yet: the empty state alone, no placeholder panel beside it. */
 .sw-layout.sw-none {
@@ -2057,8 +2188,18 @@ dialog.dlg textarea {
     padding-left: 0;
     border-left: 0;
   }
-  .tool-end {
-    margin-left: 0;
+  /* A half-screen window: slightly tighter buttons, so the toolbar stays one row. */
+  #switches .sw-toolbar button,
+  #switches .sw-toolbar select {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  #switches .sw-toolbar {
+    gap: 8px;
+  }
+  /* The CSV group keeps its order and titles; its small label gives the row back to the actions. */
+  #switches .sw-toolbar .tool-label {
+    display: none;
   }
 }
 
@@ -2120,9 +2261,14 @@ pre::-webkit-scrollbar-thumb:hover,
 .pane::-webkit-scrollbar-thumb:hover {
   background: var(--faint);
 }
-.scroll.more-right {
+.scroll.more-right,
+pre.more-right {
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
   mask-image: linear-gradient(to right, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
+}
+pre.more-right {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 40px), rgba(0, 0, 0, 0.25));
+  mask-image: linear-gradient(to right, #000 calc(100% - 40px), rgba(0, 0, 0, 0.25));
 }
 .scroll.more-left {
   -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.18), #000 40px);
@@ -2207,10 +2353,24 @@ pre::-webkit-scrollbar-thumb:hover,
 }
 .gate-fix {
   margin-left: auto;
+  order: 1;
   height: 30px;
   min-height: 30px;
   padding: 0 10px;
   font-size: 12.5px;
+}
+/* With a way-out button, that button shares the headline's row and the reasons follow below. */
+.gate:has(.gate-fix) .gate-list {
+  order: 2;
+  flex: 1 1 100%;
+}
+/* The three export buttons: one even 16 px gap, a little wider than a plain toolbar. */
+.cd-toolbar {
+  gap: 10px 16px;
+}
+.cd-toolbar > button {
+  padding-left: 18px;
+  padding-right: 18px;
 }
 /* Bulk card export in progress: "Card 8 of 24: file" and Cancel after this card. */
 .cd-progress {

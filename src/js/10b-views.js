@@ -61,10 +61,12 @@ function updateRail() {
   const res = rows.length ? checkSwitchRows(r, rows) : { rows: [] };
   // Team-policy hits block export, so they count as errors here too (fail closed).
   const bad = res.rows.filter((x) => x.errors.length || x.policy.length).length;
-  $("chipSwitches").textContent = rows.length
-    ? rows.length + (bad ? " · " + bad + (bad === 1 ? " error" : " errors") : "")
-    : "no switches yet";
-  $("chipSwitches").classList.toggle("chip-bad", bad > 0);
+  // One format on every chip ("12 switches · 4 errors", "6 of 12 up to date"); the error count is
+  // its own red span, so the number of switches keeps the chip colour.
+  const chip = $("chipSwitches");
+  chip.replaceChildren(rows.length ? rows.length + (rows.length === 1 ? " switch" : " switches") : "no switches yet");
+  if (bad) chip.append(" · ", el("span", { className: "chip-err" }, bad + (bad === 1 ? " error" : " errors")));
+  chip.classList.toggle("chip-bad", bad > 0);
   const up = res.rows.filter((x) => exportState(r, x.host, x.sha256).state === "current").length;
   $("chipCards").textContent = rows.length ? up + " of " + rows.length + " up to date" : "nothing to export yet";
   $("chipManage").textContent = baseline ? baseline.version : "no baseline";
@@ -192,10 +194,13 @@ function patchSwitchGrid(r) {
   // An empty list shows the empty state alone (no placeholder side panel).
   const layout = $("swPanel").closest(".sw-layout");
   if (layout) layout.classList.toggle("sw-none", !rows.length);
-  // Nothing to export or remove from an empty list: the buttons say so instead of acting.
+  // Nothing to export or remove from an empty list: those two buttons leave the toolbar (the
+  // empty state's only jobs are Add and Import), and stay disabled while hidden.
   $("swExport").disabled = !rows.length;
+  $("swExport").hidden = !rows.length;
   $("swExport").title = rows.length ? "Download the list as CSV" : "No switches to export yet";
   $("swRemoveAll").disabled = !rows.length;
+  $("swRemoveAll").hidden = !rows.length;
   $("swRemoveAll").title = rows.length ? "Remove every switch from the list" : "The list is already empty";
   $("swNotes").textContent = res.warnings.join(" ");
   $("swNotes").hidden = !res.warnings.length;
@@ -781,7 +786,8 @@ function updateScrollHint(box) {
   if (hint) hint.hidden = !(max > 1 && box.scrollLeft < max - 1);
 }
 function watchScrollHints(root) {
-  for (const box of (root || document).querySelectorAll(".scroll")) {
+  // #swPreview never wraps, so it scrolls sideways like a table and fades the side that has more.
+  for (const box of (root || document).querySelectorAll(".scroll, #swPreview")) {
     if (box.__hint) continue;
     box.__hint = true;
     box.addEventListener("scroll", () => updateScrollHint(box), { passive: true });
