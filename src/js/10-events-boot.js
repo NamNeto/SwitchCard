@@ -340,7 +340,7 @@ $("applyBulkVlan").onclick = () => {
           n +
           " port" +
           (n === 1 ? "" : "s") +
-          (skipped ? "; skipped " + skipped + " Unused/Routed." : "") +
+          (skipped ? "; skipped " + skipped + " Unused/Routed" : "") +
           "."
       : "No Access/Trunk ports were checked.",
   );

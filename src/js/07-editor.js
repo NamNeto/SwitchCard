@@ -1,13 +1,17 @@
 // --- Preview, Maintain editor, Apply, New switch ---
 // Export blockers (separate from generate errors): unapplied draft, example recipe,
 // missing baseline, or a baseline whose model / label this recipe does not allow.
-function blockers(r, g) {
+// opts.textOnly: a text-only write (Save text only, the Cards Text-only ZIP) writes no baseline
+// files, so the baseline gates do not apply to it (operator round 7); the others all do.
+function blockers(r, g, opts) {
   const a = [];
   if (editorPending)
     a.push("Apply recipe changes or Discard unapplied draft first.");
   if (r.example)
     a.push("Example recipe: open Manage recipes & baseline, uncheck “Example recipe…”, then Apply recipe changes.");
-  if (!baseline) a.push("Load a firmware baseline to export a complete card.");
+  if (opts && opts.textOnly) {
+    // no baseline gates
+  } else if (!baseline) a.push("Load a firmware baseline to export a complete card.");
   else {
     if (baseline.model !== r.model) a.push("Baseline model does not match this recipe.");
     if (r.firmware.length && !r.firmware.includes(baseline.version))
@@ -521,18 +525,23 @@ async function applyRecipe() {
   touch();
   renderAll();
   loadEditor(); // Show exactly the cleaned values that were applied.
-  let msg =
-    "Recipe applied. Port table remapped to " +
-    r.interfaces.length +
-    " interface" +
-    (r.interfaces.length === 1 ? "" : "s") +
-    " (kept " +
-    remap.kept.length +
-    " by name";
-  if (remap.dropped.length)
-    msg += "; dropped " + remap.dropped.map((d) => d.name).join(", ");
-  if (remap.added.length) msg += "; added " + remap.added.length + " new";
-  msg += ").";
+  // The port table is mentioned only when the remap changed it (a row dropped or added); an
+  // Apply that kept every port by name says nothing about it (operator round 7).
+  let msg = "Recipe applied.";
+  if (remap.dropped.length || remap.added.length) {
+    msg +=
+      " Port table remapped to " +
+      r.interfaces.length +
+      " interface" +
+      (r.interfaces.length === 1 ? "" : "s") +
+      " (kept " +
+      remap.kept.length +
+      " by name";
+    if (remap.dropped.length)
+      msg += "; dropped " + remap.dropped.map((d) => d.name).join(", ");
+    if (remap.added.length) msg += "; added " + remap.added.length + " new";
+    msg += ").";
+  }
   if (cleaned.length) msg += " Cleaned " + cleaned.join(" and ") + "; updated values are shown in the editor.";
   if (wasExample && !r.example)
     msg += " Example flag cleared — Save project to keep this durable.";

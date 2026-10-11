@@ -325,6 +325,7 @@ function renderSwitchPanel(r, x) {
     if (old) old.remove();
     $("swPanelTitle").textContent = "Selected switch";
     $("swPreview").textContent = "Select a row to see its checks and its editcontent.txt.";
+    if ($("swPreviewCue")) $("swPreviewCue").textContent = "";
     return;
   }
   const title = "Switch " + x.n + (x.host ? " · " + x.host : "");
@@ -377,9 +378,11 @@ function renderSwitchPanel(r, x) {
   if (swPanelKeys.text !== shown) {
     swPanelKeys.text = shown;
     fillLines(pre, shown);
+    // The same "Showing lines a–b of n" cue as Build's preview, under the panel's box: measured
+    // on the next frame (it reads layout), and only when the text changed; the box's own scroll
+    // listener and ResizeObserver cover every other change (review round 11).
+    if (typeof updatePreviewCue === "function") requestAnimationFrame(() => updatePreviewCue(pre, $("swPreviewCue")));
   }
-  // The same "Showing lines a–b of n" cue as Build's preview, under the panel's box.
-  if (typeof updatePreviewCue === "function") updatePreviewCue(pre, $("swPreviewCue"));
   const prev = lastExport(r, x.host);
   const diffKey = prev && !x.errors.length ? JSON.stringify([prev.at, prev.sha256, x.text]) : "";
   if (diffKey !== swPanelKeys.diff) {
@@ -958,9 +961,18 @@ function closeRowMenu(refocus) {
   if (!rowMenu) return;
   const { menu, button, opener } = rowMenu;
   rowMenu = null;
+  // Closed by a scroll, a resize or a press elsewhere (refocus false): the user let the menu go.
+  // Focus that was inside it goes back to the row's button without scrolling (so Tab goes on
+  // from the row; a press on another control takes focus there anyway), and the safety net is
+  // told so: removing the menu is not a loss for it to make good (review round 11).
+  const inside = menu.contains(document.activeElement);
   menu.remove();
   button.setAttribute("aria-expanded", "false");
-  if (!refocus) return;
+  if (!refocus) {
+    if (typeof focusNet !== "undefined") focusNet.release();
+    if (inside && canFocus(button)) button.focus({ preventScroll: true });
+    return;
+  }
   const back = canFocus(opener) ? opener : button;
   if (canFocus(back)) back.focus({ preventScroll: true });
 }

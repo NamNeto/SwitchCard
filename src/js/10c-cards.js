@@ -79,6 +79,21 @@ function cardFocusOf(node) {
   const kind = tr && node.matches("button") ? CD_BUTTONS.find((k) => node.classList.contains(k)) : null;
   return kind ? { row: tr.dataset.row, kind } : null;
 }
+// The rows in place: a row whose new rendering equals the old one is kept (its focused button
+// keeps focus, nothing is announced again), one that differs is swapped, gone rows leave, and the
+// order follows the new list. A bulk run rebuilds the table on every card (operator round 7).
+function patchRows(box, rows) {
+  const old = new Map();
+  for (const t of box.children) old.set(t.dataset.row, t);
+  const keep = new Set(rows.map((t) => t.dataset.row));
+  for (const t of [...box.children]) if (!keep.has(t.dataset.row)) t.remove();
+  rows.forEach((tr, i) => {
+    const o = old.get(tr.dataset.row);
+    const node = o && o.isEqualNode(tr) ? o : tr;
+    if (node !== o && o) o.replaceWith(node);
+    if (box.children[i] !== node) box.insertBefore(node, box.children[i] || null);
+  });
+}
 function renderCards() {
   let r;
   try {
@@ -126,11 +141,13 @@ function renderCards() {
   });
   const a = document.activeElement;
   const want = cardFocusOf(a) || (!a || a === document.body ? cdFocus : null);
-  $("cdRows").replaceChildren(...body);
+  patchRows($("cdRows"), body);
   if (want) {
     const tr = [...$("cdRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === want.row);
     const b = tr && tr.querySelector("button." + want.kind);
-    if (b && !b.disabled) b.focus();
+    // Only when its row was rebuilt: a button that kept focus is not focused again (a screen
+    // reader would announce it once per card during a bulk run; operator round 7).
+    if (b && !b.disabled && document.activeElement !== b) b.focus();
   }
   $("cdTable").hidden = !items.length;
   $("cdTable").classList.toggle("is-blocked", blocked);
@@ -141,6 +158,13 @@ function renderCards() {
     reasons.push("Rows with errors: " + badRowsSummary(items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x)) + ".");
   renderGate($("cdGates"), reasons, items.length ? "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + "." : "", "cdFixGate",
     null, items.length ? [baselineDiffersWarning()].filter(Boolean) : []);
+  // The text-only ZIP writes no baseline files, so the baseline gates do not hold it (operator
+  // round 7, as Save text only on Build): when they are all that blocks, the gate says so.
+  const textGates = blockers(r, null, { textOnly: true });
+  const textOpen = items.length > 0 && !busy && !textGates.length && !badRows.length;
+  if (gates.length && textOpen)
+    $("cdGates").append(el("p", { className: "gate-sub" },
+      "Text-only ZIP is still available: it writes editcontent.txt per switch and no baseline files."));
   const changed = items.filter(({ st }) => st.state === "new" || st.state === "changed").length;
   // Counts at a glance: "12 switches · 6 up to date · 3 changed · 3 not exported · 1 with errors".
   const count = (state) => items.filter(({ st }) => st.state === state).length;
@@ -154,13 +178,14 @@ function renderCards() {
     el("span", { className: c }, t)) : []));
   $("cdChanged").textContent = "Changed and not exported (" + changed + ")";
   $("cdAll").disabled = blocked || !items.length;
-  $("cdText").disabled = blocked || !items.length;
+  $("cdText").disabled = busy || textGates.length > 0 || !items.length;
   $("cdChanged").disabled = blocked || changed === 0;
-  // While a gate blocks, the title of each disabled button names the gate (text-only included);
-  // otherwise each title says what it exports.
+  // While a gate blocks, the title of each disabled button names the gate (the text-only button
+  // names only the gates that hold it); otherwise each title says what it exports.
   const why = gates.length ? "Export blocked: " + gates.map(gateLabel).join(" · ") : busy ? "An export is running." : "";
+  const whyText = textGates.length ? "Export blocked: " + textGates.map(gateLabel).join(" · ") : busy ? "An export is running." : "";
   $("cdAll").title = why || (items.length ? "One SD-card ZIP per switch, plus a manifest" : "No switches to export yet");
-  $("cdText").title = why || (items.length ? "One ZIP holding every editcontent.txt (no baseline files)" : "No switches to export yet");
+  $("cdText").title = whyText || (items.length ? "One ZIP holding every editcontent.txt (no baseline files, so no baseline is needed)" : "No switches to export yet");
   $("cdChanged").title = why || (changed ? "Only the switches never exported or changed since their last export" : "Nothing is changed or unexported since the last export");
 }
 // One switch's SD-card ZIP, with the same write dialog as Build's Export SD-card ZIP. Runs inside run().
