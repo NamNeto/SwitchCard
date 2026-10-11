@@ -40,9 +40,12 @@
         --line2: #363642;
         --text: #f3f0ea;
         --muted: #9e998f;
-        --faint: #736e66;
+        --faint: #8a857c; /* 4.8:1 on a card: table headers and footers stay readable */
         --accent: #2dd4a8;
         --accent2: #1fb88a;
+        --accent-text: #2dd4a8; /* accent used as text (code, step badges): AA on every surface */
+        --danger-bg: #c62828; /* filled destructive buttons: white text at 5.6:1 in both themes */
+        --danger-hover: #b02121;
         --accent-dim: rgba(45, 212, 168, 0.16);
         --accent-glow: rgba(45, 212, 168, 0.10);
         --ok: #3ecf8e;
@@ -99,12 +102,13 @@
         --line2: #c6c2b7;
         --text: #1c1b18;
         --muted: #5d594f;
-        --faint: #8b867b;
+        --faint: #6f6a60;
         --accent: #179c74;
         --accent2: #12805f;
+        --accent-text: #0f6e52;
         --accent-dim: rgba(23, 156, 116, 0.16);
         --accent-glow: rgba(23, 156, 116, 0.1);
-        --ok: #1e8a5c;
+        --ok: #1a7a52;
         --warn: #8f6400;
         --err: #c53030;
         --info: #2160b8;
@@ -120,8 +124,8 @@
         --err-line: rgba(197, 48, 48, 0.5);
         --warn-bg: rgba(143, 100, 0, 0.08);
         --warn-line: rgba(143, 100, 0, 0.45);
-        --ok-bg: rgba(30, 138, 92, 0.09);
-        --ok-line: rgba(30, 138, 92, 0.4);
+        --ok-bg: rgba(26, 122, 82, 0.09);
+        --ok-line: rgba(26, 122, 82, 0.4);
         --info-bg: rgba(33, 96, 184, 0.08);
         --info-line: rgba(33, 96, 184, 0.4);
         --backdrop: rgba(20, 20, 16, 0.5);
@@ -294,7 +298,7 @@
       code {
         font-family: var(--mono);
         font-size: 0.9em;
-        color: var(--accent);
+        color: var(--accent-text);
         background: var(--accent-dim);
         padding: 0.12em 0.38em;
         border-radius: 5px;
@@ -397,7 +401,7 @@
         display: inline-grid;
         place-items: center;
         background: linear-gradient(180deg, rgba(45, 212, 168, 0.22), var(--accent-dim));
-        color: var(--accent);
+        color: var(--accent-text);
         width: 28px;
         height: 28px;
         border-radius: 9px;
@@ -691,8 +695,27 @@
         font-size: 12px;
       }
       #exportWhy {
-        font-size: 12.5px;
-        line-height: 1.5;
+        margin-top: 10px;
+      }
+      /* Keyboard users jump past the header and rail; the link shows only while focused. */
+      .skip-link {
+        position: absolute;
+        top: -48px;
+        left: 12px;
+        z-index: 30;
+        padding: 8px 12px;
+        background: var(--card);
+        color: var(--text);
+        border: 1px solid var(--accent);
+        border-radius: var(--radius-sm);
+        font-weight: 600;
+        text-decoration: none;
+      }
+      .skip-link:focus {
+        top: 12px;
+      }
+      h1:focus {
+        outline: none;
       }
       .warning {
         background: var(--warn-bg);
@@ -729,7 +752,7 @@
         line-height: 1.5;
       }
       .hint strong {
-        color: var(--accent);
+        color: var(--accent-text);
         font-weight: 650;
       }
       .hint-title {
@@ -746,8 +769,10 @@
         /* Stay display:block so the ::before placeholder shows when there are no team hints. */
         min-height: 1.2em;
       }
+      /* Whole-pixel line boxes (20 px) and heights of (lines * 20 + 2 * 16 padding + 2 border) px, so a
+         scrolling box never cuts a line of config in half at its bottom edge. */
       pre {
-        font: 13px/1.6 var(--mono);
+        font: 13px/20px var(--mono);
         font-variant-ligatures: none;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
@@ -757,7 +782,7 @@
         border: 1px solid var(--line);
         padding: calc(var(--space) * 2);
         border-radius: var(--radius);
-        max-height: 460px;
+        max-height: 454px; /* 21 lines */
         overflow: auto;
       }
 
@@ -895,7 +920,7 @@
         font-size: 12.5px;
       }
       .hint strong.team-label {
-        color: var(--accent);
+        color: var(--accent-text);
       }
       .badge {
         display: inline-block;
@@ -908,6 +933,63 @@
         font-weight: 700;
         letter-spacing: 0.03em;
         text-transform: uppercase;
+      }
+      .badge-bad {
+        color: var(--err);
+        background: var(--err-bg);
+        border-color: var(--err-line);
+      }
+      /* Manage: the two team lists are their own blocks (advisory hints, blocking policies), and the
+         recipe editor is grouped under small headings. */
+      .team-block {
+        margin-top: 14px;
+        padding: 12px 14px 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        background: var(--card2);
+      }
+      .team-block-policy {
+        border-left: 3px solid var(--err);
+      }
+      .team-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 2px;
+      }
+      .team-head h3 {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 650;
+        letter-spacing: -0.15px;
+      }
+      .team-block > p.muted {
+        margin: 4px 0 10px;
+        font-size: 13px;
+      }
+      .team-block .field {
+        margin-bottom: 8px;
+      }
+      .team-block .actions {
+        margin-top: 8px;
+      }
+      .team-block .sku-notes {
+        margin-top: 10px;
+      }
+      h3.ed-group {
+        margin: 18px 0 10px;
+        padding-top: 14px;
+        border-top: 1px solid var(--line);
+        font-size: 11.5px;
+        font-weight: 650;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      h3.ed-group:first-of-type {
+        margin-top: 0;
+        padding-top: 0;
+        border-top: 0;
       }
       .actions {
         display: flex;
@@ -954,8 +1036,9 @@
         width: auto;
       }
       pre.diff {
-        max-height: 320px;
+        max-height: 322px; /* 16 lines of 18 px */
         font-size: 12px;
+        line-height: 18px;
       }
       pre.diff .add {
         color: var(--ok);
@@ -1088,7 +1171,7 @@
       .autosave {
         white-space: nowrap;
         font-size: 12px;
-        color: var(--accent);
+        color: var(--accent-text);
         font-weight: 600;
       }
       .bulk {
@@ -1227,6 +1310,19 @@
         max-height: 60vh;
         overflow: auto;
       }
+      .dlg-wide .dialog-body {
+        max-height: 72vh;
+      }
+      /* Write dialogs: the summary scrolls on its own; Copy summary, the review tick and the buttons
+         stay in place, so opening the dialog never scrolls the summary away. */
+      .dlg-write .dialog-body {
+        max-height: none;
+        overflow: visible;
+      }
+      .dlg-write .dlg-summary {
+        max-height: calc(100vh - 340px);
+        overflow: auto;
+      }
       /* Plain-text bodies (confirmDialog / infoDialog) keep their line breaks, e.g. port lists. */
       .dialog-body > p {
         white-space: pre-line;
@@ -1242,10 +1338,14 @@
         color: var(--err);
       }
       button.primary.danger {
-        background: var(--err);
+        background: var(--danger-bg);
         color: #fff;
-        border-color: var(--err);
+        border-color: var(--danger-bg);
         box-shadow: none;
+      }
+      button.primary.danger:hover {
+        background: var(--danger-hover);
+        border-color: var(--danger-hover);
       }
       /* The red buttons keep a ring of their own when focused (box-shadow is reset above). */
       button.danger:focus-visible,
@@ -1255,12 +1355,105 @@
       }
       .dlg-summary {
         margin: 0;
-        padding: 10px 12px;
+        padding: 12px 14px;
         background: var(--bg);
         border: 1px solid var(--line);
         border-radius: var(--radius-sm);
-        white-space: pre-wrap;
-        font-size: 0.85rem;
+        font-size: 13.5px;
+        line-height: 1.5;
+      }
+      .dlg-summary p {
+        margin: 0 0 8px;
+      }
+      .dlg-summary > :last-child {
+        margin-bottom: 0;
+      }
+      .dlg-summary > p:first-child {
+        font-weight: 650;
+      }
+      .dlg-summary > p:not(:first-child) {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      /* Key/value lines of a summary (and of the boot restore question). */
+      .dlg-kv {
+        width: 100%;
+        min-width: 0;
+        margin: 0 0 10px;
+        font-size: 13px;
+        border-collapse: collapse;
+      }
+      .dlg-kv th,
+      .dlg-kv td {
+        padding: 3px 0;
+        border: 0;
+        vertical-align: top;
+      }
+      .dlg-kv th {
+        width: 36%;
+        padding-right: 12px;
+        color: var(--muted);
+        font-size: 12.5px;
+        font-weight: 600;
+        text-transform: none;
+        letter-spacing: 0;
+        background: none;
+        position: static;
+      }
+      .dlg-summary .dlg-kv td {
+        font-family: var(--mono);
+        font-size: 12.5px;
+      }
+      .dlg-kv td {
+        overflow-wrap: anywhere;
+      }
+      .dlg-kv tr.dlg-key th,
+      .dlg-kv tr.dlg-key td {
+        color: var(--text);
+        font-weight: 700;
+        font-size: 13.5px;
+      }
+      .dlg-kv tr.dlg-key td {
+        background: var(--accent-dim);
+        padding-left: 6px;
+        border-radius: 4px;
+      }
+      .dlg-choices {
+        margin: 0;
+        padding-left: 18px;
+      }
+      .dlg-choices li + li {
+        margin-top: 4px;
+      }
+      /* The switch table of a bulk export, one row per card with its state against the last export. */
+      .dlg-rows {
+        width: 100%;
+        min-width: 0;
+        margin: 2px 0 10px;
+        font-size: 12.5px;
+      }
+      .dlg-rows th,
+      .dlg-rows td {
+        padding: 4px 8px;
+        white-space: nowrap;
+        line-height: 1.45;
+      }
+      .dlg-rows .pill {
+        line-height: 1.5;
+        font-size: 11.5px;
+      }
+      .dlg-rows th:first-child,
+      .dlg-rows td:first-child {
+        padding-left: 2px;
+      }
+      .dlg-rows td.num {
+        color: var(--muted);
+      }
+      .dlg-rows td.mono {
+        font-family: var(--mono);
+      }
+      .dlg-rows tbody tr:last-child td {
+        border-bottom: 0;
       }
 
       /* --- v0.8.0: Switches view (grid, side panel, Ports and Import dialogs) --- */
@@ -1307,7 +1500,7 @@
       }
       .sw-layout {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+        grid-template-columns: minmax(0, 1fr) minmax(240px, 250px);
         gap: calc(var(--space) * 2);
         align-items: start;
         margin-top: calc(var(--space) * 2);
@@ -1358,14 +1551,22 @@
         background: var(--card2);
         border-color: var(--line);
       }
-      /* Quiet: no box, a green dot and muted words (a clean row should not compete with errors). */
+      /* Quiet: no box, a green dot and muted words (a clean row should not compete with errors).
+         The note count is fainter and smaller still, so twelve "OK" rows read as one calm column. */
       .pill-quiet {
         color: var(--muted);
         padding-left: 0;
+        padding-right: 0;
         font-weight: 500;
+        gap: 5px;
       }
       .pill-quiet::before {
         background: var(--ok);
+      }
+      .pill-quiet .st-notes {
+        color: var(--faint);
+        font-weight: 400;
+        font-size: 11.5px;
       }
       /* The grid takes its natural width and scrolls inside its own box; Status sits right after #. */
       #swTable {
@@ -1384,21 +1585,25 @@
         padding-left: 10px;
         padding-right: 6px;
       }
+      /* Cell widths: the whole row up to Ports fits beside the side panel at 1440 px (and alone at
+         900 px); only Copy and Remove scroll. An address (255.255.255.0) fits an address cell. */
       #swTable td input {
-        width: 124px;
+        width: 104px;
         min-width: 0;
         height: 32px;
         min-height: 32px;
+        padding: 0 7px;
+        font-size: 12.5px;
       }
       #swTable td input[data-key="HOSTNAME"] {
-        width: 150px;
+        width: 114px;
       }
       #swTable td input[data-key="SITE"] {
-        width: 176px;
+        width: 114px;
       }
       #swTable td input[data-key$="VLAN"],
       #swTable td input[data-key$="LOOPBACK"] {
-        width: 64px;
+        width: 50px;
       }
       /* Typed values: solid field, normal text. Inherited values: dashed, transparent, italic grey. */
       #swTable input:not(.inherit) {
@@ -1457,18 +1662,77 @@
       #swTable td.status {
         white-space: nowrap;
       }
+      #swTable td.status .pill-bad {
+        padding: 0 8px;
+      }
       #swTable button {
         height: 32px;
         min-height: 32px;
-        padding: 0 10px;
+        padding: 0 9px;
         font-size: 12.5px;
+      }
+      /* The selected row's checks, inline under it, while the side panel sits below the grid. */
+      #swTable tr.sw-detail {
+        display: none;
+      }
+      #swTable tr.sw-detail > td {
+        padding: 6px 10px 10px 14px;
+        background: var(--card);
+        box-shadow: inset 3px 0 0 var(--accent);
+        white-space: normal;
+      }
+      #swTable tr.sw-detail .sw-checks {
+        margin: 0;
+      }
+      #swTable tr.sw-detail .sw-detail-title {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12.5px;
+        font-weight: 650;
       }
       #swTable button.sw-ports:not(.has-set) {
         color: var(--muted);
         font-weight: 500;
       }
+      /* Row actions as 30 px icon buttons: a drawn "two pages" for Copy, a red × for Remove. */
+      #swTable button.sw-icon {
+        position: relative;
+        width: 30px;
+        padding: 0;
+        color: var(--muted);
+      }
+      #swTable button.sw-icon:hover {
+        color: var(--text);
+      }
+      #swTable button.sw-copy::before,
+      #swTable button.sw-copy::after {
+        content: "";
+        position: absolute;
+        width: 9px;
+        height: 11px;
+        border: 1.5px solid currentColor;
+        border-radius: 2px;
+      }
+      #swTable button.sw-copy::before {
+        left: 8px;
+        top: 6px;
+      }
+      #swTable button.sw-copy::after {
+        left: 12px;
+        top: 10px;
+        background: var(--card2);
+      }
+      #swTable button.sw-remove {
+        color: var(--err);
+        font-size: 17px;
+        line-height: 1;
+      }
+      #swTable button.sw-remove:hover {
+        color: var(--err);
+        border-color: var(--err);
+      }
       #swTable button.sw-ports.has-set {
-        color: var(--accent);
+        color: var(--accent-text);
         border-color: var(--accent);
       }
       .sw-empty {
@@ -1512,11 +1776,12 @@
       }
       /* Short enough that the export buttons under the Build preview stay above the fold at 900 px. */
       #preview {
-        max-height: 400px;
+        max-height: 354px; /* 16 lines */
       }
       #swPreview {
-        max-height: 420px;
+        max-height: 394px; /* 20 lines of 18 px */
         font-size: 12px;
+        line-height: 18px;
       }
       #swPanelEmpty {
         margin: 0;
@@ -1537,6 +1802,12 @@
       }
       dialog.dlg.dlg-wide {
         max-width: min(1040px, 96vw);
+      }
+      /* Beside a left rail, a wide dialog stops short of the rail's labels (the rail is 210 px + gutters). */
+      @media (min-width: 1200px) {
+        dialog.dlg.dlg-wide {
+          max-width: min(1040px, 100vw - 520px);
+        }
       }
       dialog.dlg textarea {
         width: 100%;
@@ -1575,6 +1846,38 @@
         padding: 0 10px;
         font-size: 12.5px;
       }
+      /* A port this switch sets itself: accent edge on its name, and the only rows with Use table. */
+      .sw-ports-table tr.own > td:first-child {
+        box-shadow: inset 3px 0 0 var(--accent);
+        font-weight: 600;
+      }
+      .sw-ports-table td.muted-cell {
+        text-align: left;
+        padding-left: 12px;
+      }
+      .sw-ports-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 18px;
+        align-items: center;
+        margin: 0 0 10px;
+        font-size: 12.5px;
+        color: var(--muted);
+      }
+      .sw-ports-legend .swatch {
+        display: inline-block;
+        width: 34px;
+        height: 18px;
+        margin-right: 6px;
+        vertical-align: middle;
+        border-radius: 5px;
+        border: 1px solid var(--field-line);
+        background: var(--field-bg);
+      }
+      .sw-ports-legend .swatch.inherit {
+        border-style: dashed;
+        background: transparent;
+      }
       .sw-unknown button {
         margin-left: 6px;
       }
@@ -1584,6 +1887,10 @@
         }
         #swPanel {
           position: static;
+        }
+        /* The panel is below the grid now: the selected row's checks show inline under that row. */
+        #swTable tr.sw-detail {
+          display: table-row;
         }
       }
       @media (max-width: 980px) {
@@ -1622,10 +1929,22 @@
         background: transparent;
         border-color: var(--line);
       }
-      /* --- Tables that scroll sideways: thin visible scrollbar, and a fade on the side with more --- */
-      .scroll {
-        scrollbar-width: thin;
-        scrollbar-color: var(--line2) transparent;
+      /* --- Tables that scroll sideways: a drawn scrollbar (always visible, also in headless capture),
+         and a fade on the side with more --- */
+      .scroll::-webkit-scrollbar {
+        height: 10px;
+        width: 10px;
+      }
+      .scroll::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      .scroll::-webkit-scrollbar-thumb {
+        background: var(--line2);
+        border-radius: 999px;
+        border: 2px solid var(--bg2);
+      }
+      .scroll::-webkit-scrollbar-thumb:hover {
+        background: var(--faint);
       }
       .scroll.more-right {
         -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
@@ -1646,33 +1965,71 @@
         text-align: right;
       }
 
-      /* --- v0.8.0: Cards view --- */
-      .cd-gates {
+      /* --- Export gate (Build, under the export buttons; Cards, above the bulk buttons): a headline,
+         one short item per reason, and the way out when the recipe is still an example --- */
+      .gate {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 4px 14px;
         margin: 12px 0 0;
         padding: 8px 12px;
         font-size: 13px;
-        font-weight: 600;
         border: 1px solid transparent;
         border-left-width: 3px;
         border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
       }
-      .cd-gates:empty {
+      .gate:empty {
         display: none;
       }
-      .cd-gates.cd-ok {
+      .gate-head {
+        font-weight: 650;
+      }
+      .gate.gate-ok {
         color: var(--ok);
         background: var(--ok-bg);
         border-color: var(--ok-line);
         border-left-color: var(--ok);
       }
-      .cd-gates.cd-bad {
-        color: var(--err);
+      .gate.gate-bad {
         background: var(--err-bg);
         border-color: var(--err-line);
         border-left-color: var(--err);
       }
-      #cdFixGate {
-        margin-top: 8px;
+      .gate.gate-bad .gate-head {
+        color: var(--err);
+      }
+      .gate-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 2px 14px;
+        color: var(--text);
+        font-weight: 500;
+      }
+      .gate-list li {
+        position: relative;
+        padding-left: 12px;
+        cursor: default;
+      }
+      .gate-list li::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0.55em;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--err);
+      }
+      .gate-fix {
+        margin-left: auto;
+        height: 30px;
+        min-height: 30px;
+        padding: 0 10px;
+        font-size: 12.5px;
       }
       /* Bulk card export in progress: "Card 8 of 24: file" and Cancel after this card. */
       .cd-progress {
@@ -1763,6 +2120,9 @@
       #cdTable td,
       #cdTable th {
         padding: 7px 8px;
+      }
+      #cdTable th {
+        white-space: nowrap;
       }
       #cdTable td:first-child,
       #cdTable th:first-child {
@@ -1865,12 +2225,6 @@
         text-underline-offset: 3px;
       }
 
-      .dlg-summary .dlg-key {
-        color: var(--text);
-        font-weight: 700;
-        background: var(--accent-dim);
-        border-radius: 3px;
-      }
       /* --- Write dialogs: the review tick is its own boxed safety step --- */
       .dlg-copy {
         display: flex;
@@ -1975,6 +2329,7 @@
     </style>
   </head>
   <body>
+    <a class="skip-link" href="#viewTitle">Skip to content</a>
     <!-- ===== Header ===== -->
     <header>
       <div class="brand">
@@ -2007,7 +2362,7 @@
       <div class="views">
       <div class="top">
         <div>
-          <h1 id="viewTitle">Prepare a switch card</h1>
+          <h1 id="viewTitle" tabindex="-1">Prepare a switch card</h1>
           <p class="muted" id="viewSubtitle">
             One baseline · many recipes · SD root with <code>editcontent.txt</code>
           </p>
@@ -2152,7 +2507,7 @@
                 ><button id="copyPreview" type="button">Copy preview</button
                 ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
               </div>
-              <p id="exportWhy" class="muted" style="margin-top: 8px"></p>
+              <div id="exportWhy" class="gate" role="status"></div>
               <div id="asciiFix" class="notice warning" hidden>
                 <strong class="notice-head">Non-ASCII characters block export.</strong>
                 <button type="button" id="fixAscii">Transliterate to ASCII</button>
@@ -2316,52 +2671,75 @@
               <!-- Team security hints: advisory text only, collapsed by default. -->
               <details id="teamHintsPanel">
                 <summary class="hint-summary">
-                  Team security hints <span class="badge">optional</span>
+                  Team security hints &amp; policies <span class="badge">optional</span>
                 </summary>
                 <p class="muted">
-                  One hint per line. Shown on Build under Config security hints as
-                  <strong>Team</strong> (even when preview has errors). Advisory only — never block export.
-                  Hints apply as you type.
+                  Two lists, saved with the project, team package and autosave. Hints advise;
+                  policy rules block export.
                 </p>
-                <div class="field">
-                  <label for="teamHintsEditor">Hints</label>
-                  <textarea
-                    id="teamHintsEditor"
-                    rows="6"
-                    placeholder="One hint per line, e.g.&#10;Prefer TACACS+ over local enable on edge switches&#10;Never enable Telnet on VTY"
-                  ></textarea>
+                <div class="team-block">
+                  <div class="team-head">
+                    <h3>Security hints</h3>
+                    <span class="badge">Advisory</span>
+                  </div>
+                  <p class="muted">
+                    One hint per line. Shown on Build under Config security hints as
+                    <strong>Team</strong>, even when the preview has errors. Never block export.
+                    Hints apply as you type.
+                  </p>
+                  <div class="field">
+                    <label for="teamHintsEditor">Hints</label>
+                    <textarea
+                      id="teamHintsEditor"
+                      rows="5"
+                      placeholder="One hint per line, e.g.&#10;Prefer TACACS+ over local enable on edge switches&#10;Never enable Telnet on VTY"
+                    ></textarea>
+                  </div>
+                  <div class="actions">
+                    <button id="applyTeamHints" type="button">Apply team hints</button>
+                  </div>
                 </div>
-                <div class="actions">
-                  <button id="applyTeamHints" type="button">Apply team hints</button>
+                <div class="team-block team-block-policy">
+                  <div class="team-head">
+                    <h3>Policy rules</h3>
+                    <span class="badge badge-bad">Blocks export</span>
+                  </div>
+                  <p class="muted">
+                    A failing or invalid rule blocks export of a single card and of Cards; hints
+                    never do. Rules apply as you type.
+                  </p>
+                  <div class="field">
+                    <label for="teamPoliciesEditor">Rules</label>
+                    <textarea
+                      id="teamPoliciesEditor"
+                      rows="4"
+                      spellcheck="false"
+                      placeholder="require transport input ssh&#10;forbid snmp-server community&#10;require ^ip ssh version 2  # a note after two spaces and a hash"
+                    ></textarea>
+                  </div>
+                  <div class="actions">
+                    <button id="applyTeamPolicies" type="button" aria-describedby="teamPoliciesLive">Tidy rules</button>
+                    <span id="teamPoliciesLive" class="muted"><small>Rules apply as you type. Tidy rules removes blank lines and extra spaces and says which rules cannot be evaluated.</small></span>
+                  </div>
+                  <details class="sku-notes">
+                    <summary>Rule syntax</summary>
+                    <p>
+                      <small
+                        >One rule per line: <code>require &lt;pattern&gt;</code> or
+                        <code>forbid &lt;pattern&gt;</code>. Patterns are case-insensitive regular
+                        expressions matched line by line against the generated text without
+                        <code>!</code> comments and <code>no …</code> lines. A note may follow two
+                        spaces and a hash.</small
+                      >
+                    </p>
+                    <p>
+                      <small
+                        ><code>docs/SECURITY-HINTS.md</code> is reference; the live lists are edited
+                        here.</small
+                      >
+                    </p>
+                  </details>
                 </div>
-                <div class="field" style="margin-top: 14px">
-                  <label for="teamPoliciesEditor">Team policy rules (block export)</label>
-                  <textarea
-                    id="teamPoliciesEditor"
-                    rows="4"
-                    spellcheck="false"
-                    placeholder="require transport input ssh&#10;forbid snmp-server community&#10;require ^ip ssh version 2  # a note after two spaces and a hash"
-                  ></textarea>
-                </div>
-                <div class="actions">
-                  <button id="applyTeamPolicies" type="button" aria-describedby="teamPoliciesLive">Tidy rules</button>
-                  <span id="teamPoliciesLive" class="muted"><small>Rules apply as you type. Tidy rules removes blank lines and extra spaces and says which rules cannot be evaluated.</small></span>
-                </div>
-                <p class="muted" style="margin-top: 10px">
-                  <small
-                    >One rule per line: <code>require &lt;pattern&gt;</code> or
-                    <code>forbid &lt;pattern&gt;</code>. Patterns are case-insensitive regular
-                    expressions matched line by line against the generated text without
-                    <code>!</code> comments and <code>no …</code> lines. A failing or invalid rule
-                    <strong>blocks export</strong> (single card and Cards); hints never do.</small
-                  >
-                </p>
-                <p class="muted" style="margin-top: 10px">
-                  <small
-                    ><code>docs/SECURITY-HINTS.md</code> is reference; the live list is edited here
-                    (saved with project / team package / autosave).</small
-                  >
-                </p>
               </details>
             </div>
           </div>
@@ -2370,6 +2748,7 @@
             <div class="previewhead" style="margin-bottom: 12px">
               <h2 style="margin: 0">Recipe editor</h2>
             </div>
+            <h3 class="ed-group">Recipe</h3>
             <div class="field">
               <label for="recipeName">Recipe name</label><input id="recipeName" />
             </div>
@@ -2392,6 +2771,7 @@
                 ></textarea>
               </div>
             </div>
+            <h3 class="ed-group">Template</h3>
             <div class="field">
               <label for="template">Configuration template</label
               ><textarea id="template" rows="12" spellcheck="false"></textarea
@@ -2430,6 +2810,7 @@
               <label for="mgmtSources">Management source commands</label
               ><textarea id="mgmtSources" class="compact" spellcheck="false"></textarea>
             </details>
+            <h3 class="ed-group">Interfaces</h3>
             <div class="field recipe-sku-row">
               <label for="skuPreset">SKU interface preset</label
               ><select id="skuPreset"></select>
@@ -2484,6 +2865,7 @@
                 <button type="button" id="useIfaceBrief">Use these interface names</button>
               </div>
             </details>
+            <h3 class="ed-group">Port roles</h3>
             <details>
               <summary>Edit port role commands</summary>
               <p>
@@ -2502,7 +2884,8 @@
               ><label for="roleRouted">Routed (L3 / no switchport)</label
               ><textarea id="roleRouted" class="compact" spellcheck="false"></textarea>
             </details>
-            <label style="margin-top: 20px"
+            <h3 class="ed-group">Output &amp; export</h3>
+            <label
               ><input id="exampleFlag" type="checkbox" /><span>Example recipe —
               blocks SD-card export until unchecked + Apply</span></label
             >
@@ -2610,8 +2993,7 @@
           <div class="field">
             <label for="cdRecipe">Configuration recipe</label><select id="cdRecipe"></select>
           </div>
-          <p id="cdGates" class="cd-gates" role="status"></p>
-          <button type="button" id="cdFixGate" hidden>Open recipe settings</button>
+          <div id="cdGates" class="gate" role="status"></div>
           <!-- Bulk exports: every row, only new and changed rows, or one text-only ZIP -->
           <div class="sw-toolbar">
             <button type="button" id="cdAll" class="primary">All card ZIPs</button>
@@ -3516,19 +3898,30 @@
           key,
         };
         if (meta.release !== RELEASE) {
+          const found = "Found a browser autosave from SwitchCard v" + meta.release +
+            (meta.savedAt ? ", saved " + formatSavedAt(meta.savedAt) : "") +
+            (key !== AUTOSAVE_KEY ? " (older storage key " + key + ")" : "") + ". This page is v" + RELEASE + ".";
+          let body = found;
+          if (!fromBackup) {
+            // What the autosave holds, and what each choice does with it. Declining keeps a backup copy:
+            // fail() above calls backupAutosave before the examples are shown, and deletes nothing.
+            const p = parsed.p;
+            const nSwitches = p.recipes.reduce((n, x) => n + ((x.switches && x.switches.length) || 0), 0);
+            const holds = p.recipes.length + (p.recipes.length === 1 ? " recipe" : " recipes") + ", " +
+              nSwitches + (nSwitches === 1 ? " switch" : " switches") + (parsed.draft ? ", an unapplied recipe draft" : "");
+            const base = p.baseline ? p.baseline.model + " / " + p.baseline.version + " (label only; firmware files are never stored)" : "none recorded";
+            const kv = (k, v) => el("tr", {}, el("th", { scope: "row" }, k), el("td", {}, v));
+            body = el("div", {},
+              el("p", {}, found),
+              el("table", { className: "dlg-kv" }, kv("Holds", holds), kv("Baseline", base)),
+              el("ul", { className: "dlg-choices" },
+                el("li", {}, el("strong", {}, "Restore it"), " opens that work in this page."),
+                el("li", {}, el("strong", {}, "Start with the examples"), " (or Esc) keeps a copy as an autosave backup," +
+                  " which Save your work → Restore autosave backup brings back. Nothing is deleted.")));
+          }
           const ok = await confirmDialog(
             "Restore an autosave from v" + meta.release + "?",
-            "Found a browser autosave from SwitchCard v" +
-              meta.release +
-              (meta.savedAt ? ", saved " + formatSavedAt(meta.savedAt) : "") +
-              (key !== AUTOSAVE_KEY ? " (older storage key " + key + ")" : "") +
-              ".\nThis page is v" +
-              RELEASE +
-              "." +
-              (fromBackup
-                ? ""
-                : "\nRestore it opens that work. Start with the examples (or Esc) keeps a copy as an autosave backup," +
-                  " which Save your work → Restore autosave backup brings back."),
+            body,
             // At boot the default is the user's own work, so Enter never hides it.
             { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples", focusOk: !fromBackup },
           );
@@ -4260,18 +4653,55 @@
         return showDialog({ title, body, actions: [{ label: "Close", value: true, primary: true }] }).then(() => undefined);
       }
 
-      // The summary as monospace text; the identity lines (hostname, management IP) stand out.
-      // textContent stays exactly the summary text.
-      function summaryPre(text) {
-        const pre = el("pre", { className: "dlg-summary" });
-        String(text).split("\n").forEach((line, i) => {
-          if (i) pre.append("\n");
-          pre.append(/^(Hostname|MGMT_IP): /.test(line) ? el("strong", { className: "dlg-key" }, line) : line);
-        });
-        return pre;
+      // The summary laid out for reading: "Key: value" lines become a key/value table (hostname and
+      // management IP highlighted, as the values that put a switch on the wrong address), the numbered
+      // switch list of a bulk export becomes a table with each card's export state, and every other
+      // line stays a sentence. Copy summary still copies the plain text.
+      const EXPORT_STATE_PILL = {
+        current: ["pill-ok", "up to date"], changed: ["pill-warn", "changed"], new: ["pill-new", "new"], nohost: ["pill-muted", "not tracked"],
+      };
+      function summaryRowsTable(rows) {
+        return el("table", { className: "dlg-rows" },
+          el("thead", {}, el("tr", {}, ["#", "Hostname", "Mgmt IP", "State", "SHA-256", "Lines"].map((h) => el("th", {}, h)))),
+          el("tbody", {}, rows.map((x) => {
+            const [cls, label] = EXPORT_STATE_PILL[x.state] || EXPORT_STATE_PILL.nohost;
+            return el("tr", {},
+              el("td", { className: "num" }, String(x.n)),
+              el("td", {}, x.host || "(no hostname)"),
+              el("td", { className: "mono" }, x.ip || ""),
+              el("td", {}, el("span", { className: "pill " + cls }, label)),
+              el("td", { className: "mono", title: x.sha256 }, x.sha256.slice(0, 16) + "…"),
+              el("td", { className: "num" }, String(x.lines)));
+          })));
+      }
+      function summaryView(text, rows) {
+        const box = el("div", { className: "dlg-summary" });
+        let kv = null,
+          listDone = false;
+        for (const line of String(text).split("\n")) {
+          if (!line.trim()) {
+            kv = null;
+            continue;
+          }
+          if (rows && /^\s*\d+\. /.test(line)) {
+            if (!listDone) box.append(summaryRowsTable(rows));
+            listDone = true;
+            continue;
+          }
+          if (rows && /^… and \d+ more/.test(line)) continue; // the table lists every row
+          const m = /^([A-Za-z][\w .\-/]{0,40}): (.*)$/.exec(line);
+          if (!m) {
+            box.append(el("p", {}, line));
+            continue;
+          }
+          if (!kv) box.append((kv = el("table", { className: "dlg-kv" })));
+          kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : "" }, el("th", { scope: "row" }, m[1]), el("td", {}, m[2])));
+        }
+        return box;
       }
       // Review-before-download gate: the primary action stays disabled until the box is ticked.
-      function writeDialog({ title, summary, primary }) {
+      // rows (bulk exports): [{ n, host, ip, sha256, lines, state }] for the switch table.
+      function writeDialog({ title, summary, primary, rows }) {
         const text = String(summary).replace(/\s*Cancel = no download\.\s*$/, "");
         const check = el("input", { type: "checkbox" });
         const copy = el("button", {
@@ -4284,7 +4714,7 @@
         });
         // The tick is a boxed safety step of its own, and gets the first focus.
         const body = el("div", {},
-          summaryPre(text),
+          summaryView(text, rows),
           el("div", { className: "dlg-copy" }, copy),
           el("label", { className: "review-tick" }, check,
             el("span", {}, "I reviewed this configuration and the baseline selection.",
@@ -4293,6 +4723,7 @@
           title, body,
           actions: [{ label: "Cancel", value: false }, { label: primary, value: true, primary: true, disabled: true }],
           onOpen: (dlg) => {
+            dlg.classList.add("dlg-write");
             const btn = dlg.querySelector(".dialog-actions button.primary");
             btn.title = "Tick the review box first";
             check.addEventListener("change", () => {
@@ -5228,6 +5659,41 @@
         if (g && !g.errors.length) for (const v of policyViolations(g.text, teamPolicies)) a.push("Team policy: " + v);
         return a;
       }
+      // Short, scannable labels for the export gate; the full sentence stays as the item's title.
+      function gateLabel(reason) {
+        if (/^Example recipe:/.test(reason)) return "Example recipe";
+        const short = {
+          "Load a firmware baseline to export a complete card.": "No firmware baseline loaded",
+          "Baseline model does not match this recipe.": "Baseline model differs from this recipe",
+          "Baseline label is not allowed by this recipe.": "Baseline label not allowed by this recipe",
+          "Apply recipe changes or Discard unapplied draft first.": "Unapplied recipe draft: Apply or Discard it",
+          "Fix red input errors first.": "Red input errors above",
+        };
+        return short[reason] || reason;
+      }
+      // The gate box (under Build's export buttons, above the bulk buttons on Cards): one headline,
+      // one short item per reason, and a button to the Example recipe setting when that is the gate.
+      function renderGate(box, reasons, okText, fixId) {
+        box.replaceChildren();
+        box.classList.toggle("gate-bad", reasons.length > 0);
+        box.classList.toggle("gate-ok", !reasons.length && !!okText);
+        if (reasons.length) {
+          box.append(
+            el("span", { className: "gate-head" }, "Export blocked"),
+            el("ul", { className: "gate-list" }, reasons.map((t) => el("li", { title: t }, gateLabel(t)))),
+          );
+          if (reasons.some((t) => /^Example recipe:/.test(t)))
+            box.append(el("button", { type: "button", id: fixId, className: "gate-fix", onclick: openExampleSetting }, "Open recipe settings"));
+        } else if (okText) box.append(el("span", { className: "gate-head" }, okText));
+      }
+      // The example gate's way out: the Example recipe checkbox in Manage.
+      function openExampleSetting() {
+        if (!showView("manage")) return;
+        const t = $("exampleFlag");
+        t.focus({ preventScroll: true });
+        t.scrollIntoView({ block: "center" });
+        flashTarget(t.closest("label") || t);
+      }
 
       function renderPreview() {
         const r = current(),
@@ -5301,14 +5767,7 @@
         if (g.errors.length) why.push("Fix red input errors first.");
         if (b.length) why.push(...b.filter((x) => !why.includes(x)));
         const ew = $("exportWhy");
-        if (ew) {
-          ew.textContent = $("downloadCard").disabled
-            ? why.length
-              ? "Export blocked: " + why.join(" · ")
-              : "Export unavailable."
-            : "Ready to export.";
-          ew.style.color = $("downloadCard").disabled ? "var(--warn)" : "var(--ok,#3dd68c)";
-        }
+        if (ew) renderGate(ew, $("downloadCard").disabled ? (why.length ? why : ["Export unavailable."]) : [], "Ready to export.", "exportFixGate");
         $("downloadCard").title = $("downloadCard").disabled
           ? why.join(" ") || "Export blocked"
           : "Download ZIP for the SD card root";
@@ -6943,6 +7402,9 @@
           title: textOnly ? "Export text-only ZIP?" : "Export SD-card ZIPs?",
           summary: lines.join("\n"),
           primary: textOnly ? "Download ZIP" : "Download ZIPs",
+          // The dialog's switch table marks each card's state against its last export.
+          rows: results.map((row) => ({ n: row.n, host: row.host, ip: row.ip, sha256: row.sha256, lines: row.lines,
+            state: exportState(r, row.host, row.sha256).state })),
         });
         if (!ok) {
           message(textOnly ? "Text-only export cancelled." : "Card export cancelled.");
@@ -8489,8 +8951,11 @@
               cols.map((k) =>
                 el("td", {}, el("input", { dataRow: row.id, dataKey: k, autocomplete: "off", ariaLabel: fieldLabel(k) + ", switch " + (i + 1) }))),
               el("td", {}, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" })),
-              el("td", {}, el("button", { type: "button", className: "sw-copy", title: "Copy this switch below itself" }, "Copy")),
-              el("td", {}, el("button", { type: "button", className: "sw-remove danger" }, "Remove"))),
+              // Compact icon buttons (their words stay for screen readers), so the row fits beside the panel.
+              el("td", {}, el("button", { type: "button", className: "sw-copy sw-icon", title: "Copy this switch below itself", ariaLabel: "Copy switch " + (i + 1) + " below itself" },
+                el("span", { className: "visually-hidden" }, "Copy"))),
+              el("td", {}, el("button", { type: "button", className: "sw-remove sw-icon", title: "Remove this switch", ariaLabel: "Remove switch " + (i + 1) },
+                el("span", { ariaHidden: "true" }, "×"), el("span", { className: "visually-hidden" }, "Remove")))),
           );
         });
         $("swRows").replaceChildren(...body);
@@ -8547,13 +9012,21 @@
           pb.classList.toggle("has-set", set > 0);
           const st = switchStatus(x);
           const td = tr.querySelector("td.status");
-          td.replaceChildren(el("span", { className: "pill " + (st.bad ? "pill-bad" : "pill-quiet") }, st.text));
+          // A clean row stays quiet: "OK" in muted text, the note count fainter still (same text).
+          const notesAt = st.bad ? -1 : st.text.indexOf(" · ");
+          td.replaceChildren(el("span", { className: "pill " + (st.bad ? "pill-bad" : "pill-quiet") },
+            notesAt < 0 ? st.text : el("span", {}, st.text.slice(0, notesAt), el("span", { className: "st-notes" }, st.text.slice(notesAt)))));
           td.title = st.title;
           td.className = "status " + (st.bad ? "bad" : "ok");
           tr.classList.toggle("row-bad", st.bad);
           tr.classList.toggle("selected", tr.dataset.row === swSelectedId);
         }
         $("swEmpty").hidden = rows.length > 0;
+        // Nothing to export or remove from an empty list: the buttons say so instead of acting.
+        $("swExport").disabled = !rows.length;
+        $("swExport").title = rows.length ? "Download the list as CSV" : "No switches to export yet";
+        $("swRemoveAll").disabled = !rows.length;
+        $("swRemoveAll").title = rows.length ? "Remove every switch from the list" : "The list is already empty";
         $("swNotes").textContent = res.warnings.join(" ");
         $("swNotes").hidden = !res.warnings.length;
         if (!byId.has(swSelectedId)) swSelectedId = null;
@@ -8567,22 +9040,39 @@
         $("swDiffPanel").hidden = true;
         $("swPanelEmpty").hidden = !!x;
         $("swPreview").hidden = !x;
+        const old = $("swRows").querySelector("tr.sw-detail");
+        if (old) old.remove();
         if (!x) {
           $("swPanelTitle").textContent = "Selected switch";
           $("swPreview").textContent = "Select a row to see its checks and its editcontent.txt.";
           return;
         }
-        $("swPanelTitle").textContent = "Switch " + x.n + (x.host ? " · " + x.host : "");
+        const title = "Switch " + x.n + (x.host ? " · " + x.host : "");
+        $("swPanelTitle").textContent = title;
         const items = [
           ...x.findings.map((f) => ({ level: f.level, text: f.text, where: f.where })),
           ...x.policy.map((p) => ({ level: "error", text: "Team policy: " + p, where: { kind: "policy" } })),
         ].sort((a, b) => (a.level === "error" ? 0 : 1) - (b.level === "error" ? 0 : 1)); // errors first (stable)
         // Each check is a button that jumps to what it is about (this row's cell, its Ports dialog, ...).
         const ctx = { view: "switches", rowId: x.row.id };
-        for (const f of items)
-          checks.append(el("li", { className: f.level === "error" ? "bad" : "warn" },
-            el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, ctx) }, f.text)));
-        if (!items.length) checks.append(el("li", { className: "ok" }, "No problems found."));
+        const checkList = (ul) => {
+          for (const f of items)
+            ul.append(el("li", { className: f.level === "error" ? "bad" : "warn" },
+              el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, ctx) }, f.text)));
+          if (!items.length) ul.append(el("li", { className: "ok" }, "No problems found."));
+          return ul;
+        };
+        checkList(checks);
+        // The same checks inline under the row: shown by CSS only while the panel sits below the grid
+        // (narrow windows), so the reason for an error is never out of view.
+        const tr = [...$("swRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === x.row.id);
+        if (tr) {
+          const cols = tr.children.length;
+          tr.after(el("tr", { className: "sw-detail" },
+            el("td", { colSpan: cols },
+              el("span", { className: "sw-detail-title" }, title),
+              checkList(el("ul", { className: "sw-checks" })))));
+        }
         $("swPreview").textContent = x.text || "No output: fix the errors above.";
         const prev = lastExport(r, x.host);
         if (prev && !x.errors.length) {
@@ -8642,7 +9132,7 @@
         if (i < 0) return;
         const host = String((rows[i].values && rows[i].values.HOSTNAME) || (r.values && r.values.HOSTNAME) || "").trim();
         const what = "switch " + (i + 1) + (host ? " (" + host + ")" : "");
-        if (!(await confirmDialog("Remove this switch?", "Remove " + what + " from the list?", { ok: "Remove", danger: true }))) return;
+        if (!(await confirmDialog("Remove this switch?", "Remove " + what + " from the list? This cannot be undone.", { ok: "Remove", danger: true }))) return;
         const j = rows.findIndex((x) => x.id === id);
         if (j >= 0) rows.splice(j, 1);
         touch();
@@ -8803,10 +9293,14 @@
         const draw = (want) => {
           const eff = switchRowRecipe(r, row).rr.ports;
           const tbody = el("tbody");
-          for (const name of r.interfaces || []) {
+          const ports = (r.interfaces || []).map((name) => {
             const e = eff.find((p) => lower(p.name) === lower(name)) || { name, role: "unused" };
             const own = ownSet(name);
-            const effRole = own.role || e.role;
+            return { name, e, own, effRole: own.role || e.role };
+          });
+          // Address columns only when a port is Routed (as on Build); other ports never take an address.
+          const showAddr = ports.some((p) => p.effRole === "routed" || p.own.ip !== undefined || p.own.mask !== undefined);
+          for (const { name, e, own, effRole } of ports) {
             const role = el("select", { dataPort: name, dataAttr: "role", ariaLabel: name + " role" },
               ROLE_NAMES.map((v) => option(v, v[0].toUpperCase() + v.slice(1))));
             if (own.role && !ROLE_NAMES.includes(own.role)) role.append(option(own.role, own.role + " (unknown)"));
@@ -8833,27 +9327,38 @@
               });
               return el("td", {}, input);
             };
-            const useTable = el("button", {
-              type: "button", className: "use-table", dataPort: name, disabled: !Object.keys(own).length,
-              onclick: () => {
-                const k = ownKey(name);
-                if (k !== undefined) delete row.ports[k];
-                touch();
-                // The button is disabled now; focus stays in the dialog on this port's Role.
-                draw({ name, attr: "role" });
-                changed();
-              },
-            }, "Use table");
-            tbody.append(el("tr", {}, el("td", {}, name), el("td", {}, role), cell("vlan"), cell("description"), cell("ip"), cell("mask"), el("td", {}, useTable)));
+            // Use table only where this switch sets something; other ports just follow the table.
+            const isOwn = Object.keys(own).length > 0;
+            const useTable = isOwn
+              ? el("button", {
+                type: "button", className: "use-table", dataPort: name, title: "Drop this switch's settings for " + name + " and follow the port table",
+                onclick: () => {
+                  const k = ownKey(name);
+                  if (k !== undefined) delete row.ports[k];
+                  touch();
+                  // The button is gone now; focus stays in the dialog on this port's Role.
+                  draw({ name, attr: "role" });
+                  changed();
+                },
+              }, "Use table")
+              : el("span", { className: "muted" }, "follows the table");
+            const addr = (attr) => (effRole === "routed" ? cell(attr) : el("td", { className: "muted-cell", title: "Only a Routed port takes an address" }, "—"));
+            tbody.append(el("tr", { className: isOwn ? "own" : "" },
+              el("td", {}, name), el("td", {}, role), cell("vlan"), cell("description"),
+              showAddr ? [addr("ip"), addr("mask")] : [], el("td", {}, useTable)));
           }
           const unknown = Object.keys(row.ports || {}).filter((k) => switchOverrideIface(k, r.interfaces) === null);
+          const heads = ["Interface", "Role", "VLAN", "Description", ...(showAddr ? ["IP", "Mask"] : []), "Own settings"];
           wrap.replaceChildren(
             el("p", { className: "muted" },
-              "Grey values come from the port table on Build a card; typing sets the value for this switch only. Use table clears the settings of this switch for that port."),
+              "Typing sets a value for this switch only; everything else follows the port table on Build a card. Use table drops this switch's settings for that port."),
+            el("p", { className: "sw-ports-legend" },
+              el("span", {}, el("span", { className: "swatch inherit" }), "dashed, italic: from the port table"),
+              el("span", {}, el("span", { className: "swatch" }), "solid: set for this switch")),
             (r.interfaces || []).length
               ? el("div", { className: "scroll" },
                 el("table", { className: "sw-ports-table" },
-                  el("thead", {}, el("tr", {}, ["Interface", "Role", "VLAN", "Description", "IP", "Mask", ""].map((h) => el("th", {}, h)))),
+                  el("thead", {}, el("tr", {}, heads.map((h) => el("th", {}, h)))),
                   tbody))
               : el("p", {}, "This recipe has no ports."),
             unknown.length ? el("p", {}, "Settings for interfaces this recipe does not have:") : "",
@@ -9131,7 +9636,8 @@
           return;
         }
         if (!(await confirmDialog("Remove all switches?",
-          "Remove all " + n + " switch" + (n === 1 ? "" : "es") + ' of recipe "' + r.name + '"? Device details on Build a card stay as they are.',
+          "Remove all " + n + " switch" + (n === 1 ? "" : "es") + ' of recipe "' + r.name + '"? Device details on Build a card stay as they are.' +
+            "\nThis cannot be undone. Save project first to keep a copy.",
           { ok: "Remove all", danger: true }))) return;
         r.switches = [];
         swSelectedId = null;
@@ -9229,11 +9735,7 @@
         const reasons = [...gates];
         if (badRows.length)
           reasons.push("Rows with errors: " + badRows.join(", ") + (policyRows.length ? " (team policy: " + policyRows.join(", ") + ")" : "") + ".");
-        const gl = $("cdGates");
-        if (reasons.length) gl.textContent = "Export blocked: " + reasons.join(" · ");
-        else if (!items.length) gl.textContent = "";
-        else gl.textContent = "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + ".";
-        gl.className = "cd-gates " + (reasons.length ? "cd-bad" : "cd-ok");
+        renderGate($("cdGates"), reasons, items.length ? "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + "." : "", "cdFixGate");
         const changed = items.filter(({ st }) => st.state === "new" || st.state === "changed").length;
         // Counts at a glance: "12 switches · 6 up to date · 3 changed · 3 new · 1 with errors".
         const count = (state) => items.filter(({ st }) => st.state === state).length;
@@ -9245,7 +9747,6 @@
         if (badRows.length) sum.push(["sum-bad", badRows.length + " with errors"]);
         $("cdSummary").replaceChildren(...(items.length ? sum.map(([c, t]) =>
           el("span", { className: c }, t)) : []));
-        $("cdFixGate").hidden = !r.example;
         $("cdChanged").textContent = "Changed and new only (" + changed + ")";
         $("cdAll").disabled = blocked || !items.length;
         $("cdText").disabled = blocked || !items.length;
@@ -9321,14 +9822,6 @@
       $("cdAll").onclick = () => exportCardsBulk("all");
       $("cdChanged").onclick = () => exportCardsBulk("changed");
       $("cdText").onclick = () => exportCardsBulk("text");
-      // The example gate's way out: the Example recipe checkbox in Manage.
-      $("cdFixGate").onclick = () => {
-        if (!showView("manage")) return;
-        const t = $("exampleFlag");
-        t.focus({ preventScroll: true });
-        t.scrollIntoView({ block: "center" });
-        flashTarget(t.closest("label") || t);
-      };
       // The shared recipe picker re-renders the list (its onchange, set earlier, switches the recipe).
       $("cdRecipe").addEventListener("change", () => {
         if (currentView === "cards") renderCards();

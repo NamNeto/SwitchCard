@@ -682,6 +682,9 @@ async function exportSwitchCards(r, results, opts) {
     title: textOnly ? "Export text-only ZIP?" : "Export SD-card ZIPs?",
     summary: lines.join("\n"),
     primary: textOnly ? "Download ZIP" : "Download ZIPs",
+    // The dialog's switch table marks each card's state against its last export.
+    rows: results.map((row) => ({ n: row.n, host: row.host, ip: row.ip, sha256: row.sha256, lines: row.lines,
+      state: exportState(r, row.host, row.sha256).state })),
   });
   if (!ok) {
     message(textOnly ? "Text-only export cancelled." : "Card export cancelled.");
