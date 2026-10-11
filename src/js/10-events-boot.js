@@ -65,23 +65,62 @@ for (const id of GROWING_TEXTAREAS) {
   const ta = $(id);
   if (ta) ta.addEventListener("input", () => growTextarea(ta));
 }
+// Template placeholders as chips above the template: a click inserts the placeholder at the
+// caret (replacing a selection) and counts as typing, so the editor holds a draft as usual.
+const TEMPLATE_CHIPS = ["HOSTNAME", "MGMT_IP", "MGMT_MASK", "MGMT_VLAN", "GATEWAY", "SITE", "VLANS", "PORTS", "MGMT_INTERFACE", "MGMT_SOURCES"];
+function insertAtCaret(ta, text) {
+  const start = ta.selectionStart == null ? ta.value.length : ta.selectionStart;
+  const end = ta.selectionEnd == null ? start : ta.selectionEnd;
+  ta.focus({ preventScroll: true });
+  ta.setRangeText(text, start, end, "end");
+  ta.dispatchEvent(new Event("input", { bubbles: true }));
+}
+(() => {
+  const box = $("templateChips");
+  if (!box) return;
+  for (const k of TEMPLATE_CHIPS)
+    box.append(el("button", {
+      type: "button", className: "template-chip", title: "Insert {{" + k + "}} at the cursor",
+      onclick: () => insertAtCaret($("template"), "{{" + k + "}}"),
+    }, "{{" + k + "}}"));
+})();
 // The Build pane (the sticky preview card) never runs past the bottom of the window: its
 // height limit follows its position, so at the top of the page it ends above the fold and,
 // once pinned under the header, it may use the whole window. Below 981 px it is not sticky.
+// When the pane is short, the preview gives up height first; its box then ends on a whole line
+// (n lines of 20 px + the 18 px of border and top band), never half-way through one.
 const buildPane = document.querySelector("#build .card.pane");
 function sizeBuildPane() {
   if (!buildPane) return;
+  const preview = $("preview");
   if ($("build").hidden || window.innerWidth <= 980) {
     buildPane.style.maxHeight = "";
+    if (preview) preview.style.maxHeight = "";
     return;
   }
   const header = document.querySelector("header");
   const pinned = (header ? header.offsetHeight : 0) + 12;
   const top = Math.max(buildPane.getBoundingClientRect().top, pinned);
-  buildPane.style.maxHeight = Math.max(280, window.innerHeight - top - 12) + "px";
+  const limit = Math.max(280, window.innerHeight - top - 12);
+  buildPane.style.maxHeight = limit + "px";
+  if (!preview) return;
+  // Room for the preview = the pane's limit minus everything else in it; snapped down to whole
+  // lines (at least 5) when that is less than the preview's own 16-line maximum.
+  preview.style.maxHeight = "";
+  const own = preview.getBoundingClientRect().height;
+  const rest = buildPane.scrollHeight - own;
+  const room = limit - rest;
+  if (room < own - 0.5) preview.style.maxHeight = Math.max(5, Math.floor((room - 18) / 20)) * 20 + 18 + "px";
 }
 window.addEventListener("scroll", sizeBuildPane, { passive: true });
 window.addEventListener("resize", sizeBuildPane);
+if (buildPane && typeof ResizeObserver === "function") {
+  // The pane's top moves when the tips banner or a notice above it changes: size it again.
+  const ro = new ResizeObserver(() => requestAnimationFrame(sizeBuildPane));
+  ro.observe(buildPane.parentElement);
+  const onboard = $("onboarding");
+  if (onboard) ro.observe(onboard);
+}
 // Theme picker (header).
 $("themeSelect").onchange = () => {
   const v = $("themeSelect").value;

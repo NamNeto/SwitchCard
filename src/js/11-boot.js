@@ -9,6 +9,8 @@ let bootDone = false;
     showOnboarding();
     renderAll();
     loadEditor();
+    // The preview pane is sized before a boot dialog can open over it (nothing runs off the window).
+    if (typeof sizeBuildPane === "function") sizeBuildPane();
     // No autosave write while a boot dialog is open: the stored autosave stays byte-for-byte
     // as found until the user answers. Afterwards the previous state comes back, unless the
     // restore paused autosave itself (declined/failed and the backup copy could not be written).

@@ -191,6 +191,9 @@ function renderPreview() {
   $("downloadCard").title = $("downloadCard").disabled
     ? why.join(" ") || "Export blocked"
     : "Download ZIP for the SD card root";
+  // The "extract to the card root" note belongs with a possible export; while blocked, the gate
+  // above it says what to do instead.
+  if ($("exportNote")) $("exportNote").hidden = $("downloadCard").disabled;
   $("downloadConfig").title = $("downloadConfig").disabled
     ? editorPending
       ? "Apply recipe changes or Discard unapplied draft first."
