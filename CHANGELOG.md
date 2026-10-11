@@ -12,6 +12,11 @@ Many-switches release. Single-card output is byte-for-byte unchanged (golden tes
 - **In-page dialogs.** Every browser `confirm`, `alert` and `prompt` is replaced by a dialog in the page: autosave restore at load (*Restore it* / *Start with the examples*), unmatched port assignments (*Drop and continue*, *Drop and apply*), opening a file over unsaved work (*Open and replace*), Save project with an unapplied draft, the port CSV, and the delete and clear actions, which use red buttons. Esc means Cancel. Only the browser's own "leave this page?" prompt remains.
 - **Clickable checks.** Every error and review note is a button: it jumps to the Device details field, the port table cell, the template or role template, the source block, the line in the preview or the team policy rules, and outlines it briefly. In the Switches side panel a check opens that row's cell or Ports dialog.
 - **Fleet export box removed** from *Build a card*; Switches and Cards replace it. The CSV rules of v0.7.2 and the CSV template of v0.7.3 are unchanged.
+- **Duplicates flag both rows.** A repeated HOSTNAME or MGMT_IP is an error on every row involved, each naming another row.
+- **Example header gate.** A recipe that is no longer marked as an example, but whose card still has the "! EXAMPLE ONLY" header line, blocks export until the header is replaced.
+- **Bulk export progress.** Card exports show "Card n of N" and a *Cancel after this card* button; a cancelled run keeps the cards already written, and its manifest is named `...-manifest-partial.txt`.
+- **Keyboard focus** returns to the button you used after dialogs and exports, and stays on a port control after changing it.
+- CSV import warnings name the data row and column of cells that could not be read as UTF-8.
 - An autosave written by v0.7.3 is offered for restore with the usual "saved by another version" dialog.
 
 ## v0.7.3 — 2026-09-28

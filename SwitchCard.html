@@ -2887,7 +2887,7 @@
             <h3 class="ed-group">Output &amp; export</h3>
             <label
               ><input id="exampleFlag" type="checkbox" /><span>Example recipe —
-              blocks SD-card export until unchecked + Apply</span></label
+              blocks SD-card export until unchecked + Apply (replace the "! EXAMPLE ONLY" header line in the template first)</span></label
             >
             <details id="advancedOutput">
               <summary>Advanced output options (opt-in, not device-tested)</summary>
@@ -5611,7 +5611,7 @@
         // findings stay as they were.
         if (r.example !== true && normalized.split("\r\n").some((l) => l.trim() === CONFIG.EXAMPLE_HEADER_LINE))
           E(
-            "The template still starts with the example header (" + CONFIG.EXAMPLE_HEADER_LINE +
+            "The template still contains the example header line (" + CONFIG.EXAMPLE_HEADER_LINE +
               "). Replace it with your own tested configuration header.",
             TPL,
           );
@@ -5704,7 +5704,8 @@
         if (meter) meter.textContent = previewSizeLabel(g.text);
         // Status above the preview: at most one red box (errors) and one box for the result
         // (yellow with the notes to review, or green when there is nothing to review). Export
-        // blockers are listed only under the Export button (#exportWhy), not repeated here.
+        // blockers are listed under the Export button (#exportWhy) and, once the checks pass, also in the
+        // amber box below (see the "export gate holds" case).
         // Each item carries its location (findings are errors/warnings with the same text and order),
         // so it renders as a button that jumps to the field, port, template line or rule it is about.
         $("checks").replaceChildren();
@@ -7461,7 +7462,7 @@
               box.hidden = true;
               stop.onclick = null;
             }
-            download(new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }), "switchcard-fleet-" + RELEASE + "-manifest.txt");
+            download(new Blob([manifest.join("\r\n") + "\r\n"], { type: "text/plain" }), "switchcard-fleet-" + RELEASE + (recorded < n ? "-manifest-partial.txt" : "-manifest.txt"));
             if (recorded < n) {
               touch();
               const done = results.slice(0, recorded).map((x) => x.host || "switch " + x.n);
@@ -7781,7 +7782,7 @@
           cells.forEach((c, i) => {
             if (!c.includes("\uFFFD")) return;
             result.decodeProblems++;
-            result.decodeWhere.push("row " + (ri + 1) + " " + (rawHeader[i] !== undefined && String(rawHeader[i]).trim() ? String(rawHeader[i]).trim() : "column " + (i + 1)));
+            result.decodeWhere.push("data row " + (ri + 1) + " " + (rawHeader[i] !== undefined && String(rawHeader[i]).trim() ? String(rawHeader[i]).trim() : "column " + (i + 1)));
           });
           const row = { id: newSwitchId(), values: {}, ports: {} };
           for (const [h, i] of usedCols) {

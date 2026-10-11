@@ -1,5 +1,6 @@
 """Gauntlet round 1 (operator report r0): duplicates on both rows, the example header, focus after
 actions, bulk export progress and stop, decode locations, errors first, and the minor fixes."""
+import re
 from helpers import ev, click_dialog, stub_downloads, downloads
 
 HEADER = "! EXAMPLE ONLY - replace with your tested configuration"
@@ -68,7 +69,7 @@ def test_example_header_blocks_a_non_example_recipe(page):
         const fixed = structuredClone(own); fixed.template = fixed.template.replace(header, '! Plant A access, tested 2026-10');
         const g = (x) => generate(x);
         return { ex: g(ex), own: g(own), fixed: g(fixed) }; }""", HEADER)
-    msg = ("The template still starts with the example header (" + HEADER +
+    msg = ("The template still contains the example header line (" + HEADER +
            "). Replace it with your own tested configuration header.")
     assert msg not in r["ex"]["errors"]
     assert msg in r["own"]["errors"]
@@ -82,6 +83,14 @@ def test_example_header_blocks_a_non_example_recipe(page):
     page.locator("#checks .finding-link", has_text="example header").first.click()
     assert ev(page, "() => currentView") == "manage"
     assert ev(page, "() => document.activeElement.id") == "template"
+    # a recipe with switches: the Cards gate and the Switches rail chip show it too
+    _take_over(page, 2)
+    ev(page, "(h) => { current().template = h + '\\n' + current().template; renderAll(); renderPreview(); }", HEADER)
+    ev(page, "() => showView('cards')")
+    assert "Rows with errors: 1, 2." in page.inner_text("#cdGates")
+    page.wait_for_function("() => $('chipSwitches').textContent.includes('2 errors')")
+    assert ev(page, "() => $('chipSwitches').classList.contains('chip-bad')")
+    assert ev(page, "() => checkSwitchRows(current(), current().switches).rows[0].errors.some((e) => e.includes('still contains the example header line'))")
 
 
 # --- Team policy rules: the button says what it does ---
@@ -139,8 +148,7 @@ def test_build_port_role_change_keeps_focus(page):
     assert ev(page, "(s) => document.querySelector(s).value", sel) != before
     assert ev(page, "() => [document.activeElement.dataset.port, document.activeElement.dataset.attr]") == [name, "role"]
     page.keyboard.press("Tab")
-    assert ev(page, "() => [document.activeElement.dataset.port, document.activeElement.dataset.attr]") == [name, "vlan"] or \
-        ev(page, "() => document.activeElement.dataset.port") == name
+    assert ev(page, "() => [document.activeElement.dataset.port, document.activeElement.dataset.attr]") == [name, "ip"]
 
 
 def test_ports_dialog_use_table_keeps_focus_in_the_dialog(page):
@@ -185,7 +193,7 @@ def test_decode_warning_names_rows_and_columns(page):
     page.wait_for_function("() => document.querySelector('dialog[open]').textContent.includes('could not be read as UTF-8')")
     text = page.inner_text("dialog[open]")
     assert "7 cells could not be read as UTF-8" in text
-    assert "Where: row 4 SITE, row 5 SITE, row 6 SITE, row 7 SITE, row 8 SITE and 2 more." in text
+    assert "Where: data row 4 SITE, data row 5 SITE, data row 6 SITE, data row 7 SITE, data row 8 SITE and 2 more." in text
     click_dialog(page, "Cancel")
 
 
@@ -222,7 +230,8 @@ def test_bulk_export_shows_progress_and_stops_after_the_current_card(page):
     page.wait_for_function("() => !busy", timeout=10000)
     d = downloads(page)
     cards = [x["name"] for x in d if x["name"].endswith(".zip")]
-    manifest = [x for x in d if x["name"].endswith("manifest.txt")]
+    manifest = [x for x in d if "manifest" in x["name"]]
+    assert manifest[0]["name"] == "switchcard-fleet-" + ev(page, "() => RELEASE") + "-manifest-partial.txt"
     assert 2 <= len(cards) < 5
     assert len(manifest) == 1 and len(manifest[0]["text"].strip().split("\r\n")) == 1 + len(cards)
     assert len(ev(page, "() => Object.keys(current().exportStates || {})")) == len(cards)
@@ -260,7 +269,6 @@ def test_checks_box_is_not_green_while_a_gate_blocks(page):
 def test_csv_template_and_project_names(page):
     stub_downloads(page)
     ev(page, "() => showView('switches')")
-    names = []
     for mode in ("description", "all", "none"):
         page.select_option("#swTemplateMode", mode)
         page.click("#swTemplate")
@@ -269,4 +277,4 @@ def test_csv_template_and_project_names(page):
     page.wait_for_function("() => (window.__dl || []).length === 4")
     names = [x["name"] for x in downloads(page)]
     assert len(set(names[:3])) == 3 and names[2].endswith("-fields-only.csv")
-    assert names[3].startswith("switchcard-project-") and len(names[3]) == len("switchcard-project-0.8.0-2026-10-10.json")
+    assert names[3].startswith("switchcard-project-") and re.fullmatch(r"switchcard-project-\d+\.\d+\.\d+-\d{4}-\d{2}-\d{2}\.json", names[3])

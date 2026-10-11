@@ -447,7 +447,7 @@ function generate(r) {
   // findings stay as they were.
   if (r.example !== true && normalized.split("\r\n").some((l) => l.trim() === CONFIG.EXAMPLE_HEADER_LINE))
     E(
-      "The template still starts with the example header (" + CONFIG.EXAMPLE_HEADER_LINE +
+      "The template still contains the example header line (" + CONFIG.EXAMPLE_HEADER_LINE +
         "). Replace it with your own tested configuration header.",
       TPL,
     );

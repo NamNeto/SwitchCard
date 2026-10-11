@@ -62,7 +62,8 @@ function renderPreview() {
   if (meter) meter.textContent = previewSizeLabel(g.text);
   // Status above the preview: at most one red box (errors) and one box for the result
   // (yellow with the notes to review, or green when there is nothing to review). Export
-  // blockers are listed only under the Export button (#exportWhy), not repeated here.
+  // blockers are listed under the Export button (#exportWhy) and, once the checks pass, also in the
+  // amber box below (see the "export gate holds" case).
   // Each item carries its location (findings are errors/warnings with the same text and order),
   // so it renders as a button that jumps to the field, port, template line or rule it is about.
   $("checks").replaceChildren();
