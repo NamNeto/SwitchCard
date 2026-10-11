@@ -50,6 +50,38 @@ function applyTeamPoliciesFromEditor(announce) {
 }
 $("applyTeamPolicies").onclick = () => applyTeamPoliciesFromEditor(true);
 $("teamPoliciesEditor").addEventListener("input", () => applyTeamPoliciesFromEditor(false));
+// Editor text areas grow with their content (the CSS min/max heights bound them; the resize
+// handle still works between keystrokes). Hidden areas are left alone and sized when shown.
+const GROWING_TEXTAREAS = ["template", "interfaces", "teamHintsEditor", "teamPoliciesEditor", "mgmtSources"];
+function growTextarea(ta) {
+  if (!ta || !ta.offsetParent) return;
+  ta.style.height = "auto";
+  ta.style.height = ta.scrollHeight + 2 + "px";
+}
+function growEditorTextareas() {
+  for (const id of GROWING_TEXTAREAS) growTextarea($(id));
+}
+for (const id of GROWING_TEXTAREAS) {
+  const ta = $(id);
+  if (ta) ta.addEventListener("input", () => growTextarea(ta));
+}
+// The Build pane (the sticky preview card) never runs past the bottom of the window: its
+// height limit follows its position, so at the top of the page it ends above the fold and,
+// once pinned under the header, it may use the whole window. Below 981 px it is not sticky.
+const buildPane = document.querySelector("#build .card.pane");
+function sizeBuildPane() {
+  if (!buildPane) return;
+  if ($("build").hidden || window.innerWidth <= 980) {
+    buildPane.style.maxHeight = "";
+    return;
+  }
+  const header = document.querySelector("header");
+  const pinned = (header ? header.offsetHeight : 0) + 12;
+  const top = Math.max(buildPane.getBoundingClientRect().top, pinned);
+  buildPane.style.maxHeight = Math.max(280, window.innerHeight - top - 12) + "px";
+}
+window.addEventListener("scroll", sizeBuildPane, { passive: true });
+window.addEventListener("resize", sizeBuildPane);
 // Theme picker (header).
 $("themeSelect").onchange = () => {
   const v = $("themeSelect").value;

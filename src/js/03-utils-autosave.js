@@ -1,7 +1,20 @@
 // --- Utilities ---
+// The status toast: its textContent is the message alone (the close control has no text; its
+// glyph is CSS), so readers of #status see exactly what was said.
 function message(t) {
-  $("status").textContent = t;
-  $("status").hidden = false;
+  const s = $("status");
+  s.replaceChildren(
+    document.createTextNode(t),
+    el("button", {
+      type: "button", id: "statusClose", ariaLabel: "Dismiss this message", title: "Dismiss",
+      onclick: () => {
+        s.hidden = true;
+        const h = $("viewTitle");
+        if (h) h.focus({ preventScroll: true });
+      },
+    }),
+  );
+  s.hidden = false;
 }
 function touch() {
   dirty = true;

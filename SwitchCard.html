@@ -40,7 +40,7 @@
         --line2: #363642;
         --text: #f3f0ea;
         --muted: #9e998f;
-        --faint: #8a857c; /* 4.8:1 on a card: table headers and footers stay readable */
+        --faint: #958f86; /* 5.6:1 on a card, 4.7:1 on a selected row: headers, footers, note counts */
         --accent: #2dd4a8;
         --accent2: #1fb88a;
         --accent-text: #2dd4a8; /* accent used as text (code, step badges): AA on every surface */
@@ -67,6 +67,7 @@
         --header-bg: #0e0e12;
         --field-bg: #0f0f13;
         --field-line: #33333e;
+        --cell-line: #6a6a78; /* grid cell borders (solid typed, dashed inherited): 3.4:1 on the table */
         --on-accent: #04140f;
         --primary-bg: var(--accent);
         --primary-hover: #4fe0ba;
@@ -101,33 +102,35 @@
         --line: #d8d5cc;
         --line2: #c6c2b7;
         --text: #1c1b18;
-        --muted: #5d594f;
-        --faint: #6f6a60;
+        --muted: #56524a; /* 7.8:1 on white, 6.5:1 on the table background */
+        --faint: #666157; /* 6.2:1 on white, 5.1:1 on the table background */
         --accent: #179c74;
         --accent2: #12805f;
         --accent-text: #0f6e52;
         --accent-dim: rgba(23, 156, 116, 0.16);
         --accent-glow: rgba(23, 156, 116, 0.1);
-        --ok: #1a7a52;
-        --warn: #8f6400;
-        --err: #c53030;
-        --info: #2160b8;
+        /* Status colours hold 4.5:1 as pill text on their own tint over the table background. */
+        --ok: #156644;
+        --warn: #7a5500;
+        --err: #a82424;
+        --info: #1e58a8;
         --shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 8px 24px rgba(20, 20, 10, 0.1);
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
         --header-bg: #faf9f6;
         --field-bg: #ffffff;
         --field-line: #bdb8ac;
+        --cell-line: #807b72; /* grid cell borders: 3.5:1 on the table background */
         --on-accent: #ffffff;
         --primary-bg: #12805f;
         --primary-hover: #0f6e52;
-        --err-bg: rgba(197, 48, 48, 0.07);
-        --err-line: rgba(197, 48, 48, 0.5);
-        --warn-bg: rgba(143, 100, 0, 0.08);
-        --warn-line: rgba(143, 100, 0, 0.45);
-        --ok-bg: rgba(26, 122, 82, 0.09);
-        --ok-line: rgba(26, 122, 82, 0.4);
-        --info-bg: rgba(33, 96, 184, 0.08);
-        --info-line: rgba(33, 96, 184, 0.4);
+        --err-bg: rgba(168, 36, 36, 0.07);
+        --err-line: rgba(168, 36, 36, 0.5);
+        --warn-bg: rgba(122, 85, 0, 0.08);
+        --warn-line: rgba(122, 85, 0, 0.45);
+        --ok-bg: rgba(21, 102, 68, 0.09);
+        --ok-line: rgba(21, 102, 68, 0.4);
+        --info-bg: rgba(30, 88, 168, 0.08);
+        --info-line: rgba(30, 88, 168, 0.4);
         --backdrop: rgba(20, 20, 16, 0.5);
         --glow2: rgba(61, 139, 253, 0.06);
         --tab-hover: rgba(0, 0, 0, 0.04);
@@ -140,6 +143,7 @@
       }
       @media (prefers-color-scheme: light) {
         :root:not([data-theme="dark"]) {
+          /* The same tokens as the Light block above (Auto on a light OS); keep the two identical. */
           --bg: #f4f3ef;
           --bg2: #eceae4;
           --card: #ffffff;
@@ -147,32 +151,35 @@
           --line: #d8d5cc;
           --line2: #c6c2b7;
           --text: #1c1b18;
-          --muted: #5d594f;
-          --faint: #8b867b;
+          --muted: #56524a; /* 7.8:1 on white, 6.5:1 on the table background */
+          --faint: #666157; /* 6.2:1 on white, 5.1:1 on the table background */
           --accent: #179c74;
           --accent2: #12805f;
+          --accent-text: #0f6e52;
           --accent-dim: rgba(23, 156, 116, 0.16);
           --accent-glow: rgba(23, 156, 116, 0.1);
-          --ok: #1e8a5c;
-          --warn: #8f6400;
-          --err: #c53030;
-          --info: #2160b8;
+          /* Status colours hold 4.5:1 as pill text on their own tint over the table background. */
+          --ok: #156644;
+          --warn: #7a5500;
+          --err: #a82424;
+          --info: #1e58a8;
           --shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 8px 24px rgba(20, 20, 10, 0.1);
           --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
           --header-bg: #faf9f6;
           --field-bg: #ffffff;
           --field-line: #bdb8ac;
+          --cell-line: #807b72; /* grid cell borders: 3.5:1 on the table background */
           --on-accent: #ffffff;
           --primary-bg: #12805f;
           --primary-hover: #0f6e52;
-          --err-bg: rgba(197, 48, 48, 0.07);
-          --err-line: rgba(197, 48, 48, 0.5);
-          --warn-bg: rgba(143, 100, 0, 0.08);
-          --warn-line: rgba(143, 100, 0, 0.45);
-          --ok-bg: rgba(30, 138, 92, 0.09);
-          --ok-line: rgba(30, 138, 92, 0.4);
-          --info-bg: rgba(33, 96, 184, 0.08);
-          --info-line: rgba(33, 96, 184, 0.4);
+          --err-bg: rgba(168, 36, 36, 0.07);
+          --err-line: rgba(168, 36, 36, 0.5);
+          --warn-bg: rgba(122, 85, 0, 0.08);
+          --warn-line: rgba(122, 85, 0, 0.45);
+          --ok-bg: rgba(21, 102, 68, 0.09);
+          --ok-line: rgba(21, 102, 68, 0.4);
+          --info-bg: rgba(30, 88, 168, 0.08);
+          --info-line: rgba(30, 88, 168, 0.4);
           --backdrop: rgba(20, 20, 16, 0.5);
           --glow2: rgba(61, 139, 253, 0.06);
           --tab-hover: rgba(0, 0, 0, 0.04);
@@ -386,6 +393,32 @@
         grid-template-columns: minmax(0, 1.12fr) minmax(0, 0.88fr);
         gap: calc(var(--space) * 2.5);
         align-items: start;
+      }
+      /* Build's preview card is a pane: it stays under the header while the steps on the left scroll,
+         so the checks, the preview and the export buttons are always beside the field being edited.
+         Taller than the window (long checks on a short screen), it scrolls inside itself. */
+      @media (min-width: 981px) {
+        /* The right column spans the whole row, so the pane can stay pinned all the way down. */
+        #build .grid {
+          align-items: stretch;
+        }
+        #build .card.pane {
+          position: sticky;
+          top: calc(var(--header-h) + 12px);
+          max-height: calc(100vh - var(--header-h) - 24px);
+          overflow: auto;
+          /* A column: when the pane would be taller than the window, the preview gives up height
+             first (down to 8 lines), so the checks, the buttons and the gate stay in view. */
+          display: flex;
+          flex-direction: column;
+        }
+        #build .card.pane > * {
+          flex: none;
+        }
+        #build .card.pane > #preview {
+          flex: 0 1 auto;
+          min-height: 190px; /* 8 lines */
+        }
       }
 
       /* --- Components: cards, steps, badges, actions --- */
@@ -769,8 +802,10 @@
         /* Stay display:block so the ::before placeholder shows when there are no team hints. */
         min-height: 1.2em;
       }
-      /* Whole-pixel line boxes (20 px) and heights of (lines * 20 + 2 * 16 padding + 2 border) px, so a
-         scrolling box never cuts a line of config in half at its bottom edge. */
+      /* Whole-pixel line boxes (20 px). The visible area of a scrolling box is (lines * 20 + 30) px:
+         2 px border, a 16 px top band and 12 px of the next line. The bands are sticky fades drawn
+         over the text at both edges, so a line cut by the edge fades out instead of reading as
+         truncated config; at either end of the scroll they sit in the blank padding and show nothing. */
       pre {
         font: 13px/20px var(--mono);
         font-variant-ligatures: none;
@@ -780,10 +815,28 @@
         color: var(--pre-text);
         background: var(--pre-bg);
         border: 1px solid var(--line);
-        padding: calc(var(--space) * 2);
+        padding: 0 calc(var(--space) * 2);
         border-radius: var(--radius);
-        max-height: 454px; /* 21 lines */
+        max-height: 450px; /* 21 lines */
         overflow: auto;
+      }
+      pre::before,
+      pre::after {
+        content: "";
+        display: block;
+        position: sticky;
+        height: 16px;
+        margin: 0 calc(var(--space) * -2);
+        pointer-events: none;
+      }
+      pre::before {
+        top: 0;
+        background: linear-gradient(var(--pre-bg) 25%, transparent);
+      }
+      pre::after {
+        bottom: 0;
+        height: 20px;
+        background: linear-gradient(transparent, var(--pre-bg) 80%);
       }
 
       /* --- Ports table --- */
@@ -1036,7 +1089,7 @@
         width: auto;
       }
       pre.diff {
-        max-height: 322px; /* 16 lines of 18 px */
+        max-height: 318px; /* 16 lines of 18 px */
         font-size: 12px;
         line-height: 18px;
       }
@@ -1057,17 +1110,47 @@
       .fleet-columns code {
         font-size: 12px;
       }
+      /* The status message is a toast: bottom right, at most half the width, with a close control,
+         so it never hides a whole table row and can be put away. Its text is the message alone. */
       #status {
         position: sticky;
         bottom: 12px;
-        padding: 12px 16px;
+        margin-left: auto;
+        width: fit-content;
+        max-width: min(560px, 100%);
+        padding: 10px 40px 10px 14px;
+        font-size: 13.5px;
+        line-height: 1.45;
         background: var(--status-bg);
         color: var(--text);
         border: 1px solid var(--line2);
-        border-radius: var(--radius);
+        border-left: 3px solid var(--accent);
+        border-radius: var(--radius-sm);
         z-index: 5;
         box-shadow: var(--shadow);
         backdrop-filter: blur(8px);
+      }
+      #statusClose {
+        position: absolute;
+        top: 6px;
+        right: 6px;
+        width: 26px;
+        height: 26px;
+        min-height: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 18px;
+        line-height: 1;
+        border-radius: 6px;
+      }
+      #statusClose::before {
+        content: "\00d7";
+      }
+      #statusClose:hover {
+        color: var(--text);
+        background: var(--tab-hover);
       }
       footer {
         font-size: 12.5px;
@@ -1089,6 +1172,22 @@
       }
       .compact {
         min-height: 88px;
+      }
+      /* The template holds a whole config: at least 24 lines, and it grows with its text (up to
+         most of the window; the handle still resizes it). The two team lists and the interface
+         list start at 4-6 lines and grow the same way. */
+      #template {
+        min-height: 506px; /* 24 lines of 20.15 px + padding */
+        max-height: 80vh;
+      }
+      #interfaces {
+        min-height: 130px; /* 5 lines */
+        max-height: 50vh;
+      }
+      #teamHintsEditor,
+      #teamPoliciesEditor {
+        min-height: 110px; /* 4 lines */
+        max-height: 50vh;
       }
       .compact-xs {
         min-height: 44px;
@@ -1262,6 +1361,10 @@
         .rail button {
           width: auto;
           flex: 1 1 auto;
+          flex-direction: row;
+          align-items: baseline;
+          gap: 8px;
+          padding: 8px 12px;
         }
         .grid {
           /* minmax(0, ...) lets the column shrink below the ports table's min-width, so the
@@ -1390,7 +1493,7 @@
         vertical-align: top;
       }
       .dlg-kv th {
-        width: 36%;
+        width: 30%;
         padding-right: 12px;
         color: var(--muted);
         font-size: 12.5px;
@@ -1406,6 +1509,24 @@
       }
       .dlg-kv td {
         overflow-wrap: anywhere;
+      }
+      /* A SHA-256 stays one line (it is compared with a manifest by eye); it scrolls if the dialog is
+         narrower than 64 hex characters. */
+      .dlg-kv td.dlg-hash {
+        white-space: nowrap;
+        overflow-x: auto;
+        overflow-wrap: normal;
+        padding-bottom: 4px;
+      }
+      /* A per-row copy of the full hash in the bulk table. */
+      .dlg-rows button.dlg-copy-sha {
+        min-height: 0;
+        height: 22px;
+        margin-left: 6px;
+        padding: 0 7px;
+        font-size: 11px;
+        font-weight: 600;
+        vertical-align: middle;
       }
       .dlg-kv tr.dlg-key th,
       .dlg-kv tr.dlg-key td {
@@ -1461,7 +1582,7 @@
       .sw-toolbar {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px 16px;
+        gap: 10px 12px;
         align-items: center;
         margin-top: 12px;
       }
@@ -1472,7 +1593,7 @@
         align-items: center;
       }
       .tool-group + .tool-group {
-        padding-left: 16px;
+        padding-left: 12px;
         border-left: 1px solid var(--line);
       }
       .tool-label {
@@ -1493,7 +1614,7 @@
         align-items: center;
       }
       #swCount {
-        width: 72px;
+        width: 58px;
       }
       .sw-template select {
         width: auto;
@@ -1575,35 +1696,57 @@
       }
       #swTable td,
       #swTable th {
-        padding: 5px 4px;
+        padding: 5px 3px;
       }
       #swTable th {
         white-space: nowrap;
       }
       #swTable th:first-child,
       #swTable td.num {
-        padding-left: 10px;
+        padding-left: 9px;
+        padding-right: 5px;
+      }
+      #swTable th.c-copy,
+      #swTable th.c-remove,
+      #swTable td.c-copy,
+      #swTable td.c-remove {
+        padding-left: 2px;
+        padding-right: 2px;
+      }
+      #swTable td.c-remove {
         padding-right: 6px;
       }
-      /* Cell widths: the whole row up to Ports fits beside the side panel at 1440 px (and alone at
-         900 px); only Copy and Remove scroll. An address (255.255.255.0) fits an address cell. */
+      /* Cell widths: the whole row fits beside the side panel at 1440 px and alone at 900 px. An
+         address (255.255.255.0) fits an address cell; Site takes whatever width is left (at least
+         160 px) because it holds free text; a value longer than its cell ends in an ellipsis and the
+         whole value is in the cell's title. */
       #swTable td input {
-        width: 104px;
+        width: 100px;
         min-width: 0;
         height: 32px;
         min-height: 32px;
         padding: 0 7px;
         font-size: 12.5px;
+        text-overflow: ellipsis;
+        border-color: var(--cell-line); /* the solid/dashed cue holds 3:1 on the table background */
       }
       #swTable td input[data-key="HOSTNAME"] {
-        width: 114px;
+        width: 112px;
+      }
+      #swTable td.c-SITE {
+        width: 100%;
       }
       #swTable td input[data-key="SITE"] {
-        width: 114px;
+        width: 100%;
+        min-width: 150px;
       }
       #swTable td input[data-key$="VLAN"],
       #swTable td input[data-key$="LOOPBACK"] {
         width: 50px;
+      }
+      #swTable td.c-SITE,
+      #swTable th.c-SITE {
+        min-width: 160px;
       }
       /* Typed values: solid field, normal text. Inherited values: dashed, transparent, italic grey. */
       #swTable input:not(.inherit) {
@@ -1632,7 +1775,7 @@
         background: var(--accent-glow);
       }
       #swTable tr.selected > td:first-child {
-        box-shadow: inset 3px 0 0 var(--accent);
+        box-shadow: inset 3px 0 0 var(--accent-text); /* the accent as text: 5:1 on the table in light */
       }
       /* A row with an error: red tint, red edge, red number; the offending cell has a red border. */
       #swTable tr.row-bad {
@@ -1689,6 +1832,16 @@
         margin-bottom: 4px;
         font-size: 12.5px;
         font-weight: 650;
+      }
+      /* Below 1000 px the row's Copy and Remove live here (the icon columns are hidden). */
+      #swTable tr.sw-detail .sw-detail-actions {
+        display: none;
+        gap: 8px;
+        margin-top: 8px;
+      }
+      #swTable tr.sw-detail .sw-detail-actions button {
+        height: 30px;
+        min-height: 30px;
       }
       #swTable button.sw-ports:not(.has-set) {
         color: var(--muted);
@@ -1776,10 +1929,10 @@
       }
       /* Short enough that the export buttons under the Build preview stay above the fold at 900 px. */
       #preview {
-        max-height: 354px; /* 16 lines */
+        max-height: 350px; /* 16 lines */
       }
       #swPreview {
-        max-height: 394px; /* 20 lines of 18 px */
+        max-height: 390px; /* 20 lines of 18 px */
         font-size: 12px;
         line-height: 18px;
       }
@@ -1893,6 +2046,29 @@
           display: table-row;
         }
       }
+      /* A half-screen window: the row fits without sideways scrolling once the two icon columns
+         fold into the selected row's detail line. */
+      @media (max-width: 1000px) {
+        #swTable .c-copy,
+        #swTable .c-remove {
+          display: none;
+        }
+        #swTable tr.sw-detail .sw-detail-actions {
+          display: flex;
+        }
+      }
+      /* No switches yet: the empty state alone, no placeholder panel beside it. */
+      .sw-layout.sw-none {
+        grid-template-columns: minmax(0, 1fr);
+      }
+      .sw-layout.sw-none #swPanel,
+      .sw-layout.sw-none .sw-main > .scroll,
+      .sw-layout.sw-none .sw-main > .scroll-hint {
+        display: none;
+      }
+      .sw-layout.sw-none .sw-empty {
+        margin-top: 0;
+      }
       @media (max-width: 980px) {
         .tool-group + .tool-group {
           padding-left: 0;
@@ -1929,21 +2105,36 @@
         background: transparent;
         border-color: var(--line);
       }
-      /* --- Tables that scroll sideways: a drawn scrollbar (always visible, also in headless capture),
-         and a fade on the side with more --- */
-      .scroll::-webkit-scrollbar {
+      /* --- Scrolling boxes (tables that scroll sideways, previews, the Build pane): a drawn 10 px
+         scrollbar, always visible when there is more (also in headless capture), with a fade on the
+         side of a table that has more --- */
+      .scroll::-webkit-scrollbar,
+      pre::-webkit-scrollbar,
+      .pane::-webkit-scrollbar {
         height: 10px;
         width: 10px;
       }
-      .scroll::-webkit-scrollbar-track {
+      .scroll::-webkit-scrollbar-track,
+      pre::-webkit-scrollbar-track,
+      .pane::-webkit-scrollbar-track {
         background: transparent;
       }
-      .scroll::-webkit-scrollbar-thumb {
+      .scroll::-webkit-scrollbar-thumb,
+      pre::-webkit-scrollbar-thumb,
+      .pane::-webkit-scrollbar-thumb {
         background: var(--line2);
         border-radius: 999px;
         border: 2px solid var(--bg2);
       }
-      .scroll::-webkit-scrollbar-thumb:hover {
+      pre::-webkit-scrollbar-thumb {
+        border-color: var(--pre-bg);
+      }
+      .pane::-webkit-scrollbar-thumb {
+        border-color: var(--card);
+      }
+      .scroll::-webkit-scrollbar-thumb:hover,
+      pre::-webkit-scrollbar-thumb:hover,
+      .pane::-webkit-scrollbar-thumb:hover {
         background: var(--faint);
       }
       .scroll.more-right {
@@ -1959,7 +2150,7 @@
         mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.18), #000 40px, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
       }
       .scroll-hint {
-        margin: 6px 2px 0;
+        margin: 0 2px 6px;
         font-size: 12px;
         color: var(--muted);
         text-align: right;
@@ -2023,6 +2214,13 @@
         height: 6px;
         border-radius: 50%;
         background: var(--err);
+      }
+      .gate-list li button.finding-link {
+        color: var(--err);
+        font-weight: 600;
+      }
+      .gate-list li button.finding-link::after {
+        margin-left: 3px;
       }
       .gate-fix {
         margin-left: auto;
@@ -2284,12 +2482,18 @@
         content: "\203A";
         display: inline-block;
         margin-left: 6px;
-        color: var(--muted);
+        color: inherit;
         font-weight: 700;
         opacity: 0.7;
+        text-decoration: none;
         transition: transform var(--ease), opacity var(--ease);
       }
-      button.finding-link:hover {
+      .notice li:has(> button.finding-link),
+      .sw-checks li:has(> button.finding-link) {
+        cursor: pointer;
+      }
+      button.finding-link:hover,
+      li:hover > button.finding-link {
         border: 0;
         background: none;
         text-decoration: underline;
@@ -2491,44 +2695,6 @@
               </div>
               <p id="noPorts" hidden>This recipe does not use a port section.</p>
             </div>
-          </div>
-          <div>
-            <div class="card">
-              <div class="previewhead">
-                <!-- Preview + export. The preview text is byte-for-byte the editcontent.txt that goes in the ZIP. -->
-                <h2>Configuration preview</h2>
-                <span class="badge">editcontent.txt</span>
-              </div>
-              <div id="checks"></div>
-              <pre id="preview" tabindex="0"></pre>
-              <p id="previewMeter" class="muted" style="margin-top: 6px"></p>
-              <div class="actions even">
-                <button id="downloadConfig">Save text only</button
-                ><button id="copyPreview" type="button">Copy preview</button
-                ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
-              </div>
-              <div id="exportWhy" class="gate" role="status"></div>
-              <div id="asciiFix" class="notice warning" hidden>
-                <strong class="notice-head">Non-ASCII characters block export.</strong>
-                <button type="button" id="fixAscii">Transliterate to ASCII</button>
-                <span class="notice-foot"
-                  >Replaces umlauts (ue, oe, ae, ss), accents, dashes, curly quotes and invisible
-                  characters in the values and port descriptions now, and loads a transliterated
-                  template into the recipe editor for you to review and Apply.</span
-                >
-              </div>
-              <details id="diffPanel" hidden>
-                <summary id="diffSummary">Changes since the last export</summary>
-                <pre id="diffOut" class="diff"></pre>
-              </details>
-              <p>
-                <small
-                  >Extract ZIP contents to the SD card <strong>root</strong> (so
-                  <code>editcontent.txt</code> sits beside baseline files). Source folder is never
-                  modified.</small
-                >
-              </p>
-            </div>
             <div class="card">
               <details id="securityPanel">
                 <summary class="hint-summary">
@@ -2547,8 +2713,8 @@
                   Save your work <span class="badge">optional</span>
                 </summary>
                 <p class="muted">
-                  Recipes and fill-ins only — not the SD card. Use <strong>Export</strong> above for
-                  that.
+                  Recipes and fill-ins only — not the SD card. Use <strong>Export</strong> in the
+                  preview for that.
                 </p>
                 <div class="save-block">
                   <strong>Project file</strong>
@@ -2599,6 +2765,45 @@
                   </div>
                 </div>
               </details>
+            </div>
+          </div>
+          <div>
+            <!-- The preview pane follows the page beside the steps (sticky from 981 px up). -->
+            <div class="card pane">
+              <div class="previewhead">
+                <!-- Preview + export. The preview text is byte-for-byte the editcontent.txt that goes in the ZIP. -->
+                <h2>Configuration preview</h2>
+                <span class="badge">editcontent.txt</span>
+              </div>
+              <div id="checks"></div>
+              <pre id="preview" tabindex="0"></pre>
+              <p id="previewMeter" class="muted" style="margin-top: 6px"></p>
+              <div class="actions even">
+                <button id="downloadConfig">Save text only</button
+                ><button id="copyPreview" type="button">Copy preview</button
+                ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
+              </div>
+              <div id="exportWhy" class="gate" role="status"></div>
+              <div id="asciiFix" class="notice warning" hidden>
+                <strong class="notice-head">Non-ASCII characters block export.</strong>
+                <button type="button" id="fixAscii">Transliterate to ASCII</button>
+                <span class="notice-foot"
+                  >Replaces umlauts (ue, oe, ae, ss), accents, dashes, curly quotes and invisible
+                  characters in the values and port descriptions now, and loads a transliterated
+                  template into the recipe editor for you to review and Apply.</span
+                >
+              </div>
+              <details id="diffPanel" hidden>
+                <summary id="diffSummary">Changes since the last export</summary>
+                <pre id="diffOut" class="diff"></pre>
+              </details>
+              <p>
+                <small
+                  >Extract ZIP contents to the SD card <strong>root</strong> (so
+                  <code>editcontent.txt</code> sits beside baseline files). Source folder is never
+                  modified.</small
+                >
+              </p>
             </div>
           </div>
         </div>
@@ -2771,10 +2976,14 @@
                 ></textarea>
               </div>
             </div>
+            <label class="example-flag"
+              ><input id="exampleFlag" type="checkbox" /><span>Example recipe — blocks
+              SD-card export until unticked + Apply (replace the "! EXAMPLE ONLY" header line in the template first)</span></label
+            >
             <h3 class="ed-group">Template</h3>
             <div class="field">
               <label for="template">Configuration template</label
-              ><textarea id="template" rows="12" spellcheck="false"></textarea
+              ><textarea id="template" rows="24" spellcheck="false"></textarea
               ><small class="template-help"
                 >Placeholders: {{HOSTNAME}}, {{MGMT_IP}}, {{MGMT_MASK}}, {{MGMT_VLAN}}, {{GATEWAY}},
                 {{SITE}}, {{VLANS}}, {{PORTS}}, {{MGMT_INTERFACE}}, {{MGMT_SOURCES}}. Add fields with
@@ -2885,10 +3094,6 @@
               ><textarea id="roleRouted" class="compact" spellcheck="false"></textarea>
             </details>
             <h3 class="ed-group">Output &amp; export</h3>
-            <label
-              ><input id="exampleFlag" type="checkbox" /><span>Example recipe —
-              blocks SD-card export until unchecked + Apply (replace the "! EXAMPLE ONLY" header line in the template first)</span></label
-            >
             <details id="advancedOutput">
               <summary>Advanced output options (opt-in, not device-tested)</summary>
               <label
@@ -2930,25 +3135,25 @@
           <!-- Toolbar: counted-up rows, CSV in/out, remove all -->
           <div class="sw-toolbar">
             <div class="tool-group" role="group" aria-labelledby="swAddLabel">
-              <label class="tool-label" id="swAddLabel" for="swCount">New rows</label>
+              <label class="tool-label" id="swAddLabel" for="swCount">Add switches</label>
               <span class="sw-add"
                 ><input id="swCount" type="number" min="1" max="500" step="1" value="1" aria-label="Number of switches to add" /><button
                   type="button"
                   id="swAdd"
-                  title="Adds rows after the last one, counting hostname and management IP up"
-                >Add counted up</button></span
+                  title="Adds rows after the last one, counting the hostname and management IP up from the last row (or from Device details)"
+                >Add, numbered from last</button></span
               >
             </div>
             <div class="tool-group" role="group" aria-labelledby="swCsvLabel">
               <span class="tool-label" id="swCsvLabel">CSV</span>
-              <button type="button" id="swImport">Import CSV</button>
-              <button type="button" id="swExport">Export CSV</button>
+              <button type="button" id="swImport" title="Add or replace switches from a CSV file or pasted text">Import</button>
+              <button type="button" id="swExport">Export</button>
               <span class="sw-template"
-                ><select id="swTemplateMode" aria-label="Port columns in the CSV template">
+                ><select id="swTemplateMode" aria-label="Columns in the CSV template">
                   <option value="description">Template: fields + port descriptions</option>
                   <option value="all">Template: fields + all port settings</option>
                   <option value="none">Template: switch fields only</option></select
-                ><button type="button" id="swTemplate">CSV template</button></span
+                ><button type="button" id="swTemplate" title="Download an empty CSV with these columns; row 1 is the switch on Build a card">Download template</button></span
               >
             </div>
             <button type="button" id="swRemoveAll" class="danger tool-end">Remove all</button>
@@ -2957,20 +3162,20 @@
         </div>
         <div class="sw-layout">
           <div class="sw-main">
+            <p class="scroll-hint" hidden>More columns to the right: scroll the list sideways (Shift + mouse wheel).</p>
             <div class="scroll">
               <table id="swTable">
                 <thead id="swHead"></thead>
                 <tbody id="swRows"></tbody>
               </table>
             </div>
-            <p class="scroll-hint" hidden>More columns to the right: scroll the list sideways (Shift + mouse wheel).</p>
             <div id="swEmpty" class="sw-empty">
               <strong>No switches yet</strong>
               <p class="muted">
-                Add counted up starts with the switch on Build a card; Import CSV reads a fleet CSV.
+                Add switches starts from the switch on Build a card, numbering hostname and management IP up; Import reads a fleet CSV.
               </p>
               <div class="actions">
-                <button type="button" id="swEmptyAdd" class="primary">Add counted up</button
+                <button type="button" id="swEmptyAdd" class="primary">Add switches</button
                 ><button type="button" id="swEmptyImport">Import CSV</button>
               </div>
             </div>
@@ -3037,6 +3242,8 @@
           </p>
         </div>
       </section>
+      <!-- Status toast: message() fills the text and keeps the close control (its glyph is CSS, so
+           the element's textContent is the message alone). -->
       <div id="status" role="status" hidden></div>
       <footer>
         SwitchCard <strong>0.8.0</strong> · offline · CSP <code>connect-src 'none'</code> · not
@@ -3449,9 +3656,22 @@
       const current = () => recipes.find((r) => r.id === active);
 
       // --- Utilities ---
+      // The status toast: its textContent is the message alone (the close control has no text; its
+      // glyph is CSS), so readers of #status see exactly what was said.
       function message(t) {
-        $("status").textContent = t;
-        $("status").hidden = false;
+        const s = $("status");
+        s.replaceChildren(
+          document.createTextNode(t),
+          el("button", {
+            type: "button", id: "statusClose", ariaLabel: "Dismiss this message", title: "Dismiss",
+            onclick: () => {
+              s.hidden = true;
+              const h = $("viewTitle");
+              if (h) h.focus({ preventScroll: true });
+            },
+          }),
+        );
+        s.hidden = false;
       }
       function touch() {
         dirty = true;
@@ -4670,7 +4890,11 @@
               el("td", {}, x.host || "(no hostname)"),
               el("td", { className: "mono" }, x.ip || ""),
               el("td", {}, el("span", { className: "pill " + cls }, label)),
-              el("td", { className: "mono", title: x.sha256 }, x.sha256.slice(0, 16) + "…"),
+              el("td", { className: "mono", title: x.sha256 }, x.sha256.slice(0, 16) + "…",
+                el("button", {
+                  type: "button", className: "dlg-copy-sha", title: "Copy the full SHA-256 of this card's editcontent.txt",
+                  onclick: async (e) => { e.target.textContent = (await copyText(x.sha256)) ? "Copied" : "Copy failed"; },
+                }, "Copy")),
               el("td", { className: "num" }, String(x.lines)));
           })));
       }
@@ -4695,7 +4919,9 @@
             continue;
           }
           if (!kv) box.append((kv = el("table", { className: "dlg-kv" })));
-          kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : "" }, el("th", { scope: "row" }, m[1]), el("td", {}, m[2])));
+          // A hash never breaks inside (it is compared with a manifest by eye): one line that scrolls.
+          kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : "" }, el("th", { scope: "row" }, m[1]),
+            el("td", { className: /^[0-9a-f]{64}$/i.test(m[2]) ? "dlg-hash" : "" }, m[2])));
         }
         return box;
       }
@@ -5659,32 +5885,81 @@
         if (g && !g.errors.length) for (const v of policyViolations(g.text, teamPolicies)) a.push("Team policy: " + v);
         return a;
       }
-      // Short, scannable labels for the export gate; the full sentence stays as the item's title.
+      // Short, actionable labels for the export gate (what is wrong and what to do); the full
+      // sentence stays as the item's title. Team-policy and "Rows with errors" lines stay verbatim.
+      const GATE_ERRORS = "Fix red input errors first.";
       function gateLabel(reason) {
-        if (/^Example recipe:/.test(reason)) return "Example recipe";
+        if (/^Example recipe:/.test(reason)) return "Example recipe: untick it in the recipe editor, then Apply";
         const short = {
-          "Load a firmware baseline to export a complete card.": "No firmware baseline loaded",
-          "Baseline model does not match this recipe.": "Baseline model differs from this recipe",
-          "Baseline label is not allowed by this recipe.": "Baseline label not allowed by this recipe",
-          "Apply recipe changes or Discard unapplied draft first.": "Unapplied recipe draft: Apply or Discard it",
-          "Fix red input errors first.": "Red input errors above",
+          "Load a firmware baseline to export a complete card.": "No firmware baseline: load a sync-export folder in Manage",
+          "Baseline model does not match this recipe.": "Baseline is for another model: load this recipe's model, or change its model family",
+          "Baseline label is not allowed by this recipe.": "Baseline label not allowed: add it to the recipe's allowed labels, or load the right baseline",
+          "Apply recipe changes or Discard unapplied draft first.": "Unapplied recipe draft: Apply or Discard it in the recipe editor",
+          [GATE_ERRORS]: "Input errors above",
         };
         return short[reason] || reason;
       }
+      // The way out of a gate, as a button in the box: the Example recipe tick or the baseline loader.
+      const GATE_FIXES = [
+        [/^Example recipe:/, "Open recipe editor", () => openExampleSetting()],
+        [/^Load a firmware baseline/, "Load baseline", () => openBaselineLoader()],
+      ];
       // The gate box (under Build's export buttons, above the bulk buttons on Cards): one headline,
-      // one short item per reason, and a button to the Example recipe setting when that is the gate.
-      function renderGate(box, reasons, okText, fixId) {
+      // one short item per reason, and a button for the first reason that has a way out.
+      // errors (Build): the error findings, so the input-errors item names each one as a link.
+      function renderGate(box, reasons, okText, fixId, errors) {
         box.replaceChildren();
         box.classList.toggle("gate-bad", reasons.length > 0);
         box.classList.toggle("gate-ok", !reasons.length && !!okText);
-        if (reasons.length) {
-          box.append(
-            el("span", { className: "gate-head" }, "Export blocked"),
-            el("ul", { className: "gate-list" }, reasons.map((t) => el("li", { title: t }, gateLabel(t)))),
-          );
-          if (reasons.some((t) => /^Example recipe:/.test(t)))
-            box.append(el("button", { type: "button", id: fixId, className: "gate-fix", onclick: openExampleSetting }, "Open recipe settings"));
-        } else if (okText) box.append(el("span", { className: "gate-head" }, okText));
+        if (!reasons.length) {
+          if (okText) box.append(el("span", { className: "gate-head" }, okText));
+          return;
+        }
+        const items = reasons.map((t) => {
+          if (t === GATE_ERRORS && errors && errors.length) {
+            const n = errors.length;
+            const li = el("li", { title: t }, n + (n === 1 ? " error: " : " errors: "));
+            errors.forEach((f, i) => {
+              if (i) li.append(", ");
+              li.append(el("button", { type: "button", className: "finding-link", title: f.text, onclick: () => focusFinding(f.where, { view: "build" }) },
+                findingShortName(f)));
+            });
+            return li;
+          }
+          return el("li", { title: t }, gateLabel(t));
+        });
+        box.append(el("span", { className: "gate-head" }, "Export blocked"), el("ul", { className: "gate-list" }, items));
+        for (const [re, label, run] of GATE_FIXES)
+          if (reasons.some((t) => re.test(t))) {
+            box.append(el("button", { type: "button", id: fixId, className: "gate-fix", onclick: run }, label));
+            break;
+          }
+      }
+      // A finding's place in a few characters: the field key, "Gi1/4 VLAN", "template", ...
+      function findingShortName(f) {
+        const w = (f && f.where) || {};
+        const abbr = (n) => String(n || "")
+          .replace(/^TenGigabitEthernet/i, "Te").replace(/^TwoGigabitEthernet/i, "Tw").replace(/^GigabitEthernet/i, "Gi")
+          .replace(/^FastEthernet/i, "Fa").replace(/^AppGigabitEthernet/i, "Ap");
+        const attrs = { vlan: "VLAN", ip: "IP", mask: "mask", description: "description", role: "role" };
+        switch (w.kind) {
+          case "field":
+          case "row":
+            return w.key || "field";
+          case "port":
+            return (abbr(w.name) + " " + (attrs[w.attr] || w.attr || "")).trim();
+          case "ports":
+            return "ports";
+          case "template":
+          case "interfaces":
+          case "sources":
+          case "file":
+            return { template: "template", interfaces: "interfaces", sources: "management sources", file: "config text" }[w.kind];
+          case "policy":
+            return "team policy";
+        }
+        const t = String((f && f.text) || "").split(/[:.(]/)[0].trim();
+        return t.length > 28 ? t.slice(0, 26) + "…" : t || "check";
       }
       // The example gate's way out: the Example recipe checkbox in Manage.
       function openExampleSetting() {
@@ -5693,6 +5968,15 @@
         t.focus({ preventScroll: true });
         t.scrollIntoView({ block: "center" });
         flashTarget(t.closest("label") || t);
+      }
+      // The missing-baseline gate's way out: the sync-export folder button in Manage.
+      function openBaselineLoader() {
+        if (!showView("manage")) return;
+        const input = $("folderInput");
+        const label = input.closest("label") || input;
+        input.focus({ preventScroll: true });
+        label.scrollIntoView({ block: "center" });
+        flashTarget(label);
       }
 
       function renderPreview() {
@@ -5768,7 +6052,7 @@
         if (g.errors.length) why.push("Fix red input errors first.");
         if (b.length) why.push(...b.filter((x) => !why.includes(x)));
         const ew = $("exportWhy");
-        if (ew) renderGate(ew, $("downloadCard").disabled ? (why.length ? why : ["Export unavailable."]) : [], "Ready to export.", "exportFixGate");
+        if (ew) renderGate(ew, $("downloadCard").disabled ? (why.length ? why : ["Export unavailable."]) : [], "Ready to export.", "exportFixGate", found("error"));
         $("downloadCard").title = $("downloadCard").disabled
           ? why.join(" ") || "Export blocked"
           : "Download ZIP for the SD card root";
@@ -5888,6 +6172,7 @@
         }
         if ($("teamHintsEditor")) $("teamHintsEditor").value = teamHints.join("\n");
         if ($("teamPoliciesEditor")) $("teamPoliciesEditor").value = teamPolicies.join("\n");
+        if (typeof growEditorTextareas === "function") growEditorTextareas();
       }
       function lines(s) {
         return s
@@ -8047,6 +8332,38 @@
       }
       $("applyTeamPolicies").onclick = () => applyTeamPoliciesFromEditor(true);
       $("teamPoliciesEditor").addEventListener("input", () => applyTeamPoliciesFromEditor(false));
+      // Editor text areas grow with their content (the CSS min/max heights bound them; the resize
+      // handle still works between keystrokes). Hidden areas are left alone and sized when shown.
+      const GROWING_TEXTAREAS = ["template", "interfaces", "teamHintsEditor", "teamPoliciesEditor", "mgmtSources"];
+      function growTextarea(ta) {
+        if (!ta || !ta.offsetParent) return;
+        ta.style.height = "auto";
+        ta.style.height = ta.scrollHeight + 2 + "px";
+      }
+      function growEditorTextareas() {
+        for (const id of GROWING_TEXTAREAS) growTextarea($(id));
+      }
+      for (const id of GROWING_TEXTAREAS) {
+        const ta = $(id);
+        if (ta) ta.addEventListener("input", () => growTextarea(ta));
+      }
+      // The Build pane (the sticky preview card) never runs past the bottom of the window: its
+      // height limit follows its position, so at the top of the page it ends above the fold and,
+      // once pinned under the header, it may use the whole window. Below 981 px it is not sticky.
+      const buildPane = document.querySelector("#build .card.pane");
+      function sizeBuildPane() {
+        if (!buildPane) return;
+        if ($("build").hidden || window.innerWidth <= 980) {
+          buildPane.style.maxHeight = "";
+          return;
+        }
+        const header = document.querySelector("header");
+        const pinned = (header ? header.offsetHeight : 0) + 12;
+        const top = Math.max(buildPane.getBoundingClientRect().top, pinned);
+        buildPane.style.maxHeight = Math.max(280, window.innerHeight - top - 12) + "px";
+      }
+      window.addEventListener("scroll", sizeBuildPane, { passive: true });
+      window.addEventListener("resize", sizeBuildPane);
       // Theme picker (header).
       $("themeSelect").onchange = () => {
         const v = $("themeSelect").value;
@@ -8879,6 +9196,8 @@
         if (VIEW_SUBTITLES[name]) $("viewSubtitle").textContent = VIEW_SUBTITLES[name];
         else $("viewSubtitle").replaceChildren(...BUILD_SUBTITLE.map((n) => n.cloneNode(true)));
         if (name === "manage" && !editorPending) loadEditor();
+        if (name === "manage" && typeof growEditorTextareas === "function") growEditorTextareas();
+        if (name === "build" && typeof sizeBuildPane === "function") sizeBuildPane();
         if (name === "switches" && typeof renderSwitches === "function") renderSwitches();
         if (name === "cards" && typeof renderCards === "function") renderCards();
         scheduleRailUpdate();
@@ -8929,20 +9248,24 @@
       // Short column headers for the common fields, so headers stay on one line; the title has the rest.
       const SW_SHORT_LABELS = { MGMT_IP: "Mgmt IP", MGMT_MASK: "Mask", MGMT_VLAN: "VLAN", GATEWAY: "Gateway", MGMT_LOOPBACK: "Loopback" };
       function buildSwitchGrid(cols, rows) {
+        // Every cell carries its column as a class (c-HOSTNAME, c-ports, c-copy, ...) for the widths
+        // and for the narrow layout, which folds the two icon columns into the selected row's line.
         $("swHead").replaceChildren(
           el("tr", {},
             el("th", {}, "#"),
             el("th", {}, "Status"),
-            cols.map((k) => el("th", { dataKey: k, title: fieldLabel(k) + " {{" + k + "}}" }, SW_SHORT_LABELS[k] || fieldLabel(k))),
-            el("th", {}, "Ports"),
-            el("th", {}, el("span", { className: "visually-hidden" }, "Copy")),
-            el("th", {}, el("span", { className: "visually-hidden" }, "Remove"))),
+            cols.map((k) => el("th", { className: "c-" + k, dataKey: k, title: fieldLabel(k) + " {{" + k + "}}" }, SW_SHORT_LABELS[k] || fieldLabel(k))),
+            el("th", { className: "c-ports" }, "Ports"),
+            el("th", { className: "c-copy" }, el("span", { className: "visually-hidden" }, "Copy")),
+            el("th", { className: "c-remove" }, el("span", { className: "visually-hidden" }, "Remove"))),
         );
         const body = [
           el("tr", { className: "defaults" },
-            el("td", { colSpan: 2, title: "Device details on Build a card" }, "Defaults"),
-            cols.map((k) => el("td", { dataKey: k })),
-            el("td", { colSpan: 3 }, "from Build a card")),
+            el("td", { colSpan: 2, title: "Device details and the port table on Build a card" }, "Defaults"),
+            cols.map((k) => el("td", { className: "c-" + k, dataKey: k })),
+            el("td", { className: "c-ports", title: "The port table on Build a card" }, "Build"),
+            el("td", { className: "c-copy" }),
+            el("td", { className: "c-remove" })),
         ];
         rows.forEach((row, i) => {
           body.push(
@@ -8950,12 +9273,13 @@
               el("td", { className: "num" }, String(i + 1)),
               el("td", { className: "status" }),
               cols.map((k) =>
-                el("td", {}, el("input", { dataRow: row.id, dataKey: k, autocomplete: "off", ariaLabel: fieldLabel(k) + ", switch " + (i + 1) }))),
-              el("td", {}, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" })),
+                // size 12: the cell's CSS width rules, not the input's 20-character default.
+                el("td", { className: "c-" + k }, el("input", { dataRow: row.id, dataKey: k, size: 12, autocomplete: "off", ariaLabel: fieldLabel(k) + ", switch " + (i + 1) }))),
+              el("td", { className: "c-ports" }, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" })),
               // Compact icon buttons (their words stay for screen readers), so the row fits beside the panel.
-              el("td", {}, el("button", { type: "button", className: "sw-copy sw-icon", title: "Copy this switch below itself", ariaLabel: "Copy switch " + (i + 1) + " below itself" },
+              el("td", { className: "c-copy" }, el("button", { type: "button", className: "sw-copy sw-icon", title: "Copy this switch below itself", ariaLabel: "Copy switch " + (i + 1) + " below itself" },
                 el("span", { className: "visually-hidden" }, "Copy"))),
-              el("td", {}, el("button", { type: "button", className: "sw-remove sw-icon", title: "Remove this switch", ariaLabel: "Remove switch " + (i + 1) },
+              el("td", { className: "c-remove" }, el("button", { type: "button", className: "sw-remove sw-icon", title: "Remove this switch", ariaLabel: "Remove switch " + (i + 1) },
                 el("span", { ariaHidden: "true" }, "×"), el("span", { className: "visually-hidden" }, "Remove")))),
           );
         });
@@ -8999,13 +9323,13 @@
             input.classList.toggle("inherit", own === "");
             const err = cellErrors.get(k);
             input.classList.toggle("cell-bad", !!err);
-            if (err) {
-              input.setAttribute("aria-invalid", "true");
-              input.title = err;
-            } else if (input.hasAttribute("aria-invalid")) {
-              input.removeAttribute("aria-invalid");
-              input.removeAttribute("title");
-            }
+            // The title holds the check, else the whole value (a long one ends in an ellipsis in the cell).
+            const title = err || own;
+            if (err) input.setAttribute("aria-invalid", "true");
+            else if (input.hasAttribute("aria-invalid")) input.removeAttribute("aria-invalid");
+            if (title) {
+              if (input.title !== title) input.title = title;
+            } else if (input.hasAttribute("title")) input.removeAttribute("title");
           }
           const set = Object.values(x.row.ports || {}).filter((p) => p && Object.keys(p).length).length;
           const pb = tr.querySelector("button.sw-ports");
@@ -9023,6 +9347,9 @@
           tr.classList.toggle("selected", tr.dataset.row === swSelectedId);
         }
         $("swEmpty").hidden = rows.length > 0;
+        // An empty list shows the empty state alone (no placeholder side panel).
+        const layout = $("swPanel").closest(".sw-layout");
+        if (layout) layout.classList.toggle("sw-none", !rows.length);
         // Nothing to export or remove from an empty list: the buttons say so instead of acting.
         $("swExport").disabled = !rows.length;
         $("swExport").title = rows.length ? "Download the list as CSV" : "No switches to export yet";
@@ -9069,10 +9396,14 @@
         const tr = [...$("swRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === x.row.id);
         if (tr) {
           const cols = tr.children.length;
+          // Copy and Remove here too: below 1000 px the icon columns are hidden and these show instead.
           tr.after(el("tr", { className: "sw-detail" },
             el("td", { colSpan: cols },
               el("span", { className: "sw-detail-title" }, title),
-              checkList(el("ul", { className: "sw-checks" })))));
+              checkList(el("ul", { className: "sw-checks" })),
+              el("div", { className: "sw-detail-actions" },
+                el("button", { type: "button", title: "Copy this switch below itself", onclick: () => copySwitchRow(x.row.id) }, "Copy below"),
+                el("button", { type: "button", className: "danger", title: "Remove this switch", onclick: () => removeSwitchRow(x.row.id) }, "Remove")))));
         }
         $("swPreview").textContent = x.text || "No output: fix the errors above.";
         const prev = lastExport(r, x.host);
@@ -9583,8 +9914,9 @@
         const max = box.scrollWidth - box.clientWidth;
         box.classList.toggle("more-left", max > 1 && box.scrollLeft > 1);
         box.classList.toggle("more-right", max > 1 && box.scrollLeft < max - 1);
-        const hint = box.nextElementSibling;
-        if (hint && hint.classList.contains("scroll-hint")) hint.hidden = !(max > 1 && box.scrollLeft < max - 1);
+        // The hint sits above the box (in view at the top of a long list) or, elsewhere, under it.
+        const hint = [box.previousElementSibling, box.nextElementSibling].find((n) => n && n.classList.contains("scroll-hint"));
+        if (hint) hint.hidden = !(max > 1 && box.scrollLeft < max - 1);
       }
       function watchScrollHints(root) {
         for (const box of (root || document).querySelectorAll(".scroll")) {
@@ -9872,6 +10204,7 @@
           }
           refreshBackupButtons();
         } finally {
+          if (typeof sizeBuildPane === "function") sizeBuildPane();
           bootDone = true;
         }
       })();

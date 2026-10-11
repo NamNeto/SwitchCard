@@ -43,6 +43,7 @@ let bootDone = false;
     }
     refreshBackupButtons();
   } finally {
+    if (typeof sizeBuildPane === "function") sizeBuildPane();
     bootDone = true;
   }
 })();

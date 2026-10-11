@@ -34,6 +34,8 @@ function showView(name) {
   if (VIEW_SUBTITLES[name]) $("viewSubtitle").textContent = VIEW_SUBTITLES[name];
   else $("viewSubtitle").replaceChildren(...BUILD_SUBTITLE.map((n) => n.cloneNode(true)));
   if (name === "manage" && !editorPending) loadEditor();
+  if (name === "manage" && typeof growEditorTextareas === "function") growEditorTextareas();
+  if (name === "build" && typeof sizeBuildPane === "function") sizeBuildPane();
   if (name === "switches" && typeof renderSwitches === "function") renderSwitches();
   if (name === "cards" && typeof renderCards === "function") renderCards();
   scheduleRailUpdate();
@@ -84,20 +86,24 @@ function renderSwitches() {
 // Short column headers for the common fields, so headers stay on one line; the title has the rest.
 const SW_SHORT_LABELS = { MGMT_IP: "Mgmt IP", MGMT_MASK: "Mask", MGMT_VLAN: "VLAN", GATEWAY: "Gateway", MGMT_LOOPBACK: "Loopback" };
 function buildSwitchGrid(cols, rows) {
+  // Every cell carries its column as a class (c-HOSTNAME, c-ports, c-copy, ...) for the widths
+  // and for the narrow layout, which folds the two icon columns into the selected row's line.
   $("swHead").replaceChildren(
     el("tr", {},
       el("th", {}, "#"),
       el("th", {}, "Status"),
-      cols.map((k) => el("th", { dataKey: k, title: fieldLabel(k) + " {{" + k + "}}" }, SW_SHORT_LABELS[k] || fieldLabel(k))),
-      el("th", {}, "Ports"),
-      el("th", {}, el("span", { className: "visually-hidden" }, "Copy")),
-      el("th", {}, el("span", { className: "visually-hidden" }, "Remove"))),
+      cols.map((k) => el("th", { className: "c-" + k, dataKey: k, title: fieldLabel(k) + " {{" + k + "}}" }, SW_SHORT_LABELS[k] || fieldLabel(k))),
+      el("th", { className: "c-ports" }, "Ports"),
+      el("th", { className: "c-copy" }, el("span", { className: "visually-hidden" }, "Copy")),
+      el("th", { className: "c-remove" }, el("span", { className: "visually-hidden" }, "Remove"))),
   );
   const body = [
     el("tr", { className: "defaults" },
-      el("td", { colSpan: 2, title: "Device details on Build a card" }, "Defaults"),
-      cols.map((k) => el("td", { dataKey: k })),
-      el("td", { colSpan: 3 }, "from Build a card")),
+      el("td", { colSpan: 2, title: "Device details and the port table on Build a card" }, "Defaults"),
+      cols.map((k) => el("td", { className: "c-" + k, dataKey: k })),
+      el("td", { className: "c-ports", title: "The port table on Build a card" }, "Build"),
+      el("td", { className: "c-copy" }),
+      el("td", { className: "c-remove" })),
   ];
   rows.forEach((row, i) => {
     body.push(
@@ -105,12 +111,13 @@ function buildSwitchGrid(cols, rows) {
         el("td", { className: "num" }, String(i + 1)),
         el("td", { className: "status" }),
         cols.map((k) =>
-          el("td", {}, el("input", { dataRow: row.id, dataKey: k, autocomplete: "off", ariaLabel: fieldLabel(k) + ", switch " + (i + 1) }))),
-        el("td", {}, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" })),
+          // size 12: the cell's CSS width rules, not the input's 20-character default.
+          el("td", { className: "c-" + k }, el("input", { dataRow: row.id, dataKey: k, size: 12, autocomplete: "off", ariaLabel: fieldLabel(k) + ", switch " + (i + 1) }))),
+        el("td", { className: "c-ports" }, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" })),
         // Compact icon buttons (their words stay for screen readers), so the row fits beside the panel.
-        el("td", {}, el("button", { type: "button", className: "sw-copy sw-icon", title: "Copy this switch below itself", ariaLabel: "Copy switch " + (i + 1) + " below itself" },
+        el("td", { className: "c-copy" }, el("button", { type: "button", className: "sw-copy sw-icon", title: "Copy this switch below itself", ariaLabel: "Copy switch " + (i + 1) + " below itself" },
           el("span", { className: "visually-hidden" }, "Copy"))),
-        el("td", {}, el("button", { type: "button", className: "sw-remove sw-icon", title: "Remove this switch", ariaLabel: "Remove switch " + (i + 1) },
+        el("td", { className: "c-remove" }, el("button", { type: "button", className: "sw-remove sw-icon", title: "Remove this switch", ariaLabel: "Remove switch " + (i + 1) },
           el("span", { ariaHidden: "true" }, "×"), el("span", { className: "visually-hidden" }, "Remove")))),
     );
   });
@@ -154,13 +161,13 @@ function patchSwitchGrid(r) {
       input.classList.toggle("inherit", own === "");
       const err = cellErrors.get(k);
       input.classList.toggle("cell-bad", !!err);
-      if (err) {
-        input.setAttribute("aria-invalid", "true");
-        input.title = err;
-      } else if (input.hasAttribute("aria-invalid")) {
-        input.removeAttribute("aria-invalid");
-        input.removeAttribute("title");
-      }
+      // The title holds the check, else the whole value (a long one ends in an ellipsis in the cell).
+      const title = err || own;
+      if (err) input.setAttribute("aria-invalid", "true");
+      else if (input.hasAttribute("aria-invalid")) input.removeAttribute("aria-invalid");
+      if (title) {
+        if (input.title !== title) input.title = title;
+      } else if (input.hasAttribute("title")) input.removeAttribute("title");
     }
     const set = Object.values(x.row.ports || {}).filter((p) => p && Object.keys(p).length).length;
     const pb = tr.querySelector("button.sw-ports");
@@ -178,6 +185,9 @@ function patchSwitchGrid(r) {
     tr.classList.toggle("selected", tr.dataset.row === swSelectedId);
   }
   $("swEmpty").hidden = rows.length > 0;
+  // An empty list shows the empty state alone (no placeholder side panel).
+  const layout = $("swPanel").closest(".sw-layout");
+  if (layout) layout.classList.toggle("sw-none", !rows.length);
   // Nothing to export or remove from an empty list: the buttons say so instead of acting.
   $("swExport").disabled = !rows.length;
   $("swExport").title = rows.length ? "Download the list as CSV" : "No switches to export yet";
@@ -224,10 +234,14 @@ function renderSwitchPanel(r, x) {
   const tr = [...$("swRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === x.row.id);
   if (tr) {
     const cols = tr.children.length;
+    // Copy and Remove here too: below 1000 px the icon columns are hidden and these show instead.
     tr.after(el("tr", { className: "sw-detail" },
       el("td", { colSpan: cols },
         el("span", { className: "sw-detail-title" }, title),
-        checkList(el("ul", { className: "sw-checks" })))));
+        checkList(el("ul", { className: "sw-checks" })),
+        el("div", { className: "sw-detail-actions" },
+          el("button", { type: "button", title: "Copy this switch below itself", onclick: () => copySwitchRow(x.row.id) }, "Copy below"),
+          el("button", { type: "button", className: "danger", title: "Remove this switch", onclick: () => removeSwitchRow(x.row.id) }, "Remove")))));
   }
   $("swPreview").textContent = x.text || "No output: fix the errors above.";
   const prev = lastExport(r, x.host);
@@ -738,8 +752,9 @@ function updateScrollHint(box) {
   const max = box.scrollWidth - box.clientWidth;
   box.classList.toggle("more-left", max > 1 && box.scrollLeft > 1);
   box.classList.toggle("more-right", max > 1 && box.scrollLeft < max - 1);
-  const hint = box.nextElementSibling;
-  if (hint && hint.classList.contains("scroll-hint")) hint.hidden = !(max > 1 && box.scrollLeft < max - 1);
+  // The hint sits above the box (in view at the top of a long list) or, elsewhere, under it.
+  const hint = [box.previousElementSibling, box.nextElementSibling].find((n) => n && n.classList.contains("scroll-hint"));
+  if (hint) hint.hidden = !(max > 1 && box.scrollLeft < max - 1);
 }
 function watchScrollHints(root) {
   for (const box of (root || document).querySelectorAll(".scroll")) {

@@ -17,32 +17,81 @@ function blockers(r, g) {
   if (g && !g.errors.length) for (const v of policyViolations(g.text, teamPolicies)) a.push("Team policy: " + v);
   return a;
 }
-// Short, scannable labels for the export gate; the full sentence stays as the item's title.
+// Short, actionable labels for the export gate (what is wrong and what to do); the full
+// sentence stays as the item's title. Team-policy and "Rows with errors" lines stay verbatim.
+const GATE_ERRORS = "Fix red input errors first.";
 function gateLabel(reason) {
-  if (/^Example recipe:/.test(reason)) return "Example recipe";
+  if (/^Example recipe:/.test(reason)) return "Example recipe: untick it in the recipe editor, then Apply";
   const short = {
-    "Load a firmware baseline to export a complete card.": "No firmware baseline loaded",
-    "Baseline model does not match this recipe.": "Baseline model differs from this recipe",
-    "Baseline label is not allowed by this recipe.": "Baseline label not allowed by this recipe",
-    "Apply recipe changes or Discard unapplied draft first.": "Unapplied recipe draft: Apply or Discard it",
-    "Fix red input errors first.": "Red input errors above",
+    "Load a firmware baseline to export a complete card.": "No firmware baseline: load a sync-export folder in Manage",
+    "Baseline model does not match this recipe.": "Baseline is for another model: load this recipe's model, or change its model family",
+    "Baseline label is not allowed by this recipe.": "Baseline label not allowed: add it to the recipe's allowed labels, or load the right baseline",
+    "Apply recipe changes or Discard unapplied draft first.": "Unapplied recipe draft: Apply or Discard it in the recipe editor",
+    [GATE_ERRORS]: "Input errors above",
   };
   return short[reason] || reason;
 }
+// The way out of a gate, as a button in the box: the Example recipe tick or the baseline loader.
+const GATE_FIXES = [
+  [/^Example recipe:/, "Open recipe editor", () => openExampleSetting()],
+  [/^Load a firmware baseline/, "Load baseline", () => openBaselineLoader()],
+];
 // The gate box (under Build's export buttons, above the bulk buttons on Cards): one headline,
-// one short item per reason, and a button to the Example recipe setting when that is the gate.
-function renderGate(box, reasons, okText, fixId) {
+// one short item per reason, and a button for the first reason that has a way out.
+// errors (Build): the error findings, so the input-errors item names each one as a link.
+function renderGate(box, reasons, okText, fixId, errors) {
   box.replaceChildren();
   box.classList.toggle("gate-bad", reasons.length > 0);
   box.classList.toggle("gate-ok", !reasons.length && !!okText);
-  if (reasons.length) {
-    box.append(
-      el("span", { className: "gate-head" }, "Export blocked"),
-      el("ul", { className: "gate-list" }, reasons.map((t) => el("li", { title: t }, gateLabel(t)))),
-    );
-    if (reasons.some((t) => /^Example recipe:/.test(t)))
-      box.append(el("button", { type: "button", id: fixId, className: "gate-fix", onclick: openExampleSetting }, "Open recipe settings"));
-  } else if (okText) box.append(el("span", { className: "gate-head" }, okText));
+  if (!reasons.length) {
+    if (okText) box.append(el("span", { className: "gate-head" }, okText));
+    return;
+  }
+  const items = reasons.map((t) => {
+    if (t === GATE_ERRORS && errors && errors.length) {
+      const n = errors.length;
+      const li = el("li", { title: t }, n + (n === 1 ? " error: " : " errors: "));
+      errors.forEach((f, i) => {
+        if (i) li.append(", ");
+        li.append(el("button", { type: "button", className: "finding-link", title: f.text, onclick: () => focusFinding(f.where, { view: "build" }) },
+          findingShortName(f)));
+      });
+      return li;
+    }
+    return el("li", { title: t }, gateLabel(t));
+  });
+  box.append(el("span", { className: "gate-head" }, "Export blocked"), el("ul", { className: "gate-list" }, items));
+  for (const [re, label, run] of GATE_FIXES)
+    if (reasons.some((t) => re.test(t))) {
+      box.append(el("button", { type: "button", id: fixId, className: "gate-fix", onclick: run }, label));
+      break;
+    }
+}
+// A finding's place in a few characters: the field key, "Gi1/4 VLAN", "template", ...
+function findingShortName(f) {
+  const w = (f && f.where) || {};
+  const abbr = (n) => String(n || "")
+    .replace(/^TenGigabitEthernet/i, "Te").replace(/^TwoGigabitEthernet/i, "Tw").replace(/^GigabitEthernet/i, "Gi")
+    .replace(/^FastEthernet/i, "Fa").replace(/^AppGigabitEthernet/i, "Ap");
+  const attrs = { vlan: "VLAN", ip: "IP", mask: "mask", description: "description", role: "role" };
+  switch (w.kind) {
+    case "field":
+    case "row":
+      return w.key || "field";
+    case "port":
+      return (abbr(w.name) + " " + (attrs[w.attr] || w.attr || "")).trim();
+    case "ports":
+      return "ports";
+    case "template":
+    case "interfaces":
+    case "sources":
+    case "file":
+      return { template: "template", interfaces: "interfaces", sources: "management sources", file: "config text" }[w.kind];
+    case "policy":
+      return "team policy";
+  }
+  const t = String((f && f.text) || "").split(/[:.(]/)[0].trim();
+  return t.length > 28 ? t.slice(0, 26) + "…" : t || "check";
 }
 // The example gate's way out: the Example recipe checkbox in Manage.
 function openExampleSetting() {
@@ -51,6 +100,15 @@ function openExampleSetting() {
   t.focus({ preventScroll: true });
   t.scrollIntoView({ block: "center" });
   flashTarget(t.closest("label") || t);
+}
+// The missing-baseline gate's way out: the sync-export folder button in Manage.
+function openBaselineLoader() {
+  if (!showView("manage")) return;
+  const input = $("folderInput");
+  const label = input.closest("label") || input;
+  input.focus({ preventScroll: true });
+  label.scrollIntoView({ block: "center" });
+  flashTarget(label);
 }
 
 function renderPreview() {
@@ -126,7 +184,7 @@ function renderPreview() {
   if (g.errors.length) why.push("Fix red input errors first.");
   if (b.length) why.push(...b.filter((x) => !why.includes(x)));
   const ew = $("exportWhy");
-  if (ew) renderGate(ew, $("downloadCard").disabled ? (why.length ? why : ["Export unavailable."]) : [], "Ready to export.", "exportFixGate");
+  if (ew) renderGate(ew, $("downloadCard").disabled ? (why.length ? why : ["Export unavailable."]) : [], "Ready to export.", "exportFixGate", found("error"));
   $("downloadCard").title = $("downloadCard").disabled
     ? why.join(" ") || "Export blocked"
     : "Download ZIP for the SD card root";
@@ -246,6 +304,7 @@ function loadEditor() {
   }
   if ($("teamHintsEditor")) $("teamHintsEditor").value = teamHints.join("\n");
   if ($("teamPoliciesEditor")) $("teamPoliciesEditor").value = teamPolicies.join("\n");
+  if (typeof growEditorTextareas === "function") growEditorTextareas();
 }
 function lines(s) {
   return s

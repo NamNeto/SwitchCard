@@ -116,7 +116,11 @@ function summaryRowsTable(rows) {
         el("td", {}, x.host || "(no hostname)"),
         el("td", { className: "mono" }, x.ip || ""),
         el("td", {}, el("span", { className: "pill " + cls }, label)),
-        el("td", { className: "mono", title: x.sha256 }, x.sha256.slice(0, 16) + "…"),
+        el("td", { className: "mono", title: x.sha256 }, x.sha256.slice(0, 16) + "…",
+          el("button", {
+            type: "button", className: "dlg-copy-sha", title: "Copy the full SHA-256 of this card's editcontent.txt",
+            onclick: async (e) => { e.target.textContent = (await copyText(x.sha256)) ? "Copied" : "Copy failed"; },
+          }, "Copy")),
         el("td", { className: "num" }, String(x.lines)));
     })));
 }
@@ -141,7 +145,9 @@ function summaryView(text, rows) {
       continue;
     }
     if (!kv) box.append((kv = el("table", { className: "dlg-kv" })));
-    kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : "" }, el("th", { scope: "row" }, m[1]), el("td", {}, m[2])));
+    // A hash never breaks inside (it is compared with a manifest by eye): one line that scrolls.
+    kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : "" }, el("th", { scope: "row" }, m[1]),
+      el("td", { className: /^[0-9a-f]{64}$/i.test(m[2]) ? "dlg-hash" : "" }, m[2])));
   }
   return box;
 }

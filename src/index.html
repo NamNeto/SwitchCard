@@ -196,44 +196,6 @@
               </div>
               <p id="noPorts" hidden>This recipe does not use a port section.</p>
             </div>
-          </div>
-          <div>
-            <div class="card">
-              <div class="previewhead">
-                <!-- Preview + export. The preview text is byte-for-byte the editcontent.txt that goes in the ZIP. -->
-                <h2>Configuration preview</h2>
-                <span class="badge">editcontent.txt</span>
-              </div>
-              <div id="checks"></div>
-              <pre id="preview" tabindex="0"></pre>
-              <p id="previewMeter" class="muted" style="margin-top: 6px"></p>
-              <div class="actions even">
-                <button id="downloadConfig">Save text only</button
-                ><button id="copyPreview" type="button">Copy preview</button
-                ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
-              </div>
-              <div id="exportWhy" class="gate" role="status"></div>
-              <div id="asciiFix" class="notice warning" hidden>
-                <strong class="notice-head">Non-ASCII characters block export.</strong>
-                <button type="button" id="fixAscii">Transliterate to ASCII</button>
-                <span class="notice-foot"
-                  >Replaces umlauts (ue, oe, ae, ss), accents, dashes, curly quotes and invisible
-                  characters in the values and port descriptions now, and loads a transliterated
-                  template into the recipe editor for you to review and Apply.</span
-                >
-              </div>
-              <details id="diffPanel" hidden>
-                <summary id="diffSummary">Changes since the last export</summary>
-                <pre id="diffOut" class="diff"></pre>
-              </details>
-              <p>
-                <small
-                  >Extract ZIP contents to the SD card <strong>root</strong> (so
-                  <code>editcontent.txt</code> sits beside baseline files). Source folder is never
-                  modified.</small
-                >
-              </p>
-            </div>
             <div class="card">
               <details id="securityPanel">
                 <summary class="hint-summary">
@@ -252,8 +214,8 @@
                   Save your work <span class="badge">optional</span>
                 </summary>
                 <p class="muted">
-                  Recipes and fill-ins only — not the SD card. Use <strong>Export</strong> above for
-                  that.
+                  Recipes and fill-ins only — not the SD card. Use <strong>Export</strong> in the
+                  preview for that.
                 </p>
                 <div class="save-block">
                   <strong>Project file</strong>
@@ -304,6 +266,45 @@
                   </div>
                 </div>
               </details>
+            </div>
+          </div>
+          <div>
+            <!-- The preview pane follows the page beside the steps (sticky from 981 px up). -->
+            <div class="card pane">
+              <div class="previewhead">
+                <!-- Preview + export. The preview text is byte-for-byte the editcontent.txt that goes in the ZIP. -->
+                <h2>Configuration preview</h2>
+                <span class="badge">editcontent.txt</span>
+              </div>
+              <div id="checks"></div>
+              <pre id="preview" tabindex="0"></pre>
+              <p id="previewMeter" class="muted" style="margin-top: 6px"></p>
+              <div class="actions even">
+                <button id="downloadConfig">Save text only</button
+                ><button id="copyPreview" type="button">Copy preview</button
+                ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
+              </div>
+              <div id="exportWhy" class="gate" role="status"></div>
+              <div id="asciiFix" class="notice warning" hidden>
+                <strong class="notice-head">Non-ASCII characters block export.</strong>
+                <button type="button" id="fixAscii">Transliterate to ASCII</button>
+                <span class="notice-foot"
+                  >Replaces umlauts (ue, oe, ae, ss), accents, dashes, curly quotes and invisible
+                  characters in the values and port descriptions now, and loads a transliterated
+                  template into the recipe editor for you to review and Apply.</span
+                >
+              </div>
+              <details id="diffPanel" hidden>
+                <summary id="diffSummary">Changes since the last export</summary>
+                <pre id="diffOut" class="diff"></pre>
+              </details>
+              <p>
+                <small
+                  >Extract ZIP contents to the SD card <strong>root</strong> (so
+                  <code>editcontent.txt</code> sits beside baseline files). Source folder is never
+                  modified.</small
+                >
+              </p>
             </div>
           </div>
         </div>
@@ -476,10 +477,14 @@
                 ></textarea>
               </div>
             </div>
+            <label class="example-flag"
+              ><input id="exampleFlag" type="checkbox" /><span>Example recipe — blocks
+              SD-card export until unticked + Apply (replace the "! EXAMPLE ONLY" header line in the template first)</span></label
+            >
             <h3 class="ed-group">Template</h3>
             <div class="field">
               <label for="template">Configuration template</label
-              ><textarea id="template" rows="12" spellcheck="false"></textarea
+              ><textarea id="template" rows="24" spellcheck="false"></textarea
               ><small class="template-help"
                 >Placeholders: {{HOSTNAME}}, {{MGMT_IP}}, {{MGMT_MASK}}, {{MGMT_VLAN}}, {{GATEWAY}},
                 {{SITE}}, {{VLANS}}, {{PORTS}}, {{MGMT_INTERFACE}}, {{MGMT_SOURCES}}. Add fields with
@@ -590,10 +595,6 @@
               ><textarea id="roleRouted" class="compact" spellcheck="false"></textarea>
             </details>
             <h3 class="ed-group">Output &amp; export</h3>
-            <label
-              ><input id="exampleFlag" type="checkbox" /><span>Example recipe —
-              blocks SD-card export until unchecked + Apply (replace the "! EXAMPLE ONLY" header line in the template first)</span></label
-            >
             <details id="advancedOutput">
               <summary>Advanced output options (opt-in, not device-tested)</summary>
               <label
@@ -635,25 +636,25 @@
           <!-- Toolbar: counted-up rows, CSV in/out, remove all -->
           <div class="sw-toolbar">
             <div class="tool-group" role="group" aria-labelledby="swAddLabel">
-              <label class="tool-label" id="swAddLabel" for="swCount">New rows</label>
+              <label class="tool-label" id="swAddLabel" for="swCount">Add switches</label>
               <span class="sw-add"
                 ><input id="swCount" type="number" min="1" max="500" step="1" value="1" aria-label="Number of switches to add" /><button
                   type="button"
                   id="swAdd"
-                  title="Adds rows after the last one, counting hostname and management IP up"
-                >Add counted up</button></span
+                  title="Adds rows after the last one, counting the hostname and management IP up from the last row (or from Device details)"
+                >Add, numbered from last</button></span
               >
             </div>
             <div class="tool-group" role="group" aria-labelledby="swCsvLabel">
               <span class="tool-label" id="swCsvLabel">CSV</span>
-              <button type="button" id="swImport">Import CSV</button>
-              <button type="button" id="swExport">Export CSV</button>
+              <button type="button" id="swImport" title="Add or replace switches from a CSV file or pasted text">Import</button>
+              <button type="button" id="swExport">Export</button>
               <span class="sw-template"
-                ><select id="swTemplateMode" aria-label="Port columns in the CSV template">
+                ><select id="swTemplateMode" aria-label="Columns in the CSV template">
                   <option value="description">Template: fields + port descriptions</option>
                   <option value="all">Template: fields + all port settings</option>
                   <option value="none">Template: switch fields only</option></select
-                ><button type="button" id="swTemplate">CSV template</button></span
+                ><button type="button" id="swTemplate" title="Download an empty CSV with these columns; row 1 is the switch on Build a card">Download template</button></span
               >
             </div>
             <button type="button" id="swRemoveAll" class="danger tool-end">Remove all</button>
@@ -662,20 +663,20 @@
         </div>
         <div class="sw-layout">
           <div class="sw-main">
+            <p class="scroll-hint" hidden>More columns to the right: scroll the list sideways (Shift + mouse wheel).</p>
             <div class="scroll">
               <table id="swTable">
                 <thead id="swHead"></thead>
                 <tbody id="swRows"></tbody>
               </table>
             </div>
-            <p class="scroll-hint" hidden>More columns to the right: scroll the list sideways (Shift + mouse wheel).</p>
             <div id="swEmpty" class="sw-empty">
               <strong>No switches yet</strong>
               <p class="muted">
-                Add counted up starts with the switch on Build a card; Import CSV reads a fleet CSV.
+                Add switches starts from the switch on Build a card, numbering hostname and management IP up; Import reads a fleet CSV.
               </p>
               <div class="actions">
-                <button type="button" id="swEmptyAdd" class="primary">Add counted up</button
+                <button type="button" id="swEmptyAdd" class="primary">Add switches</button
                 ><button type="button" id="swEmptyImport">Import CSV</button>
               </div>
             </div>
@@ -742,6 +743,8 @@
           </p>
         </div>
       </section>
+      <!-- Status toast: message() fills the text and keeps the close control (its glyph is CSS, so
+           the element's textContent is the message alone). -->
       <div id="status" role="status" hidden></div>
       <footer>
         SwitchCard <strong>0.8.0</strong> · offline · CSP <code>connect-src 'none'</code> · not
