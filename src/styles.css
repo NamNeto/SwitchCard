@@ -8,9 +8,12 @@
   --line2: #363642;
   --text: #f3f0ea;
   --muted: #9e998f;
-  --faint: #736e66;
+  --faint: #8a857c; /* 4.8:1 on a card: table headers and footers stay readable */
   --accent: #2dd4a8;
   --accent2: #1fb88a;
+  --accent-text: #2dd4a8; /* accent used as text (code, step badges): AA on every surface */
+  --danger-bg: #c62828; /* filled destructive buttons: white text at 5.6:1 in both themes */
+  --danger-hover: #b02121;
   --accent-dim: rgba(45, 212, 168, 0.16);
   --accent-glow: rgba(45, 212, 168, 0.10);
   --ok: #3ecf8e;
@@ -67,12 +70,13 @@
   --line2: #c6c2b7;
   --text: #1c1b18;
   --muted: #5d594f;
-  --faint: #8b867b;
+  --faint: #6f6a60;
   --accent: #179c74;
   --accent2: #12805f;
+  --accent-text: #0f6e52;
   --accent-dim: rgba(23, 156, 116, 0.16);
   --accent-glow: rgba(23, 156, 116, 0.1);
-  --ok: #1e8a5c;
+  --ok: #1a7a52;
   --warn: #8f6400;
   --err: #c53030;
   --info: #2160b8;
@@ -88,8 +92,8 @@
   --err-line: rgba(197, 48, 48, 0.5);
   --warn-bg: rgba(143, 100, 0, 0.08);
   --warn-line: rgba(143, 100, 0, 0.45);
-  --ok-bg: rgba(30, 138, 92, 0.09);
-  --ok-line: rgba(30, 138, 92, 0.4);
+  --ok-bg: rgba(26, 122, 82, 0.09);
+  --ok-line: rgba(26, 122, 82, 0.4);
   --info-bg: rgba(33, 96, 184, 0.08);
   --info-line: rgba(33, 96, 184, 0.4);
   --backdrop: rgba(20, 20, 16, 0.5);
@@ -262,7 +266,7 @@ small {
 code {
   font-family: var(--mono);
   font-size: 0.9em;
-  color: var(--accent);
+  color: var(--accent-text);
   background: var(--accent-dim);
   padding: 0.12em 0.38em;
   border-radius: 5px;
@@ -365,7 +369,7 @@ code {
   display: inline-grid;
   place-items: center;
   background: linear-gradient(180deg, rgba(45, 212, 168, 0.22), var(--accent-dim));
-  color: var(--accent);
+  color: var(--accent-text);
   width: 28px;
   height: 28px;
   border-radius: 9px;
@@ -659,8 +663,27 @@ button.primary:disabled:hover {
   font-size: 12px;
 }
 #exportWhy {
-  font-size: 12.5px;
-  line-height: 1.5;
+  margin-top: 10px;
+}
+/* Keyboard users jump past the header and rail; the link shows only while focused. */
+.skip-link {
+  position: absolute;
+  top: -48px;
+  left: 12px;
+  z-index: 30;
+  padding: 8px 12px;
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+  text-decoration: none;
+}
+.skip-link:focus {
+  top: 12px;
+}
+h1:focus {
+  outline: none;
 }
 .warning {
   background: var(--warn-bg);
@@ -697,7 +720,7 @@ button.primary:disabled:hover {
   line-height: 1.5;
 }
 .hint strong {
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 650;
 }
 .hint-title {
@@ -714,8 +737,10 @@ button.primary:disabled:hover {
   /* Stay display:block so the ::before placeholder shows when there are no team hints. */
   min-height: 1.2em;
 }
+/* Whole-pixel line boxes (20 px) and heights of (lines * 20 + 2 * 16 padding + 2 border) px, so a
+   scrolling box never cuts a line of config in half at its bottom edge. */
 pre {
-  font: 13px/1.6 var(--mono);
+  font: 13px/20px var(--mono);
   font-variant-ligatures: none;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -725,7 +750,7 @@ pre {
   border: 1px solid var(--line);
   padding: calc(var(--space) * 2);
   border-radius: var(--radius);
-  max-height: 460px;
+  max-height: 454px; /* 21 lines */
   overflow: auto;
 }
 
@@ -863,7 +888,7 @@ summary:hover {
   font-size: 12.5px;
 }
 .hint strong.team-label {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .badge {
   display: inline-block;
@@ -876,6 +901,63 @@ summary:hover {
   font-weight: 700;
   letter-spacing: 0.03em;
   text-transform: uppercase;
+}
+.badge-bad {
+  color: var(--err);
+  background: var(--err-bg);
+  border-color: var(--err-line);
+}
+/* Manage: the two team lists are their own blocks (advisory hints, blocking policies), and the
+   recipe editor is grouped under small headings. */
+.team-block {
+  margin-top: 14px;
+  padding: 12px 14px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--card2);
+}
+.team-block-policy {
+  border-left: 3px solid var(--err);
+}
+.team-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 2px;
+}
+.team-head h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 650;
+  letter-spacing: -0.15px;
+}
+.team-block > p.muted {
+  margin: 4px 0 10px;
+  font-size: 13px;
+}
+.team-block .field {
+  margin-bottom: 8px;
+}
+.team-block .actions {
+  margin-top: 8px;
+}
+.team-block .sku-notes {
+  margin-top: 10px;
+}
+h3.ed-group {
+  margin: 18px 0 10px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  font-size: 11.5px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+h3.ed-group:first-of-type {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
 }
 .actions {
   display: flex;
@@ -922,8 +1004,9 @@ summary:hover {
   width: auto;
 }
 pre.diff {
-  max-height: 320px;
+  max-height: 322px; /* 16 lines of 18 px */
   font-size: 12px;
+  line-height: 18px;
 }
 pre.diff .add {
   color: var(--ok);
@@ -1056,7 +1139,7 @@ textarea.compact-xs {
 .autosave {
   white-space: nowrap;
   font-size: 12px;
-  color: var(--accent);
+  color: var(--accent-text);
   font-weight: 600;
 }
 .bulk {
@@ -1195,6 +1278,19 @@ dialog.dlg h2 {
   max-height: 60vh;
   overflow: auto;
 }
+.dlg-wide .dialog-body {
+  max-height: 72vh;
+}
+/* Write dialogs: the summary scrolls on its own; Copy summary, the review tick and the buttons
+   stay in place, so opening the dialog never scrolls the summary away. */
+.dlg-write .dialog-body {
+  max-height: none;
+  overflow: visible;
+}
+.dlg-write .dlg-summary {
+  max-height: calc(100vh - 340px);
+  overflow: auto;
+}
 /* Plain-text bodies (confirmDialog / infoDialog) keep their line breaks, e.g. port lists. */
 .dialog-body > p {
   white-space: pre-line;
@@ -1210,10 +1306,14 @@ button.danger {
   color: var(--err);
 }
 button.primary.danger {
-  background: var(--err);
+  background: var(--danger-bg);
   color: #fff;
-  border-color: var(--err);
+  border-color: var(--danger-bg);
   box-shadow: none;
+}
+button.primary.danger:hover {
+  background: var(--danger-hover);
+  border-color: var(--danger-hover);
 }
 /* The red buttons keep a ring of their own when focused (box-shadow is reset above). */
 button.danger:focus-visible,
@@ -1223,12 +1323,105 @@ button.primary.danger:focus-visible {
 }
 .dlg-summary {
   margin: 0;
-  padding: 10px 12px;
+  padding: 12px 14px;
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  white-space: pre-wrap;
-  font-size: 0.85rem;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+.dlg-summary p {
+  margin: 0 0 8px;
+}
+.dlg-summary > :last-child {
+  margin-bottom: 0;
+}
+.dlg-summary > p:first-child {
+  font-weight: 650;
+}
+.dlg-summary > p:not(:first-child) {
+  color: var(--muted);
+  font-size: 13px;
+}
+/* Key/value lines of a summary (and of the boot restore question). */
+.dlg-kv {
+  width: 100%;
+  min-width: 0;
+  margin: 0 0 10px;
+  font-size: 13px;
+  border-collapse: collapse;
+}
+.dlg-kv th,
+.dlg-kv td {
+  padding: 3px 0;
+  border: 0;
+  vertical-align: top;
+}
+.dlg-kv th {
+  width: 36%;
+  padding-right: 12px;
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+  background: none;
+  position: static;
+}
+.dlg-summary .dlg-kv td {
+  font-family: var(--mono);
+  font-size: 12.5px;
+}
+.dlg-kv td {
+  overflow-wrap: anywhere;
+}
+.dlg-kv tr.dlg-key th,
+.dlg-kv tr.dlg-key td {
+  color: var(--text);
+  font-weight: 700;
+  font-size: 13.5px;
+}
+.dlg-kv tr.dlg-key td {
+  background: var(--accent-dim);
+  padding-left: 6px;
+  border-radius: 4px;
+}
+.dlg-choices {
+  margin: 0;
+  padding-left: 18px;
+}
+.dlg-choices li + li {
+  margin-top: 4px;
+}
+/* The switch table of a bulk export, one row per card with its state against the last export. */
+.dlg-rows {
+  width: 100%;
+  min-width: 0;
+  margin: 2px 0 10px;
+  font-size: 12.5px;
+}
+.dlg-rows th,
+.dlg-rows td {
+  padding: 4px 8px;
+  white-space: nowrap;
+  line-height: 1.45;
+}
+.dlg-rows .pill {
+  line-height: 1.5;
+  font-size: 11.5px;
+}
+.dlg-rows th:first-child,
+.dlg-rows td:first-child {
+  padding-left: 2px;
+}
+.dlg-rows td.num {
+  color: var(--muted);
+}
+.dlg-rows td.mono {
+  font-family: var(--mono);
+}
+.dlg-rows tbody tr:last-child td {
+  border-bottom: 0;
 }
 
 /* --- v0.8.0: Switches view (grid, side panel, Ports and Import dialogs) --- */
@@ -1275,7 +1468,7 @@ button.primary.danger:focus-visible {
 }
 .sw-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 250px);
   gap: calc(var(--space) * 2);
   align-items: start;
   margin-top: calc(var(--space) * 2);
@@ -1326,14 +1519,22 @@ button.primary.danger:focus-visible {
   background: var(--card2);
   border-color: var(--line);
 }
-/* Quiet: no box, a green dot and muted words (a clean row should not compete with errors). */
+/* Quiet: no box, a green dot and muted words (a clean row should not compete with errors).
+   The note count is fainter and smaller still, so twelve "OK" rows read as one calm column. */
 .pill-quiet {
   color: var(--muted);
   padding-left: 0;
+  padding-right: 0;
   font-weight: 500;
+  gap: 5px;
 }
 .pill-quiet::before {
   background: var(--ok);
+}
+.pill-quiet .st-notes {
+  color: var(--faint);
+  font-weight: 400;
+  font-size: 11.5px;
 }
 /* The grid takes its natural width and scrolls inside its own box; Status sits right after #. */
 #swTable {
@@ -1352,21 +1553,25 @@ button.primary.danger:focus-visible {
   padding-left: 10px;
   padding-right: 6px;
 }
+/* Cell widths: the whole row up to Ports fits beside the side panel at 1440 px (and alone at
+   900 px); only Copy and Remove scroll. An address (255.255.255.0) fits an address cell. */
 #swTable td input {
-  width: 124px;
+  width: 104px;
   min-width: 0;
   height: 32px;
   min-height: 32px;
+  padding: 0 7px;
+  font-size: 12.5px;
 }
 #swTable td input[data-key="HOSTNAME"] {
-  width: 150px;
+  width: 114px;
 }
 #swTable td input[data-key="SITE"] {
-  width: 176px;
+  width: 114px;
 }
 #swTable td input[data-key$="VLAN"],
 #swTable td input[data-key$="LOOPBACK"] {
-  width: 64px;
+  width: 50px;
 }
 /* Typed values: solid field, normal text. Inherited values: dashed, transparent, italic grey. */
 #swTable input:not(.inherit) {
@@ -1425,18 +1630,77 @@ button.primary.danger:focus-visible {
 #swTable td.status {
   white-space: nowrap;
 }
+#swTable td.status .pill-bad {
+  padding: 0 8px;
+}
 #swTable button {
   height: 32px;
   min-height: 32px;
-  padding: 0 10px;
+  padding: 0 9px;
   font-size: 12.5px;
+}
+/* The selected row's checks, inline under it, while the side panel sits below the grid. */
+#swTable tr.sw-detail {
+  display: none;
+}
+#swTable tr.sw-detail > td {
+  padding: 6px 10px 10px 14px;
+  background: var(--card);
+  box-shadow: inset 3px 0 0 var(--accent);
+  white-space: normal;
+}
+#swTable tr.sw-detail .sw-checks {
+  margin: 0;
+}
+#swTable tr.sw-detail .sw-detail-title {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12.5px;
+  font-weight: 650;
 }
 #swTable button.sw-ports:not(.has-set) {
   color: var(--muted);
   font-weight: 500;
 }
+/* Row actions as 30 px icon buttons: a drawn "two pages" for Copy, a red × for Remove. */
+#swTable button.sw-icon {
+  position: relative;
+  width: 30px;
+  padding: 0;
+  color: var(--muted);
+}
+#swTable button.sw-icon:hover {
+  color: var(--text);
+}
+#swTable button.sw-copy::before,
+#swTable button.sw-copy::after {
+  content: "";
+  position: absolute;
+  width: 9px;
+  height: 11px;
+  border: 1.5px solid currentColor;
+  border-radius: 2px;
+}
+#swTable button.sw-copy::before {
+  left: 8px;
+  top: 6px;
+}
+#swTable button.sw-copy::after {
+  left: 12px;
+  top: 10px;
+  background: var(--card2);
+}
+#swTable button.sw-remove {
+  color: var(--err);
+  font-size: 17px;
+  line-height: 1;
+}
+#swTable button.sw-remove:hover {
+  color: var(--err);
+  border-color: var(--err);
+}
 #swTable button.sw-ports.has-set {
-  color: var(--accent);
+  color: var(--accent-text);
   border-color: var(--accent);
 }
 .sw-empty {
@@ -1480,11 +1744,12 @@ button.primary.danger:focus-visible {
 }
 /* Short enough that the export buttons under the Build preview stay above the fold at 900 px. */
 #preview {
-  max-height: 400px;
+  max-height: 354px; /* 16 lines */
 }
 #swPreview {
-  max-height: 420px;
+  max-height: 394px; /* 20 lines of 18 px */
   font-size: 12px;
+  line-height: 18px;
 }
 #swPanelEmpty {
   margin: 0;
@@ -1505,6 +1770,12 @@ button.primary.danger:focus-visible {
 }
 dialog.dlg.dlg-wide {
   max-width: min(1040px, 96vw);
+}
+/* Beside a left rail, a wide dialog stops short of the rail's labels (the rail is 210 px + gutters). */
+@media (min-width: 1200px) {
+  dialog.dlg.dlg-wide {
+    max-width: min(1040px, 100vw - 520px);
+  }
 }
 dialog.dlg textarea {
   width: 100%;
@@ -1543,6 +1814,38 @@ dialog.dlg textarea {
   padding: 0 10px;
   font-size: 12.5px;
 }
+/* A port this switch sets itself: accent edge on its name, and the only rows with Use table. */
+.sw-ports-table tr.own > td:first-child {
+  box-shadow: inset 3px 0 0 var(--accent);
+  font-weight: 600;
+}
+.sw-ports-table td.muted-cell {
+  text-align: left;
+  padding-left: 12px;
+}
+.sw-ports-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  align-items: center;
+  margin: 0 0 10px;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+.sw-ports-legend .swatch {
+  display: inline-block;
+  width: 34px;
+  height: 18px;
+  margin-right: 6px;
+  vertical-align: middle;
+  border-radius: 5px;
+  border: 1px solid var(--field-line);
+  background: var(--field-bg);
+}
+.sw-ports-legend .swatch.inherit {
+  border-style: dashed;
+  background: transparent;
+}
 .sw-unknown button {
   margin-left: 6px;
 }
@@ -1552,6 +1855,10 @@ dialog.dlg textarea {
   }
   #swPanel {
     position: static;
+  }
+  /* The panel is below the grid now: the selected row's checks show inline under that row. */
+  #swTable tr.sw-detail {
+    display: table-row;
   }
 }
 @media (max-width: 980px) {
@@ -1590,10 +1897,22 @@ dialog.dlg textarea {
   background: transparent;
   border-color: var(--line);
 }
-/* --- Tables that scroll sideways: thin visible scrollbar, and a fade on the side with more --- */
-.scroll {
-  scrollbar-width: thin;
-  scrollbar-color: var(--line2) transparent;
+/* --- Tables that scroll sideways: a drawn scrollbar (always visible, also in headless capture),
+   and a fade on the side with more --- */
+.scroll::-webkit-scrollbar {
+  height: 10px;
+  width: 10px;
+}
+.scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scroll::-webkit-scrollbar-thumb {
+  background: var(--line2);
+  border-radius: 999px;
+  border: 2px solid var(--bg2);
+}
+.scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--faint);
 }
 .scroll.more-right {
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
@@ -1614,33 +1933,71 @@ dialog.dlg textarea {
   text-align: right;
 }
 
-/* --- v0.8.0: Cards view --- */
-.cd-gates {
+/* --- Export gate (Build, under the export buttons; Cards, above the bulk buttons): a headline,
+   one short item per reason, and the way out when the recipe is still an example --- */
+.gate {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 14px;
   margin: 12px 0 0;
   padding: 8px 12px;
   font-size: 13px;
-  font-weight: 600;
   border: 1px solid transparent;
   border-left-width: 3px;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
-.cd-gates:empty {
+.gate:empty {
   display: none;
 }
-.cd-gates.cd-ok {
+.gate-head {
+  font-weight: 650;
+}
+.gate.gate-ok {
   color: var(--ok);
   background: var(--ok-bg);
   border-color: var(--ok-line);
   border-left-color: var(--ok);
 }
-.cd-gates.cd-bad {
-  color: var(--err);
+.gate.gate-bad {
   background: var(--err-bg);
   border-color: var(--err-line);
   border-left-color: var(--err);
 }
-#cdFixGate {
-  margin-top: 8px;
+.gate.gate-bad .gate-head {
+  color: var(--err);
+}
+.gate-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  color: var(--text);
+  font-weight: 500;
+}
+.gate-list li {
+  position: relative;
+  padding-left: 12px;
+  cursor: default;
+}
+.gate-list li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.55em;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--err);
+}
+.gate-fix {
+  margin-left: auto;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 10px;
+  font-size: 12.5px;
 }
 /* Bulk card export in progress: "Card 8 of 24: file" and Cancel after this card. */
 .cd-progress {
@@ -1731,6 +2088,9 @@ dialog.dlg textarea {
 #cdTable td,
 #cdTable th {
   padding: 7px 8px;
+}
+#cdTable th {
+  white-space: nowrap;
 }
 #cdTable td:first-child,
 #cdTable th:first-child {
@@ -1833,12 +2193,6 @@ dialog.dlg textarea {
   text-underline-offset: 3px;
 }
 
-.dlg-summary .dlg-key {
-  color: var(--text);
-  font-weight: 700;
-  background: var(--accent-dim);
-  border-radius: 3px;
-}
 /* --- Write dialogs: the review tick is its own boxed safety step --- */
 .dlg-copy {
   display: flex;

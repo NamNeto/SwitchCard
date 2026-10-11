@@ -99,18 +99,55 @@ function infoDialog(title, textOrNode) {
   return showDialog({ title, body, actions: [{ label: "Close", value: true, primary: true }] }).then(() => undefined);
 }
 
-// The summary as monospace text; the identity lines (hostname, management IP) stand out.
-// textContent stays exactly the summary text.
-function summaryPre(text) {
-  const pre = el("pre", { className: "dlg-summary" });
-  String(text).split("\n").forEach((line, i) => {
-    if (i) pre.append("\n");
-    pre.append(/^(Hostname|MGMT_IP): /.test(line) ? el("strong", { className: "dlg-key" }, line) : line);
-  });
-  return pre;
+// The summary laid out for reading: "Key: value" lines become a key/value table (hostname and
+// management IP highlighted, as the values that put a switch on the wrong address), the numbered
+// switch list of a bulk export becomes a table with each card's export state, and every other
+// line stays a sentence. Copy summary still copies the plain text.
+const EXPORT_STATE_PILL = {
+  current: ["pill-ok", "up to date"], changed: ["pill-warn", "changed"], new: ["pill-new", "new"], nohost: ["pill-muted", "not tracked"],
+};
+function summaryRowsTable(rows) {
+  return el("table", { className: "dlg-rows" },
+    el("thead", {}, el("tr", {}, ["#", "Hostname", "Mgmt IP", "State", "SHA-256", "Lines"].map((h) => el("th", {}, h)))),
+    el("tbody", {}, rows.map((x) => {
+      const [cls, label] = EXPORT_STATE_PILL[x.state] || EXPORT_STATE_PILL.nohost;
+      return el("tr", {},
+        el("td", { className: "num" }, String(x.n)),
+        el("td", {}, x.host || "(no hostname)"),
+        el("td", { className: "mono" }, x.ip || ""),
+        el("td", {}, el("span", { className: "pill " + cls }, label)),
+        el("td", { className: "mono", title: x.sha256 }, x.sha256.slice(0, 16) + "…"),
+        el("td", { className: "num" }, String(x.lines)));
+    })));
+}
+function summaryView(text, rows) {
+  const box = el("div", { className: "dlg-summary" });
+  let kv = null,
+    listDone = false;
+  for (const line of String(text).split("\n")) {
+    if (!line.trim()) {
+      kv = null;
+      continue;
+    }
+    if (rows && /^\s*\d+\. /.test(line)) {
+      if (!listDone) box.append(summaryRowsTable(rows));
+      listDone = true;
+      continue;
+    }
+    if (rows && /^… and \d+ more/.test(line)) continue; // the table lists every row
+    const m = /^([A-Za-z][\w .\-/]{0,40}): (.*)$/.exec(line);
+    if (!m) {
+      box.append(el("p", {}, line));
+      continue;
+    }
+    if (!kv) box.append((kv = el("table", { className: "dlg-kv" })));
+    kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : "" }, el("th", { scope: "row" }, m[1]), el("td", {}, m[2])));
+  }
+  return box;
 }
 // Review-before-download gate: the primary action stays disabled until the box is ticked.
-function writeDialog({ title, summary, primary }) {
+// rows (bulk exports): [{ n, host, ip, sha256, lines, state }] for the switch table.
+function writeDialog({ title, summary, primary, rows }) {
   const text = String(summary).replace(/\s*Cancel = no download\.\s*$/, "");
   const check = el("input", { type: "checkbox" });
   const copy = el("button", {
@@ -123,7 +160,7 @@ function writeDialog({ title, summary, primary }) {
   });
   // The tick is a boxed safety step of its own, and gets the first focus.
   const body = el("div", {},
-    summaryPre(text),
+    summaryView(text, rows),
     el("div", { className: "dlg-copy" }, copy),
     el("label", { className: "review-tick" }, check,
       el("span", {}, "I reviewed this configuration and the baseline selection.",
@@ -132,6 +169,7 @@ function writeDialog({ title, summary, primary }) {
     title, body,
     actions: [{ label: "Cancel", value: false }, { label: primary, value: true, primary: true, disabled: true }],
     onOpen: (dlg) => {
+      dlg.classList.add("dlg-write");
       const btn = dlg.querySelector(".dialog-actions button.primary");
       btn.title = "Tick the review box first";
       check.addEventListener("change", () => {

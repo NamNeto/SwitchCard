@@ -17,6 +17,41 @@ function blockers(r, g) {
   if (g && !g.errors.length) for (const v of policyViolations(g.text, teamPolicies)) a.push("Team policy: " + v);
   return a;
 }
+// Short, scannable labels for the export gate; the full sentence stays as the item's title.
+function gateLabel(reason) {
+  if (/^Example recipe:/.test(reason)) return "Example recipe";
+  const short = {
+    "Load a firmware baseline to export a complete card.": "No firmware baseline loaded",
+    "Baseline model does not match this recipe.": "Baseline model differs from this recipe",
+    "Baseline label is not allowed by this recipe.": "Baseline label not allowed by this recipe",
+    "Apply recipe changes or Discard unapplied draft first.": "Unapplied recipe draft: Apply or Discard it",
+    "Fix red input errors first.": "Red input errors above",
+  };
+  return short[reason] || reason;
+}
+// The gate box (under Build's export buttons, above the bulk buttons on Cards): one headline,
+// one short item per reason, and a button to the Example recipe setting when that is the gate.
+function renderGate(box, reasons, okText, fixId) {
+  box.replaceChildren();
+  box.classList.toggle("gate-bad", reasons.length > 0);
+  box.classList.toggle("gate-ok", !reasons.length && !!okText);
+  if (reasons.length) {
+    box.append(
+      el("span", { className: "gate-head" }, "Export blocked"),
+      el("ul", { className: "gate-list" }, reasons.map((t) => el("li", { title: t }, gateLabel(t)))),
+    );
+    if (reasons.some((t) => /^Example recipe:/.test(t)))
+      box.append(el("button", { type: "button", id: fixId, className: "gate-fix", onclick: openExampleSetting }, "Open recipe settings"));
+  } else if (okText) box.append(el("span", { className: "gate-head" }, okText));
+}
+// The example gate's way out: the Example recipe checkbox in Manage.
+function openExampleSetting() {
+  if (!showView("manage")) return;
+  const t = $("exampleFlag");
+  t.focus({ preventScroll: true });
+  t.scrollIntoView({ block: "center" });
+  flashTarget(t.closest("label") || t);
+}
 
 function renderPreview() {
   const r = current(),
@@ -90,14 +125,7 @@ function renderPreview() {
   if (g.errors.length) why.push("Fix red input errors first.");
   if (b.length) why.push(...b.filter((x) => !why.includes(x)));
   const ew = $("exportWhy");
-  if (ew) {
-    ew.textContent = $("downloadCard").disabled
-      ? why.length
-        ? "Export blocked: " + why.join(" · ")
-        : "Export unavailable."
-      : "Ready to export.";
-    ew.style.color = $("downloadCard").disabled ? "var(--warn)" : "var(--ok,#3dd68c)";
-  }
+  if (ew) renderGate(ew, $("downloadCard").disabled ? (why.length ? why : ["Export unavailable."]) : [], "Ready to export.", "exportFixGate");
   $("downloadCard").title = $("downloadCard").disabled
     ? why.join(" ") || "Export blocked"
     : "Download ZIP for the SD card root";

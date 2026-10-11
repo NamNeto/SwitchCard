@@ -448,19 +448,30 @@ async function restoreAutosaveRaw(raw, key, opts) {
     key,
   };
   if (meta.release !== RELEASE) {
+    const found = "Found a browser autosave from SwitchCard v" + meta.release +
+      (meta.savedAt ? ", saved " + formatSavedAt(meta.savedAt) : "") +
+      (key !== AUTOSAVE_KEY ? " (older storage key " + key + ")" : "") + ". This page is v" + RELEASE + ".";
+    let body = found;
+    if (!fromBackup) {
+      // What the autosave holds, and what each choice does with it. Declining keeps a backup copy:
+      // fail() above calls backupAutosave before the examples are shown, and deletes nothing.
+      const p = parsed.p;
+      const nSwitches = p.recipes.reduce((n, x) => n + ((x.switches && x.switches.length) || 0), 0);
+      const holds = p.recipes.length + (p.recipes.length === 1 ? " recipe" : " recipes") + ", " +
+        nSwitches + (nSwitches === 1 ? " switch" : " switches") + (parsed.draft ? ", an unapplied recipe draft" : "");
+      const base = p.baseline ? p.baseline.model + " / " + p.baseline.version + " (label only; firmware files are never stored)" : "none recorded";
+      const kv = (k, v) => el("tr", {}, el("th", { scope: "row" }, k), el("td", {}, v));
+      body = el("div", {},
+        el("p", {}, found),
+        el("table", { className: "dlg-kv" }, kv("Holds", holds), kv("Baseline", base)),
+        el("ul", { className: "dlg-choices" },
+          el("li", {}, el("strong", {}, "Restore it"), " opens that work in this page."),
+          el("li", {}, el("strong", {}, "Start with the examples"), " (or Esc) keeps a copy as an autosave backup," +
+            " which Save your work → Restore autosave backup brings back. Nothing is deleted.")));
+    }
     const ok = await confirmDialog(
       "Restore an autosave from v" + meta.release + "?",
-      "Found a browser autosave from SwitchCard v" +
-        meta.release +
-        (meta.savedAt ? ", saved " + formatSavedAt(meta.savedAt) : "") +
-        (key !== AUTOSAVE_KEY ? " (older storage key " + key + ")" : "") +
-        ".\nThis page is v" +
-        RELEASE +
-        "." +
-        (fromBackup
-          ? ""
-          : "\nRestore it opens that work. Start with the examples (or Esc) keeps a copy as an autosave backup," +
-            " which Save your work → Restore autosave backup brings back."),
+      body,
       // At boot the default is the user's own work, so Enter never hides it.
       { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples", focusOk: !fromBackup },
     );

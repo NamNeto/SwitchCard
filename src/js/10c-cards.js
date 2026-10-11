@@ -84,11 +84,7 @@ function renderCards() {
   const reasons = [...gates];
   if (badRows.length)
     reasons.push("Rows with errors: " + badRows.join(", ") + (policyRows.length ? " (team policy: " + policyRows.join(", ") + ")" : "") + ".");
-  const gl = $("cdGates");
-  if (reasons.length) gl.textContent = "Export blocked: " + reasons.join(" · ");
-  else if (!items.length) gl.textContent = "";
-  else gl.textContent = "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + ".";
-  gl.className = "cd-gates " + (reasons.length ? "cd-bad" : "cd-ok");
+  renderGate($("cdGates"), reasons, items.length ? "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + "." : "", "cdFixGate");
   const changed = items.filter(({ st }) => st.state === "new" || st.state === "changed").length;
   // Counts at a glance: "12 switches · 6 up to date · 3 changed · 3 new · 1 with errors".
   const count = (state) => items.filter(({ st }) => st.state === state).length;
@@ -100,7 +96,6 @@ function renderCards() {
   if (badRows.length) sum.push(["sum-bad", badRows.length + " with errors"]);
   $("cdSummary").replaceChildren(...(items.length ? sum.map(([c, t]) =>
     el("span", { className: c }, t)) : []));
-  $("cdFixGate").hidden = !r.example;
   $("cdChanged").textContent = "Changed and new only (" + changed + ")";
   $("cdAll").disabled = blocked || !items.length;
   $("cdText").disabled = blocked || !items.length;
@@ -176,14 +171,6 @@ document.addEventListener("focusin", (e) => {
 $("cdAll").onclick = () => exportCardsBulk("all");
 $("cdChanged").onclick = () => exportCardsBulk("changed");
 $("cdText").onclick = () => exportCardsBulk("text");
-// The example gate's way out: the Example recipe checkbox in Manage.
-$("cdFixGate").onclick = () => {
-  if (!showView("manage")) return;
-  const t = $("exampleFlag");
-  t.focus({ preventScroll: true });
-  t.scrollIntoView({ block: "center" });
-  flashTarget(t.closest("label") || t);
-};
 // The shared recipe picker re-renders the list (its onchange, set earlier, switches the recipe).
 $("cdRecipe").addEventListener("change", () => {
   if (currentView === "cards") renderCards();

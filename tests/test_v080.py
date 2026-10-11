@@ -710,7 +710,8 @@ def test_ports_dialog_overrides_and_use_table(page):
     assert ev(page, "() => current().switches[0].ports['GigabitEthernet1/2']") == {"role": "routed", "ip": "10.9.9.1", "mask": "255.255.255.252"}
     page.select_option(role, "access")
     assert ev(page, "() => current().switches[0].ports['GigabitEthernet1/2']") == {"role": "access"}
-    assert ev(page, "(s) => document.querySelector(s).disabled", ip) is True
+    # gauntlet r2: a port that is not Routed has no address cell at all (the IP/Mask columns show only while a port is Routed)
+    assert ev(page, "(s) => document.querySelector(s)", ip) is None
     page.click(dlg + "button.use-table[data-port='GigabitEthernet1/2']")
     assert "GigabitEthernet1/2" not in ev(page, "() => current().switches[0].ports")
     page.click(dlg + "button.remove-unknown[data-port='Gi9/9']")

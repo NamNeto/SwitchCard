@@ -107,8 +107,11 @@ function buildSwitchGrid(cols, rows) {
         cols.map((k) =>
           el("td", {}, el("input", { dataRow: row.id, dataKey: k, autocomplete: "off", ariaLabel: fieldLabel(k) + ", switch " + (i + 1) }))),
         el("td", {}, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" })),
-        el("td", {}, el("button", { type: "button", className: "sw-copy", title: "Copy this switch below itself" }, "Copy")),
-        el("td", {}, el("button", { type: "button", className: "sw-remove danger" }, "Remove"))),
+        // Compact icon buttons (their words stay for screen readers), so the row fits beside the panel.
+        el("td", {}, el("button", { type: "button", className: "sw-copy sw-icon", title: "Copy this switch below itself", ariaLabel: "Copy switch " + (i + 1) + " below itself" },
+          el("span", { className: "visually-hidden" }, "Copy"))),
+        el("td", {}, el("button", { type: "button", className: "sw-remove sw-icon", title: "Remove this switch", ariaLabel: "Remove switch " + (i + 1) },
+          el("span", { ariaHidden: "true" }, "×"), el("span", { className: "visually-hidden" }, "Remove")))),
     );
   });
   $("swRows").replaceChildren(...body);
@@ -165,13 +168,21 @@ function patchSwitchGrid(r) {
     pb.classList.toggle("has-set", set > 0);
     const st = switchStatus(x);
     const td = tr.querySelector("td.status");
-    td.replaceChildren(el("span", { className: "pill " + (st.bad ? "pill-bad" : "pill-quiet") }, st.text));
+    // A clean row stays quiet: "OK" in muted text, the note count fainter still (same text).
+    const notesAt = st.bad ? -1 : st.text.indexOf(" · ");
+    td.replaceChildren(el("span", { className: "pill " + (st.bad ? "pill-bad" : "pill-quiet") },
+      notesAt < 0 ? st.text : el("span", {}, st.text.slice(0, notesAt), el("span", { className: "st-notes" }, st.text.slice(notesAt)))));
     td.title = st.title;
     td.className = "status " + (st.bad ? "bad" : "ok");
     tr.classList.toggle("row-bad", st.bad);
     tr.classList.toggle("selected", tr.dataset.row === swSelectedId);
   }
   $("swEmpty").hidden = rows.length > 0;
+  // Nothing to export or remove from an empty list: the buttons say so instead of acting.
+  $("swExport").disabled = !rows.length;
+  $("swExport").title = rows.length ? "Download the list as CSV" : "No switches to export yet";
+  $("swRemoveAll").disabled = !rows.length;
+  $("swRemoveAll").title = rows.length ? "Remove every switch from the list" : "The list is already empty";
   $("swNotes").textContent = res.warnings.join(" ");
   $("swNotes").hidden = !res.warnings.length;
   if (!byId.has(swSelectedId)) swSelectedId = null;
@@ -185,22 +196,39 @@ function renderSwitchPanel(r, x) {
   $("swDiffPanel").hidden = true;
   $("swPanelEmpty").hidden = !!x;
   $("swPreview").hidden = !x;
+  const old = $("swRows").querySelector("tr.sw-detail");
+  if (old) old.remove();
   if (!x) {
     $("swPanelTitle").textContent = "Selected switch";
     $("swPreview").textContent = "Select a row to see its checks and its editcontent.txt.";
     return;
   }
-  $("swPanelTitle").textContent = "Switch " + x.n + (x.host ? " · " + x.host : "");
+  const title = "Switch " + x.n + (x.host ? " · " + x.host : "");
+  $("swPanelTitle").textContent = title;
   const items = [
     ...x.findings.map((f) => ({ level: f.level, text: f.text, where: f.where })),
     ...x.policy.map((p) => ({ level: "error", text: "Team policy: " + p, where: { kind: "policy" } })),
   ].sort((a, b) => (a.level === "error" ? 0 : 1) - (b.level === "error" ? 0 : 1)); // errors first (stable)
   // Each check is a button that jumps to what it is about (this row's cell, its Ports dialog, ...).
   const ctx = { view: "switches", rowId: x.row.id };
-  for (const f of items)
-    checks.append(el("li", { className: f.level === "error" ? "bad" : "warn" },
-      el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, ctx) }, f.text)));
-  if (!items.length) checks.append(el("li", { className: "ok" }, "No problems found."));
+  const checkList = (ul) => {
+    for (const f of items)
+      ul.append(el("li", { className: f.level === "error" ? "bad" : "warn" },
+        el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, ctx) }, f.text)));
+    if (!items.length) ul.append(el("li", { className: "ok" }, "No problems found."));
+    return ul;
+  };
+  checkList(checks);
+  // The same checks inline under the row: shown by CSS only while the panel sits below the grid
+  // (narrow windows), so the reason for an error is never out of view.
+  const tr = [...$("swRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === x.row.id);
+  if (tr) {
+    const cols = tr.children.length;
+    tr.after(el("tr", { className: "sw-detail" },
+      el("td", { colSpan: cols },
+        el("span", { className: "sw-detail-title" }, title),
+        checkList(el("ul", { className: "sw-checks" })))));
+  }
   $("swPreview").textContent = x.text || "No output: fix the errors above.";
   const prev = lastExport(r, x.host);
   if (prev && !x.errors.length) {
@@ -260,7 +288,7 @@ async function removeSwitchRow(id) {
   if (i < 0) return;
   const host = String((rows[i].values && rows[i].values.HOSTNAME) || (r.values && r.values.HOSTNAME) || "").trim();
   const what = "switch " + (i + 1) + (host ? " (" + host + ")" : "");
-  if (!(await confirmDialog("Remove this switch?", "Remove " + what + " from the list?", { ok: "Remove", danger: true }))) return;
+  if (!(await confirmDialog("Remove this switch?", "Remove " + what + " from the list? This cannot be undone.", { ok: "Remove", danger: true }))) return;
   const j = rows.findIndex((x) => x.id === id);
   if (j >= 0) rows.splice(j, 1);
   touch();
@@ -421,10 +449,14 @@ function openPortsDialog(row, focus) {
   const draw = (want) => {
     const eff = switchRowRecipe(r, row).rr.ports;
     const tbody = el("tbody");
-    for (const name of r.interfaces || []) {
+    const ports = (r.interfaces || []).map((name) => {
       const e = eff.find((p) => lower(p.name) === lower(name)) || { name, role: "unused" };
       const own = ownSet(name);
-      const effRole = own.role || e.role;
+      return { name, e, own, effRole: own.role || e.role };
+    });
+    // Address columns only when a port is Routed (as on Build); other ports never take an address.
+    const showAddr = ports.some((p) => p.effRole === "routed" || p.own.ip !== undefined || p.own.mask !== undefined);
+    for (const { name, e, own, effRole } of ports) {
       const role = el("select", { dataPort: name, dataAttr: "role", ariaLabel: name + " role" },
         ROLE_NAMES.map((v) => option(v, v[0].toUpperCase() + v.slice(1))));
       if (own.role && !ROLE_NAMES.includes(own.role)) role.append(option(own.role, own.role + " (unknown)"));
@@ -451,27 +483,38 @@ function openPortsDialog(row, focus) {
         });
         return el("td", {}, input);
       };
-      const useTable = el("button", {
-        type: "button", className: "use-table", dataPort: name, disabled: !Object.keys(own).length,
-        onclick: () => {
-          const k = ownKey(name);
-          if (k !== undefined) delete row.ports[k];
-          touch();
-          // The button is disabled now; focus stays in the dialog on this port's Role.
-          draw({ name, attr: "role" });
-          changed();
-        },
-      }, "Use table");
-      tbody.append(el("tr", {}, el("td", {}, name), el("td", {}, role), cell("vlan"), cell("description"), cell("ip"), cell("mask"), el("td", {}, useTable)));
+      // Use table only where this switch sets something; other ports just follow the table.
+      const isOwn = Object.keys(own).length > 0;
+      const useTable = isOwn
+        ? el("button", {
+          type: "button", className: "use-table", dataPort: name, title: "Drop this switch's settings for " + name + " and follow the port table",
+          onclick: () => {
+            const k = ownKey(name);
+            if (k !== undefined) delete row.ports[k];
+            touch();
+            // The button is gone now; focus stays in the dialog on this port's Role.
+            draw({ name, attr: "role" });
+            changed();
+          },
+        }, "Use table")
+        : el("span", { className: "muted" }, "follows the table");
+      const addr = (attr) => (effRole === "routed" ? cell(attr) : el("td", { className: "muted-cell", title: "Only a Routed port takes an address" }, "—"));
+      tbody.append(el("tr", { className: isOwn ? "own" : "" },
+        el("td", {}, name), el("td", {}, role), cell("vlan"), cell("description"),
+        showAddr ? [addr("ip"), addr("mask")] : [], el("td", {}, useTable)));
     }
     const unknown = Object.keys(row.ports || {}).filter((k) => switchOverrideIface(k, r.interfaces) === null);
+    const heads = ["Interface", "Role", "VLAN", "Description", ...(showAddr ? ["IP", "Mask"] : []), "Own settings"];
     wrap.replaceChildren(
       el("p", { className: "muted" },
-        "Grey values come from the port table on Build a card; typing sets the value for this switch only. Use table clears the settings of this switch for that port."),
+        "Typing sets a value for this switch only; everything else follows the port table on Build a card. Use table drops this switch's settings for that port."),
+      el("p", { className: "sw-ports-legend" },
+        el("span", {}, el("span", { className: "swatch inherit" }), "dashed, italic: from the port table"),
+        el("span", {}, el("span", { className: "swatch" }), "solid: set for this switch")),
       (r.interfaces || []).length
         ? el("div", { className: "scroll" },
           el("table", { className: "sw-ports-table" },
-            el("thead", {}, el("tr", {}, ["Interface", "Role", "VLAN", "Description", "IP", "Mask", ""].map((h) => el("th", {}, h)))),
+            el("thead", {}, el("tr", {}, heads.map((h) => el("th", {}, h)))),
             tbody))
         : el("p", {}, "This recipe has no ports."),
       unknown.length ? el("p", {}, "Settings for interfaces this recipe does not have:") : "",
@@ -749,7 +792,8 @@ $("swRemoveAll").onclick = async () => {
     return;
   }
   if (!(await confirmDialog("Remove all switches?",
-    "Remove all " + n + " switch" + (n === 1 ? "" : "es") + ' of recipe "' + r.name + '"? Device details on Build a card stay as they are.',
+    "Remove all " + n + " switch" + (n === 1 ? "" : "es") + ' of recipe "' + r.name + '"? Device details on Build a card stay as they are.' +
+      "\nThis cannot be undone. Save project first to keep a copy.",
     { ok: "Remove all", danger: true }))) return;
   r.switches = [];
   swSelectedId = null;

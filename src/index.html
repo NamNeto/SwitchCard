@@ -34,6 +34,7 @@
     </style>
   </head>
   <body>
+    <a class="skip-link" href="#viewTitle">Skip to content</a>
     <!-- ===== Header ===== -->
     <header>
       <div class="brand">
@@ -66,7 +67,7 @@
       <div class="views">
       <div class="top">
         <div>
-          <h1 id="viewTitle">Prepare a switch card</h1>
+          <h1 id="viewTitle" tabindex="-1">Prepare a switch card</h1>
           <p class="muted" id="viewSubtitle">
             One baseline · many recipes · SD root with <code>editcontent.txt</code>
           </p>
@@ -211,7 +212,7 @@
                 ><button id="copyPreview" type="button">Copy preview</button
                 ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
               </div>
-              <p id="exportWhy" class="muted" style="margin-top: 8px"></p>
+              <div id="exportWhy" class="gate" role="status"></div>
               <div id="asciiFix" class="notice warning" hidden>
                 <strong class="notice-head">Non-ASCII characters block export.</strong>
                 <button type="button" id="fixAscii">Transliterate to ASCII</button>
@@ -375,52 +376,75 @@
               <!-- Team security hints: advisory text only, collapsed by default. -->
               <details id="teamHintsPanel">
                 <summary class="hint-summary">
-                  Team security hints <span class="badge">optional</span>
+                  Team security hints &amp; policies <span class="badge">optional</span>
                 </summary>
                 <p class="muted">
-                  One hint per line. Shown on Build under Config security hints as
-                  <strong>Team</strong> (even when preview has errors). Advisory only — never block export.
-                  Hints apply as you type.
+                  Two lists, saved with the project, team package and autosave. Hints advise;
+                  policy rules block export.
                 </p>
-                <div class="field">
-                  <label for="teamHintsEditor">Hints</label>
-                  <textarea
-                    id="teamHintsEditor"
-                    rows="6"
-                    placeholder="One hint per line, e.g.&#10;Prefer TACACS+ over local enable on edge switches&#10;Never enable Telnet on VTY"
-                  ></textarea>
+                <div class="team-block">
+                  <div class="team-head">
+                    <h3>Security hints</h3>
+                    <span class="badge">Advisory</span>
+                  </div>
+                  <p class="muted">
+                    One hint per line. Shown on Build under Config security hints as
+                    <strong>Team</strong>, even when the preview has errors. Never block export.
+                    Hints apply as you type.
+                  </p>
+                  <div class="field">
+                    <label for="teamHintsEditor">Hints</label>
+                    <textarea
+                      id="teamHintsEditor"
+                      rows="5"
+                      placeholder="One hint per line, e.g.&#10;Prefer TACACS+ over local enable on edge switches&#10;Never enable Telnet on VTY"
+                    ></textarea>
+                  </div>
+                  <div class="actions">
+                    <button id="applyTeamHints" type="button">Apply team hints</button>
+                  </div>
                 </div>
-                <div class="actions">
-                  <button id="applyTeamHints" type="button">Apply team hints</button>
+                <div class="team-block team-block-policy">
+                  <div class="team-head">
+                    <h3>Policy rules</h3>
+                    <span class="badge badge-bad">Blocks export</span>
+                  </div>
+                  <p class="muted">
+                    A failing or invalid rule blocks export of a single card and of Cards; hints
+                    never do. Rules apply as you type.
+                  </p>
+                  <div class="field">
+                    <label for="teamPoliciesEditor">Rules</label>
+                    <textarea
+                      id="teamPoliciesEditor"
+                      rows="4"
+                      spellcheck="false"
+                      placeholder="require transport input ssh&#10;forbid snmp-server community&#10;require ^ip ssh version 2  # a note after two spaces and a hash"
+                    ></textarea>
+                  </div>
+                  <div class="actions">
+                    <button id="applyTeamPolicies" type="button" aria-describedby="teamPoliciesLive">Tidy rules</button>
+                    <span id="teamPoliciesLive" class="muted"><small>Rules apply as you type. Tidy rules removes blank lines and extra spaces and says which rules cannot be evaluated.</small></span>
+                  </div>
+                  <details class="sku-notes">
+                    <summary>Rule syntax</summary>
+                    <p>
+                      <small
+                        >One rule per line: <code>require &lt;pattern&gt;</code> or
+                        <code>forbid &lt;pattern&gt;</code>. Patterns are case-insensitive regular
+                        expressions matched line by line against the generated text without
+                        <code>!</code> comments and <code>no …</code> lines. A note may follow two
+                        spaces and a hash.</small
+                      >
+                    </p>
+                    <p>
+                      <small
+                        ><code>docs/SECURITY-HINTS.md</code> is reference; the live lists are edited
+                        here.</small
+                      >
+                    </p>
+                  </details>
                 </div>
-                <div class="field" style="margin-top: 14px">
-                  <label for="teamPoliciesEditor">Team policy rules (block export)</label>
-                  <textarea
-                    id="teamPoliciesEditor"
-                    rows="4"
-                    spellcheck="false"
-                    placeholder="require transport input ssh&#10;forbid snmp-server community&#10;require ^ip ssh version 2  # a note after two spaces and a hash"
-                  ></textarea>
-                </div>
-                <div class="actions">
-                  <button id="applyTeamPolicies" type="button" aria-describedby="teamPoliciesLive">Tidy rules</button>
-                  <span id="teamPoliciesLive" class="muted"><small>Rules apply as you type. Tidy rules removes blank lines and extra spaces and says which rules cannot be evaluated.</small></span>
-                </div>
-                <p class="muted" style="margin-top: 10px">
-                  <small
-                    >One rule per line: <code>require &lt;pattern&gt;</code> or
-                    <code>forbid &lt;pattern&gt;</code>. Patterns are case-insensitive regular
-                    expressions matched line by line against the generated text without
-                    <code>!</code> comments and <code>no …</code> lines. A failing or invalid rule
-                    <strong>blocks export</strong> (single card and Cards); hints never do.</small
-                  >
-                </p>
-                <p class="muted" style="margin-top: 10px">
-                  <small
-                    ><code>docs/SECURITY-HINTS.md</code> is reference; the live list is edited here
-                    (saved with project / team package / autosave).</small
-                  >
-                </p>
               </details>
             </div>
           </div>
@@ -429,6 +453,7 @@
             <div class="previewhead" style="margin-bottom: 12px">
               <h2 style="margin: 0">Recipe editor</h2>
             </div>
+            <h3 class="ed-group">Recipe</h3>
             <div class="field">
               <label for="recipeName">Recipe name</label><input id="recipeName" />
             </div>
@@ -451,6 +476,7 @@
                 ></textarea>
               </div>
             </div>
+            <h3 class="ed-group">Template</h3>
             <div class="field">
               <label for="template">Configuration template</label
               ><textarea id="template" rows="12" spellcheck="false"></textarea
@@ -489,6 +515,7 @@
               <label for="mgmtSources">Management source commands</label
               ><textarea id="mgmtSources" class="compact" spellcheck="false"></textarea>
             </details>
+            <h3 class="ed-group">Interfaces</h3>
             <div class="field recipe-sku-row">
               <label for="skuPreset">SKU interface preset</label
               ><select id="skuPreset"></select>
@@ -543,6 +570,7 @@
                 <button type="button" id="useIfaceBrief">Use these interface names</button>
               </div>
             </details>
+            <h3 class="ed-group">Port roles</h3>
             <details>
               <summary>Edit port role commands</summary>
               <p>
@@ -561,7 +589,8 @@
               ><label for="roleRouted">Routed (L3 / no switchport)</label
               ><textarea id="roleRouted" class="compact" spellcheck="false"></textarea>
             </details>
-            <label style="margin-top: 20px"
+            <h3 class="ed-group">Output &amp; export</h3>
+            <label
               ><input id="exampleFlag" type="checkbox" /><span>Example recipe —
               blocks SD-card export until unchecked + Apply</span></label
             >
@@ -669,8 +698,7 @@
           <div class="field">
             <label for="cdRecipe">Configuration recipe</label><select id="cdRecipe"></select>
           </div>
-          <p id="cdGates" class="cd-gates" role="status"></p>
-          <button type="button" id="cdFixGate" hidden>Open recipe settings</button>
+          <div id="cdGates" class="gate" role="status"></div>
           <!-- Bulk exports: every row, only new and changed rows, or one text-only ZIP -->
           <div class="sw-toolbar">
             <button type="button" id="cdAll" class="primary">All card ZIPs</button>
