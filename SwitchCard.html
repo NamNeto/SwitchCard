@@ -81,8 +81,8 @@
         --ok-line: rgba(62, 207, 142, 0.4);
         --info-bg: rgba(125, 183, 255, 0.1);
         --info-line: rgba(125, 183, 255, 0.4);
-        --backdrop: rgba(0, 0, 0, 0.72);
-        --backdrop-light: rgba(0, 0, 0, 0.4); /* the Ports dialog: the side panel stays readable */
+        --backdrop: rgba(0, 0, 0, 0.82); /* dark on dark needs more: the page must step back */
+        --backdrop-light: rgba(0, 0, 0, 0.58); /* the Ports dialog: the side panel stays readable */
         --header-h: 76px;
         --glow2: rgba(61, 139, 253, 0.055);
         --tab-hover: rgba(255, 255, 255, 0.03);
@@ -765,6 +765,14 @@
       .sw-checks li.ok::before {
         background: var(--ok);
       }
+      /* An export gate listed among the checks (example recipe, no baseline, draft): a red dot, as it
+         blocks like an error, and bold words. */
+      .notice li.li-gate::before {
+        background: var(--err);
+      }
+      .notice li.li-gate {
+        font-weight: 600;
+      }
       .notice li + li,
       .sw-checks li + li {
         margin-top: 4px;
@@ -1222,6 +1230,18 @@
         background: var(--card);
         border-top: 1px solid var(--line);
       }
+      /* The editor scrolls under the bar: a short fade above it, so a text area is never cut by a hard
+         edge (round 10). */
+      .ed-apply::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        right: 0;
+        top: -25px;
+        height: 24px;
+        background: linear-gradient(to bottom, transparent, var(--card));
+        pointer-events: none;
+      }
       /* A destructive action at the far end of its row, apart from the safe ones. */
       .actions > .aside {
         margin-left: auto;
@@ -1389,11 +1409,12 @@
         resize: vertical;
         font-size: 0.92em;
       }
-      /* Allowed baseline labels: three lines beside Model family (a one-per-line field), grows a line
-         per label typed beyond that (up to 180 px, then scrolls), and can be dragged taller. */
+      /* Allowed baseline labels: one line beside Model family, level with its 40 px select (round 10),
+         grows a line per label typed beyond that (up to 180 px, then scrolls), and can be dragged
+         taller. */
       #firmwareRule {
         height: auto; /* field-sizing: content sizes it; an explicit height would pin it */
-        min-height: 80px; /* 3 lines of 20 px + padding + border */
+        min-height: 40px; /* 1 line of 20 px + padding + border */
         max-height: 180px;
         field-sizing: content;
         padding-top: 9px;
@@ -1824,20 +1845,27 @@
         overflow-wrap: normal;
         padding-bottom: 4px;
       }
-      /* A per-row copy of the full hash in the bulk table, in a column of its own. */
+      /* A per-row copy of the full hash in the bulk table, in a column of its own: a 28 px target
+         (round 10; 22 px read as noise in a long stack), quiet until the row is hovered or focused. */
       .dlg-rows button.dlg-copy-sha {
         min-height: 0;
-        height: 22px;
-        padding: 0 7px;
-        font-size: 11px;
+        height: 28px;
+        padding: 0 9px;
+        font-size: 11.5px;
         font-weight: 600;
         vertical-align: middle;
+        color: var(--muted);
+      }
+      .dlg-rows tr:hover button.dlg-copy-sha,
+      .dlg-rows button.dlg-copy-sha:focus-visible,
+      .dlg-rows button.dlg-copy-sha:hover {
+        color: var(--text);
       }
       .dlg-rows td.dlg-sha {
         padding-right: 4px;
       }
       .dlg-rows td.dlg-sha-copy {
-        width: 56px;
+        width: 62px;
         padding-left: 4px;
         padding-right: 2px;
       }
@@ -2116,8 +2144,10 @@
       #swTable tr.row-bad {
         background: var(--err-bg);
       }
+      /* A selected error row: a neutral tint under the red one and a neutral frame (green is OK
+         everywhere else, so selection never tints an error row green; round 10). */
       #swTable tr.row-bad.selected {
-        background: linear-gradient(var(--accent-dim), var(--accent-dim)), var(--err-bg);
+        background: linear-gradient(color-mix(in srgb, var(--text) 9%, transparent), color-mix(in srgb, var(--text) 9%, transparent)), var(--err-bg);
         outline-color: var(--text); /* one accent: red is the error's, the frame is neutral */
       }
       #swTable tr.row-bad > td:first-child {
@@ -2254,12 +2284,9 @@
         color: var(--muted);
         font-weight: 500;
       }
-      /* A team-policy hit has no single cell: the status cell is the marked one (the rule is its title,
-         and the side panel names it). */
-      #swTable td.status.policy {
-        box-shadow: inset 0 0 0 1px var(--err);
-        border-radius: 6px;
-      }
+      /* A team-policy hit has no single cell: the row is marked like every other error row (red bar,
+         red tint, "1 error · policy"); the rule is the cell's title and the side panel names it (round
+         10: the extra red box around the cell read as a stray frame). */
       #swTable button.sw-ports.has-set {
         color: var(--accent-text);
         border-color: var(--accent);
@@ -2384,13 +2411,16 @@
       dialog.dlg textarea {
         width: 100%;
       }
-      /* The Ports dialog is centred like every other dialog, at most 920 px wide and never over the
-         rail (258 px: 24 px gutter + 210 px + 24 px gap); its veil is lighter, so the side panel's
-         preview (which follows every keystroke) stays readable beside it. */
+      /* The Ports dialog sits over the switch grid: between the rail (258 px: 24 px gutter + 210 px +
+         24 px gap) and the side panel (308 px + 12 px gap + 24 px gutter), the grid's own width, so
+         nothing behind it shows as a cut-off fragment and the side panel's preview (which follows
+         every keystroke) stays readable beside it under a lighter veil (round 10). */
       @media (min-width: 1300px) {
         dialog.dlg.dlg-ports[open] {
-          width: min(920px, 100vw - 516px);
-          max-width: 920px;
+          left: 258px;
+          right: 344px;
+          width: min(840px, 100vw - 602px);
+          max-width: 840px;
         }
         .dlg-veil:has(+ dialog.dlg-ports) {
           background: var(--backdrop-light);
@@ -2621,22 +2651,6 @@
       .gate.gate-bad .gate-head {
         color: var(--err);
       }
-      /* Input errors alone: the checks box above is the red one; the gate is a plain line with the
-         count and the links (red words, no box). */
-      .gate.gate-bad.gate-quiet {
-        background: none;
-        border-color: transparent;
-        border-left-color: var(--err);
-        padding-top: 4px;
-        padding-bottom: 4px;
-      }
-      .gate.gate-quiet .gate-list li button.finding-link {
-        text-decoration: underline;
-        text-underline-offset: 3px;
-      }
-      .gate.gate-quiet .gate-list li button.finding-link::after {
-        content: none;
-      }
       /* Ready to export, with a review note that does not block (baseline fingerprint differs). */
       .gate.gate-warn {
         background: var(--warn-bg);
@@ -2682,9 +2696,7 @@
         font-weight: 600;
       }
       .gate-list li button.finding-link::after {
-        margin-left: 4px;
-        padding: 0 4.5px 1px;
-        font-size: 12px;
+        margin-left: 5px; /* the same 20 px badge as the checks; the links sit inline in a sentence */
       }
       .gate-fix {
         margin-left: auto;
@@ -2787,24 +2799,27 @@
       .cd-summary .sum-bad::before {
         background: var(--err);
       }
+      /* Fixed columns at their natural widths and the last one taking the rest, with Card ZIP at its
+         start, so the button sits right after the export state instead of at the far edge of a wide
+         card (round 10); the table scrolls in its box when the window is narrower than 806 px. */
       #cdTable {
         table-layout: fixed;
-        min-width: 680px;
+        min-width: 806px;
       }
       #cdTable th:nth-child(1) {
         width: 46px;
       }
       #cdTable th:nth-child(2) {
-        width: 20%;
+        width: 160px;
       }
       #cdTable th:nth-child(3) {
-        width: 14%;
+        width: 130px;
       }
       #cdTable th:nth-child(4) {
-        width: 14%;
+        width: 120px;
       }
-      #cdTable th:nth-child(6) {
-        width: 104px;
+      #cdTable th:nth-child(5) {
+        width: 250px; /* "changed › since 2026-10-08 14:05" whole */
       }
       #cdTable td,
       #cdTable th {
@@ -2818,7 +2833,7 @@
         padding-left: 12px;
       }
       #cdTable td:last-child {
-        text-align: right;
+        text-align: left; /* the button starts right after the export state; the rest of the row is free */
         padding-right: 12px;
       }
       #cdTable td {
@@ -2951,22 +2966,38 @@
       label.review-tick {
         display: flex;
         align-items: flex-start;
-        gap: 12px;
+        gap: 14px;
         margin: 14px 0 0;
-        padding: 12px 14px;
-        border: 1px solid var(--warn-line);
-        border-left: 3px solid var(--warn);
+        padding: 14px 16px;
+        /* A calm confirmation step, not a caution banner (round 10): a neutral frame with the accent
+           at its edge, which turns green once the box is ticked. */
+        border: 1px solid var(--line2);
+        border-left: 3px solid var(--accent);
         border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-        background: var(--warn-bg);
+        background: var(--card2);
         color: var(--text);
         font-size: 14px;
         font-weight: 600;
         cursor: pointer;
+        transition: border-color var(--ease), background var(--ease);
       }
-      label.review-tick > input[type="checkbox"] {
+      label.review-tick:has(> input:checked) {
+        border-color: var(--ok-line);
+        border-left-color: var(--ok);
+        background: var(--ok-bg);
+      }
+      /* (:has() in the selector: the generic checkbox-label rule above carries that specificity.) */
+      label.review-tick:has(> input[type="checkbox"]) {
+        gap: 14px;
+        font-size: 14px;
+        font-weight: 600;
+        line-height: 1.45;
+      }
+      label.review-tick:has(> input[type="checkbox"]) > input[type="checkbox"] {
+        flex: none;
         width: 20px;
         height: 20px;
-        margin-top: 1px;
+        margin: 1px 0 0; /* on the first text line, clear of the label by the 14 px gap */
       }
       label.review-tick small {
         display: block;
@@ -2998,17 +3029,18 @@
         display: block;
         width: 100%;
       }
-      /* "This goes somewhere": a text-size chevron badge in the accent colour right after the text (on
-         its line); hovering the row underlines the text, tints the row and fills the badge. */
+      /* "This goes somewhere": a 20 px chevron badge in the accent colour right after the text (on
+         its line; round 10: the 16 px badge was hard to see and to hit); hovering the row underlines
+         the text, tints the row and fills the badge. */
       button.finding-link::after {
         content: "\2060\203A"; /* a word joiner first: the badge never wraps away from its last word */
-        display: inline;
+        display: inline; /* an inline box: padding paints a 20 px pill without a break before it */
         margin-left: 6px;
-        padding: 0 6.5px 1px;
+        padding: 2px 7px 3px;
         border-radius: 999px;
         background: var(--accent-dim);
         color: var(--accent-text);
-        font-size: 15px;
+        font-size: 16px;
         line-height: 1;
         font-weight: 700;
         text-decoration: none;
@@ -3432,7 +3464,6 @@
                   <p class="muted">
                     One hint per line. Shown on Build under Config security hints as
                     <strong>Team</strong>, even when the preview has errors. Never block export.
-                    Hints apply as you type.
                   </p>
                   <div class="field">
                     <label for="teamHintsEditor">Hints</label>
@@ -3443,7 +3474,8 @@
                     ></textarea>
                   </div>
                   <div class="actions">
-                    <button id="applyTeamHints" type="button">Apply team hints</button>
+                    <button id="applyTeamHints" type="button" aria-describedby="teamHintsLive">Tidy hints</button>
+                    <span id="teamHintsLive" class="muted"><small>Hints apply as you type. Tidy hints removes blank lines and extra spaces and shortens hints over the limit.</small></span>
                   </div>
                 </div>
                 <div class="team-block team-block-policy">
@@ -3508,16 +3540,16 @@
                   <option>IE9300</option>
                 </select>
               </div>
-              <!-- Three lines beside Model family (a one-per-line field reads as one); it grows a
+              <!-- One line beside Model family, level with its select (round 10); it grows a
                    line per label typed beyond that. -->
               <div class="field">
                 <label for="firmwareRule">Allowed baseline labels</label
                 ><textarea
                   id="firmwareRule"
                   class="compact-xs"
-                  rows="3"
-                  placeholder="One per line; blank = any"
-                  title="Blank: any baseline label of this model family"
+                  rows="1"
+                  placeholder="Blank = any label"
+                  title="One label per line. Blank: any baseline label of this model family"
                 ></textarea>
               </div>
             </div>
@@ -3789,9 +3821,9 @@
                   <th>#</th>
                   <th>Hostname</th>
                   <th>Management IP</th>
-                  <th>Status</th>
+                  <th>Checks</th>
                   <th>Last export</th>
-                  <th></th>
+                  <th><span class="visually-hidden">Export</span></th>
                 </tr>
               </thead>
               <tbody id="cdRows"></tbody>
@@ -6658,9 +6690,6 @@
         const warn = (warnings || []).map((t) => el("li", { className: "gate-warn-item", title: t }, gateWarnLabel(t)));
         box.replaceChildren();
         box.classList.toggle("gate-bad", reasons.length > 0);
-        // Input errors alone: the red checks box above lists them, so the gate is a quiet line that
-        // counts them and links to each (no second red box in the same column).
-        box.classList.toggle("gate-quiet", reasons.length > 0 && reasons.every((t) => t === GATE_ERRORS) && !!(errors && errors.length));
         box.classList.toggle("gate-ok", !reasons.length && !!okText && !warn.length);
         box.classList.toggle("gate-warn", !reasons.length && !!okText && warn.length > 0);
         if (!reasons.length) {
@@ -6670,10 +6699,11 @@
         }
         const items = reasons.map((t) => {
           // The input-errors item names each error in a few characters ("MGMT_IP", "Gi1/4 VLAN"), each
-          // a link to the field or cell it is about.
+          // a link to the field or cell it is about ("2 errors above: …" when they are the only reason:
+          // the red checks box above lists them in full).
           if (t === GATE_ERRORS && errors && errors.length) {
             const n = errors.length;
-            const li = el("li", { title: t }, n + (n === 1 ? " error" : " errors") + (box.classList.contains("gate-quiet") ? " above: " : ": "));
+            const li = el("li", { title: t }, n + (n === 1 ? " error" : " errors") + (reasons.every((x) => x === GATE_ERRORS) ? " above: " : ": "));
             // Two checks on one cell ("Gi1/5 VLAN" twice) share one link: "Gi1/5 VLAN (2)", both texts
             // in its title.
             const byName = new Map();
@@ -6787,18 +6817,21 @@
             "Rules are edited under Team security hints in Manage recipes & baseline."));
         if (!g.errors.length || notices.length) {
           const count = notices.length === 1 ? "1 note to review" : notices.length + " notes to review";
+          // Checks passed but an export gate holds (example recipe, baseline, draft): the heading says
+          // so, so one card never shows "Checks passed" above "Export blocked" as two verdicts; the
+          // gate under the Export button names the reasons. Without notes the box lists them here too
+          // (each a jump to its way out); with notes it stays short, so the pane keeps its preview
+          // lines and its footer. Amber, not green.
+          const gates = g.errors.length ? [] : b.filter((x) => !x.startsWith("Team policy:"));
           const head = g.errors.length
             ? count
-            : notices.length
-              ? "Checks passed · " + count
-              : b.length
-                ? "Checks passed. Export is still blocked; see under the Export button."
-                : "Checks passed.";
-          // Checks passed but an export gate holds (baseline model, label, example, draft): amber, with
-          // the reasons listed, so the box never reads as a green light while export is blocked.
-          const gateOnly = !notices.length && !g.errors.length && b.some((x) => !x.startsWith("Team policy:"));
-          $("checks").append(statusNotice(notices.length || gateOnly ? "warning" : "ok", head,
-            gateOnly ? b.filter((x) => !x.startsWith("Team policy:")) : notices,
+            : "Checks passed" + (notices.length ? " · " + count : "") + (gates.length ? " · export blocked" : ".");
+          const gateItems = notices.length ? [] : gates.map((t) => {
+            const fix = GATE_FIXES.find(([re]) => re.test(t));
+            return { text: gateLabel(t), gate: true, title: t, run: fix ? fix[2] : null };
+          });
+          $("checks").append(statusNotice(notices.length || gates.length ? "warning" : "ok", head,
+            [...notices, ...gateItems],
             "Cisco syntax and device behavior are not verified."));
         }
         markInvalidFields(g);
@@ -6904,13 +6937,17 @@
           const ul = document.createElement("ul");
           for (const t of items) {
             const li = document.createElement("li");
+            // {gate: true}: an export gate listed among the checks (red dot); {run} jumps to its way out.
+            if (t && t.gate) li.className = "li-gate";
+            if (t && t.title) li.title = t.title;
             if (typeof t === "string") li.textContent = t;
+            else if (!t.where && !t.run) li.textContent = t.text;
             else {
               const b = document.createElement("button");
               b.type = "button";
               b.className = "finding-link";
               b.textContent = t.text;
-              b.addEventListener("click", () => focusFinding(t.where, { ...(ctx || { view: "build" }), text: t.text }));
+              b.addEventListener("click", t.run ? t.run : () => focusFinding(t.where, { ...(ctx || { view: "build" }), text: t.text }));
               li.append(b);
             }
             ul.append(li, document.createTextNode(" "));
@@ -9150,9 +9187,10 @@
         $("teamHintsEditor").value = teamHints.join("\n");
         touch();
         renderPreview();
+        // Hints apply as you type (the input handler below); this button tidies the list in place.
         message(
           (teamHints.length
-            ? "Team security hints applied (" + teamHints.length + ")."
+            ? "Team security hints tidied (" + teamHints.length + ")."
             : "Team security hints cleared.") +
             (bh.trimmed
               ? " Some hints were shortened or dropped (max " + CONFIG.MAX_TEAM_HINTS + " lines, " + CONFIG.MAX_TEAM_HINT_CHARS + " characters each, no control characters)."

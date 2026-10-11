@@ -17,9 +17,10 @@ $("applyTeamHints").onclick = () => {
   $("teamHintsEditor").value = teamHints.join("\n");
   touch();
   renderPreview();
+  // Hints apply as you type (the input handler below); this button tidies the list in place.
   message(
     (teamHints.length
-      ? "Team security hints applied (" + teamHints.length + ")."
+      ? "Team security hints tidied (" + teamHints.length + ")."
       : "Team security hints cleared.") +
       (bh.trimmed
         ? " Some hints were shortened or dropped (max " + CONFIG.MAX_TEAM_HINTS + " lines, " + CONFIG.MAX_TEAM_HINT_CHARS + " characters each, no control characters)."

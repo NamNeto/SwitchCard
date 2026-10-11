@@ -962,9 +962,11 @@ def test_cards_empty_list_still_shows_gates(page):
     assert ev(page, "() => $('cdEmpty').hidden") is False
 
 
-# $('checks').textContent for example 0, captured from the v0.7.3-style build before Task 13.
+# $('checks').textContent for example 0. Round 10: the heading carries the export verdict (the
+# gates, example recipe and no baseline, are named under the Export button), so the card shows one
+# status.
 EXAMPLE0_CHECKS_TEXT = (
-    "Checks passed · 1 note to review No enable secret / username patterns found. Optional; "
+    "Checks passed · 1 note to review · export blocked No enable secret / username patterns found. Optional; "
     "confirm local credentials exist in your tested recipe.  Cisco syntax and device behavior are not verified."
 )
 
