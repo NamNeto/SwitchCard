@@ -9,7 +9,7 @@
   --text: #f3f0ea;
   --muted: #9e998f;
   --faint: #958f86; /* 5.6:1 on a card, 4.7:1 on a selected row: headers, footers, note counts */
-  --chip: #b9b3a8; /* rail chips: 8.6:1 on the rail, 8.1:1 on the active item */
+  --inherit: #a39d93; /* inherited (placeholder) grid values, italic: 7:1 on the table background */
   --accent: #2dd4a8;
   --accent2: #1fb88a;
   --accent-text: #2dd4a8; /* accent used as text (code, step badges): AA on every surface */
@@ -73,7 +73,7 @@
   --text: #1c1b18;
   --muted: #56524a; /* 7.8:1 on white, 6.5:1 on the table background */
   --faint: #666157; /* 6.2:1 on white, 5.1:1 on the table background */
-  --chip: #4a463f; /* rail chips: 8.3:1 on the rail, 9.1:1 on the active item */
+  --inherit: #45413a; /* inherited (placeholder) grid values, italic: 8.6:1 on the table background */
   --accent: #179c74;
   --accent2: #12805f;
   --accent-text: #0f6e52;
@@ -123,7 +123,7 @@
     --text: #1c1b18;
     --muted: #56524a; /* 7.8:1 on white, 6.5:1 on the table background */
     --faint: #666157; /* 6.2:1 on white, 5.1:1 on the table background */
-    --chip: #4a463f; /* rail chips: 8.3:1 on the rail, 9.1:1 on the active item */
+    --inherit: #45413a; /* inherited (placeholder) grid values, italic: 8.6:1 on the table background */
     --accent: #179c74;
     --accent2: #12805f;
     --accent-text: #0f6e52;
@@ -362,11 +362,12 @@ code {
   color: var(--text);
   background: var(--tab-hover);
 }
+/* The chip is quieter than its label (smaller, lighter, muted) so the tab name is what is read. */
 .rail .chip {
   font-size: 12.5px;
-  font-weight: 500;
+  font-weight: 400;
   line-height: 1.3;
-  color: var(--chip);
+  color: var(--muted);
 }
 /* The error count is red text of its own; the number of switches keeps the chip colour. */
 .rail .chip .chip-err {
@@ -395,8 +396,10 @@ code {
     top: calc(var(--header-h) + 12px);
     max-height: calc(100vh - var(--header-h) - 24px);
     overflow: auto;
-    /* A column: when the pane would be taller than the window, the preview gives up height
-       first (down to 8 lines), so the checks, the buttons and the gate stay in view. */
+    /* A column: the preview takes whatever height the checks and the footer leave (sized to
+       whole lines by sizeBuildPane), so the pane fills the window and the box shows as much of
+       the card as fits. When even 2 lines do not fit, the pane scrolls and the footer (export
+       buttons, gate, extract note) stays pinned at its bottom. */
     display: flex;
     flex-direction: column;
   }
@@ -405,12 +408,22 @@ code {
   }
   #build .card.pane > #preview {
     flex: 0 1 auto;
-    min-height: 118px; /* 5 lines */
+    max-height: none;
+    min-height: 58px; /* 2 lines */
+  }
+  #build .card.pane > .pane-foot {
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin: 0 calc(var(--space) * -2.5) calc(var(--space) * -2.25);
+    padding: 0 calc(var(--space) * 2.5) calc(var(--space) * 2.25);
+    background: var(--card);
   }
 }
 
 /* --- Components: cards, steps, badges, actions --- */
 .card {
+  scroll-margin-top: calc(var(--header-h) + 12px);
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--radius);
@@ -616,15 +629,14 @@ button.primary:active:not(:disabled) {
 button.primary:focus-visible {
   box-shadow: 0 0 0 3px var(--accent-dim);
 }
-/* Disabled buttons: flat, a solid muted border and faint text, the same whether the button is
-   primary or not, so none of them reads as live (a dashed border means "inherited", only in
-   the grids). */
+/* One disabled style everywhere (primary, plain, red, in tables and dialogs): flat, dashed and
+   faint, so a dead button is unmistakable and no disabled control ever reads as live. */
 button:disabled,
 button:disabled:hover,
 button.primary:disabled,
 button.primary:disabled:hover {
   background: transparent;
-  border: 1px solid var(--line2);
+  border: 1px dashed var(--line2);
   color: var(--faint);
   font-weight: 600;
   opacity: 1;
@@ -632,19 +644,6 @@ button.primary:disabled:hover {
   filter: none;
   transform: none;
   box-shadow: none;
-}
-/* The blocked export buttons carry a small drawn padlock before their label (on Cards all
-   three, so none of them looks allowed while a gate blocks). */
-#downloadCard:disabled::before,
-.cd-toolbar button.locked:disabled::before {
-  content: "";
-  flex: none;
-  width: 9px;
-  height: 11px;
-  border: 1.5px solid currentColor;
-  border-radius: 5px 5px 2px 2px;
-  background: linear-gradient(transparent 4px, currentColor 4px);
-  opacity: 0.85;
 }
 .row {
   display: flex;
@@ -746,6 +745,10 @@ button.primary:disabled:hover {
 }
 #exportWhy {
   margin-top: 10px;
+}
+/* The last line of the pane: no margin under it (the pane's own padding ends the card). */
+#exportNote {
+  margin-bottom: 0;
 }
 /* Keyboard users jump past the header and rail; the link shows only while focused. */
 .skip-link {
@@ -856,6 +859,48 @@ pre::after {
   height: 20px;
   background: linear-gradient(transparent, var(--pre-bg) 92%);
 }
+/* Build's preview: one block per line with its number in a gutter (drawn, not part of the
+   text), and a scroll cue under the box instead of a fade over the last line. */
+#preview {
+  counter-reset: line;
+  padding-left: calc(var(--space) * 2 + 3ch);
+}
+#preview::before,
+#preview::after {
+  margin-left: calc(var(--space) * -2 - 3ch);
+}
+#preview::after {
+  height: 8px;
+  background: linear-gradient(transparent, var(--pre-bg));
+}
+#preview .pl {
+  display: block;
+  position: relative;
+}
+#preview .pl::before {
+  counter-increment: line;
+  content: counter(line);
+  position: absolute;
+  left: -3ch;
+  width: 2ch;
+  text-align: right;
+  color: var(--faint);
+  font-size: 11px;
+  user-select: none;
+}
+.preview-meter {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+#previewCue {
+  color: var(--faint);
+  font-size: 12.5px;
+}
+#previewCue:empty {
+  display: none;
+}
 
 /* --- Ports table --- */
 table {
@@ -925,6 +970,7 @@ td select {
 /* --- Details / disclosures --- */
 details {
   margin-top: 10px;
+  scroll-margin-top: calc(var(--header-h) + 12px);
 }
 summary {
   cursor: pointer;
@@ -1434,6 +1480,13 @@ td.muted-cell {
     gap: 8px;
     padding: 8px 12px;
   }
+  /* Side by side with its count, the tab name is the heavier of the two. */
+  .rail .rail-name {
+    font-weight: 600;
+  }
+  .rail .chip {
+    font-size: 12px;
+  }
   .grid {
     /* minmax(0, ...) lets the column shrink below the ports table's min-width, so the
        table scrolls inside its own box instead of widening the whole page. */
@@ -1592,12 +1645,16 @@ button.primary.danger:focus-visible {
   padding: 0.05em 0.35em;
   white-space: nowrap;
 }
-/* The boot restore question: its two facts read in full text colour. */
+/* The boot restore question: its two facts read in full text colour, each value right after
+   its label. */
 .dlg-kv-plain th,
 .dlg-kv-plain td {
   color: var(--text);
 }
 .dlg-kv-plain th {
+  width: 1%; /* as wide as its text */
+  white-space: nowrap;
+  padding-right: 18px;
   font-weight: 600;
 }
 .dlg-choices li {
@@ -1699,7 +1756,7 @@ button.primary.danger:focus-visible {
 .sw-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 12px;
+  gap: 10px;
   align-items: center;
   margin-top: 12px;
 }
@@ -1724,6 +1781,19 @@ button.primary.danger:focus-visible {
 .tool-end {
   margin-left: auto;
 }
+/* The destructive action is its own trailing group behind a divider (at every width), and it
+   is quiet (plain border, red text) until hovered. */
+.tool-group.tool-end {
+  padding-left: 10px;
+  border-left: 1px solid var(--line);
+}
+.tool-end > button.danger:not(:disabled) {
+  border-color: var(--line2);
+}
+.tool-end > button.danger:not(:disabled):hover {
+  border-color: var(--err);
+  background: var(--err-bg);
+}
 .sw-add,
 .sw-template {
   display: inline-flex;
@@ -1735,10 +1805,12 @@ button.primary.danger:focus-visible {
 }
 .sw-template select {
   width: auto;
+  padding-left: 10px;
+  padding-right: 8px;
 }
 .sw-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 292px;
+  grid-template-columns: minmax(0, 1fr) 308px;
   gap: 12px;
   align-items: start;
   margin-top: calc(var(--space) * 2);
@@ -1813,7 +1885,7 @@ button.primary.danger:focus-visible {
 }
 #swTable td,
 #swTable th {
-  padding: 5px 3px;
+  padding: 5px 2px;
 }
 #swTable th {
   white-space: nowrap;
@@ -1874,12 +1946,12 @@ button.primary.danger:focus-visible {
   border-style: dashed;
 }
 #swTable input.inherit::placeholder {
-  color: var(--muted);
+  color: var(--inherit);
   font-style: italic;
   font-weight: 400;
 }
 #swTable tr.defaults td {
-  color: var(--muted);
+  color: var(--inherit);
   background: var(--thead-bg);
   font-size: 12px;
   font-style: italic;
@@ -2068,36 +2140,25 @@ button.primary.danger:focus-visible {
 #preview {
   max-height: 338px; /* 16 lines */
 }
-/* IOS lines in the side panel wrap at spaces only (never inside an address, a date or a VLAN
-   list) and a continued line hangs 3 characters in, behind a faint bar, so it never reads as a
-   second command. A single token wider than the panel scrolls sideways instead. */
+/* IOS lines in the side panel never wrap (a wrapped command could read as two): every line is
+   whole, and the box scrolls sideways for the few comment lines wider than the panel. 12 px
+   gives 40 characters across, so "ip address a.b.c.d m.m.m.m" fits. */
 #swPreview {
   max-height: 378px; /* 20 lines of 18 px */
-  font-size: 11.5px; /* 39 characters across: an "ip address a.b.c.d m.m.m.m" line stays whole */
+  font-size: 12px;
   line-height: 18px;
+  white-space: pre;
   overflow-wrap: normal;
-  padding: 0 8px;
+  padding: 0 10px;
 }
 #swPreview::before,
 #swPreview::after {
-  margin: 0 -8px;
+  margin: 0 -10px;
 }
-#swPreview .pl {
-  display: block;
-  position: relative;
-  padding-left: 3ch;
-  text-indent: -3ch;
-}
-#swPreview .tok {
-  white-space: nowrap;
-}
-#swPreview .pl::before {
-  content: "";
-  position: absolute;
-  left: 0.6ch;
-  top: 19px;
-  bottom: 3px;
-  border-left: 2px solid var(--faint); /* 5.6:1 dark, 6.2:1 light on the preview background */
+/* A wide line fades out at the right edge: there is more, and the box scrolls that way. */
+#swPreview.wide {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), rgba(0, 0, 0, 0.2));
+  mask-image: linear-gradient(to right, #000 calc(100% - 36px), rgba(0, 0, 0, 0.2));
 }
 #swPanelEmpty {
   margin: 0;
@@ -2396,7 +2457,9 @@ pre::-webkit-scrollbar-thumb:hover,
   font-weight: 600;
 }
 .gate-list li button.finding-link::after {
-  margin-left: 3px;
+  margin-left: 4px;
+  padding: 0 4.5px 1px;
+  font-size: 12px;
 }
 .gate-fix {
   margin-left: auto;
@@ -2681,31 +2744,21 @@ button.finding-link {
   white-space: normal;
   cursor: pointer;
 }
-/* A dotted underline says "this goes somewhere" without reading as a hyperlink; hovering the row
-   makes it solid, tints the row and nudges the chevron. */
-button.finding-link {
-  text-decoration: underline dotted;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 3px;
-  text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
-}
-/* The chevron is drawn at the end of the item's last line (never alone on a line of its own). */
-button.finding-link {
-  position: relative;
-  padding-right: 13px;
-}
+/* "This goes somewhere": a small round chevron badge right after the text (on its line, in its
+   colour); hovering the row underlines the text, tints the row and fills the badge. */
 button.finding-link::after {
-  content: "\203A";
-  position: absolute;
-  right: 0;
-  bottom: 0;
+  content: "\2060\203A"; /* a word joiner first: the badge never wraps away from its last word */
+  display: inline;
+  margin-left: 5px;
+  padding: 0 5.5px 1px;
+  border-radius: 999px;
+  background: color-mix(in srgb, currentColor 16%, transparent);
   color: inherit;
-  font-size: 1.15em;
-  line-height: 1.25;
+  font-size: 13px;
+  line-height: 1;
   font-weight: 700;
-  opacity: 0.85;
   text-decoration: none;
-  transition: transform var(--ease), opacity var(--ease);
+  transition: background var(--ease);
 }
 .notice li:has(> button.finding-link),
 .sw-checks li:has(> button.finding-link) {
@@ -2727,9 +2780,9 @@ li:hover > button.finding-link {
   text-underline-offset: 3px;
   text-decoration-color: currentColor;
 }
-button.finding-link:hover::after {
-  opacity: 1;
-  transform: translateX(2px);
+button.finding-link:hover::after,
+li:hover > button.finding-link::after {
+  background: color-mix(in srgb, currentColor 30%, transparent);
 }
 button.finding-link:active:not(:disabled) {
   transform: none;

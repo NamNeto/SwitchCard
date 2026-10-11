@@ -94,7 +94,7 @@ def test_focus_after_fixing_a_check_in_the_ports_dialog(page):
     page.keyboard.press("Control+A")
     page.keyboard.type("Pompe a eau 3")
     page.keyboard.press("Tab")
-    click_dialog(page, "Close")
+    click_dialog(page, "Done")  # gauntlet r6: the Ports dialog closes with Done (Cancel reverts)
     page.wait_for_function("() => !document.querySelector('dialog[open]')")
     assert ev(page, "() => current().switches[1].ports") != {}
     act = _active(page)

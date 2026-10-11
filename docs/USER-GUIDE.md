@@ -121,7 +121,7 @@ Every error and review note in the red and yellow boxes is a button. Click it to
 
 ## Dialogs
 
-Every question SwitchCard asks is a dialog in the page, never a browser pop-up: restoring an autosave from another version (**Restore it** / **Start with the examples**), dropping unmatched port assignments (**Drop and continue**, or **Drop and apply** in the recipe editor), opening a file over unsaved work (**Open and replace**), **Save without the draft**, replacing the port CSV text, and the delete and clear actions, which use red buttons. Esc or **Cancel** always means no change. The one exception is a switch's **Ports** dialog: each edit there applies as you type (the dialog says so beside **Close**), Esc and **Close** just close it, and **Use table** undoes that port's settings. The browser's own "leave this page?" prompt on unsaved work still appears, because a page cannot replace it.
+Every question SwitchCard asks is a dialog in the page, never a browser pop-up: restoring an autosave from another version (**Restore it** / **Start with the examples**), dropping unmatched port assignments (**Drop and continue**, or **Drop and apply** in the recipe editor), opening a file over unsaved work (**Open and replace**), **Save without the draft**, replacing the port CSV text, and the delete and clear actions, which use red buttons. Esc or **Cancel** always means no change. A switch's **Ports** dialog applies each edit as you type (the grid and the preview follow); **Done** keeps them, Esc or **Cancel** puts that switch's port settings back as they were when the dialog opened, and **Use table** undoes one port's settings. The browser's own "leave this page?" prompt on unsaved work still appears, because a page cannot replace it.
 
 ## Theme
 

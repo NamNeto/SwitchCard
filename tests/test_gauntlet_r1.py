@@ -161,7 +161,7 @@ def test_ports_dialog_use_table_keeps_focus_in_the_dialog(page):
     page.keyboard.press("Enter")
     assert ev(page, "() => !!document.activeElement.closest('dialog[open]')") is True
     assert ev(page, "() => [document.activeElement.dataset.port, document.activeElement.dataset.attr]") == ["GigabitEthernet1/3", "role"]
-    click_dialog(page, "Close")
+    click_dialog(page, "Done")  # gauntlet r6: the Ports dialog closes with Done (Cancel reverts)
 
 
 def test_danger_buttons_show_a_focus_ring_in_both_themes(page):

@@ -41,7 +41,7 @@
         --text: #f3f0ea;
         --muted: #9e998f;
         --faint: #958f86; /* 5.6:1 on a card, 4.7:1 on a selected row: headers, footers, note counts */
-        --chip: #b9b3a8; /* rail chips: 8.6:1 on the rail, 8.1:1 on the active item */
+        --inherit: #a39d93; /* inherited (placeholder) grid values, italic: 7:1 on the table background */
         --accent: #2dd4a8;
         --accent2: #1fb88a;
         --accent-text: #2dd4a8; /* accent used as text (code, step badges): AA on every surface */
@@ -105,7 +105,7 @@
         --text: #1c1b18;
         --muted: #56524a; /* 7.8:1 on white, 6.5:1 on the table background */
         --faint: #666157; /* 6.2:1 on white, 5.1:1 on the table background */
-        --chip: #4a463f; /* rail chips: 8.3:1 on the rail, 9.1:1 on the active item */
+        --inherit: #45413a; /* inherited (placeholder) grid values, italic: 8.6:1 on the table background */
         --accent: #179c74;
         --accent2: #12805f;
         --accent-text: #0f6e52;
@@ -155,7 +155,7 @@
           --text: #1c1b18;
           --muted: #56524a; /* 7.8:1 on white, 6.5:1 on the table background */
           --faint: #666157; /* 6.2:1 on white, 5.1:1 on the table background */
-          --chip: #4a463f; /* rail chips: 8.3:1 on the rail, 9.1:1 on the active item */
+          --inherit: #45413a; /* inherited (placeholder) grid values, italic: 8.6:1 on the table background */
           --accent: #179c74;
           --accent2: #12805f;
           --accent-text: #0f6e52;
@@ -394,11 +394,12 @@
         color: var(--text);
         background: var(--tab-hover);
       }
+      /* The chip is quieter than its label (smaller, lighter, muted) so the tab name is what is read. */
       .rail .chip {
         font-size: 12.5px;
-        font-weight: 500;
+        font-weight: 400;
         line-height: 1.3;
-        color: var(--chip);
+        color: var(--muted);
       }
       /* The error count is red text of its own; the number of switches keeps the chip colour. */
       .rail .chip .chip-err {
@@ -427,8 +428,10 @@
           top: calc(var(--header-h) + 12px);
           max-height: calc(100vh - var(--header-h) - 24px);
           overflow: auto;
-          /* A column: when the pane would be taller than the window, the preview gives up height
-             first (down to 8 lines), so the checks, the buttons and the gate stay in view. */
+          /* A column: the preview takes whatever height the checks and the footer leave (sized to
+             whole lines by sizeBuildPane), so the pane fills the window and the box shows as much of
+             the card as fits. When even 2 lines do not fit, the pane scrolls and the footer (export
+             buttons, gate, extract note) stays pinned at its bottom. */
           display: flex;
           flex-direction: column;
         }
@@ -437,12 +440,22 @@
         }
         #build .card.pane > #preview {
           flex: 0 1 auto;
-          min-height: 118px; /* 5 lines */
+          max-height: none;
+          min-height: 58px; /* 2 lines */
+        }
+        #build .card.pane > .pane-foot {
+          position: sticky;
+          bottom: 0;
+          z-index: 2;
+          margin: 0 calc(var(--space) * -2.5) calc(var(--space) * -2.25);
+          padding: 0 calc(var(--space) * 2.5) calc(var(--space) * 2.25);
+          background: var(--card);
         }
       }
 
       /* --- Components: cards, steps, badges, actions --- */
       .card {
+        scroll-margin-top: calc(var(--header-h) + 12px);
         background: var(--card);
         border: 1px solid var(--line);
         border-radius: var(--radius);
@@ -648,15 +661,14 @@
       button.primary:focus-visible {
         box-shadow: 0 0 0 3px var(--accent-dim);
       }
-      /* Disabled buttons: flat, a solid muted border and faint text, the same whether the button is
-         primary or not, so none of them reads as live (a dashed border means "inherited", only in
-         the grids). */
+      /* One disabled style everywhere (primary, plain, red, in tables and dialogs): flat, dashed and
+         faint, so a dead button is unmistakable and no disabled control ever reads as live. */
       button:disabled,
       button:disabled:hover,
       button.primary:disabled,
       button.primary:disabled:hover {
         background: transparent;
-        border: 1px solid var(--line2);
+        border: 1px dashed var(--line2);
         color: var(--faint);
         font-weight: 600;
         opacity: 1;
@@ -664,19 +676,6 @@
         filter: none;
         transform: none;
         box-shadow: none;
-      }
-      /* The blocked export buttons carry a small drawn padlock before their label (on Cards all
-         three, so none of them looks allowed while a gate blocks). */
-      #downloadCard:disabled::before,
-      .cd-toolbar button.locked:disabled::before {
-        content: "";
-        flex: none;
-        width: 9px;
-        height: 11px;
-        border: 1.5px solid currentColor;
-        border-radius: 5px 5px 2px 2px;
-        background: linear-gradient(transparent 4px, currentColor 4px);
-        opacity: 0.85;
       }
       .row {
         display: flex;
@@ -778,6 +777,10 @@
       }
       #exportWhy {
         margin-top: 10px;
+      }
+      /* The last line of the pane: no margin under it (the pane's own padding ends the card). */
+      #exportNote {
+        margin-bottom: 0;
       }
       /* Keyboard users jump past the header and rail; the link shows only while focused. */
       .skip-link {
@@ -888,6 +891,48 @@
         height: 20px;
         background: linear-gradient(transparent, var(--pre-bg) 92%);
       }
+      /* Build's preview: one block per line with its number in a gutter (drawn, not part of the
+         text), and a scroll cue under the box instead of a fade over the last line. */
+      #preview {
+        counter-reset: line;
+        padding-left: calc(var(--space) * 2 + 3ch);
+      }
+      #preview::before,
+      #preview::after {
+        margin-left: calc(var(--space) * -2 - 3ch);
+      }
+      #preview::after {
+        height: 8px;
+        background: linear-gradient(transparent, var(--pre-bg));
+      }
+      #preview .pl {
+        display: block;
+        position: relative;
+      }
+      #preview .pl::before {
+        counter-increment: line;
+        content: counter(line);
+        position: absolute;
+        left: -3ch;
+        width: 2ch;
+        text-align: right;
+        color: var(--faint);
+        font-size: 11px;
+        user-select: none;
+      }
+      .preview-meter {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+      #previewCue {
+        color: var(--faint);
+        font-size: 12.5px;
+      }
+      #previewCue:empty {
+        display: none;
+      }
 
       /* --- Ports table --- */
       table {
@@ -957,6 +1002,7 @@
       /* --- Details / disclosures --- */
       details {
         margin-top: 10px;
+        scroll-margin-top: calc(var(--header-h) + 12px);
       }
       summary {
         cursor: pointer;
@@ -1466,6 +1512,13 @@
           gap: 8px;
           padding: 8px 12px;
         }
+        /* Side by side with its count, the tab name is the heavier of the two. */
+        .rail .rail-name {
+          font-weight: 600;
+        }
+        .rail .chip {
+          font-size: 12px;
+        }
         .grid {
           /* minmax(0, ...) lets the column shrink below the ports table's min-width, so the
              table scrolls inside its own box instead of widening the whole page. */
@@ -1624,12 +1677,16 @@
         padding: 0.05em 0.35em;
         white-space: nowrap;
       }
-      /* The boot restore question: its two facts read in full text colour. */
+      /* The boot restore question: its two facts read in full text colour, each value right after
+         its label. */
       .dlg-kv-plain th,
       .dlg-kv-plain td {
         color: var(--text);
       }
       .dlg-kv-plain th {
+        width: 1%; /* as wide as its text */
+        white-space: nowrap;
+        padding-right: 18px;
         font-weight: 600;
       }
       .dlg-choices li {
@@ -1731,7 +1788,7 @@
       .sw-toolbar {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px 12px;
+        gap: 10px;
         align-items: center;
         margin-top: 12px;
       }
@@ -1756,6 +1813,19 @@
       .tool-end {
         margin-left: auto;
       }
+      /* The destructive action is its own trailing group behind a divider (at every width), and it
+         is quiet (plain border, red text) until hovered. */
+      .tool-group.tool-end {
+        padding-left: 10px;
+        border-left: 1px solid var(--line);
+      }
+      .tool-end > button.danger:not(:disabled) {
+        border-color: var(--line2);
+      }
+      .tool-end > button.danger:not(:disabled):hover {
+        border-color: var(--err);
+        background: var(--err-bg);
+      }
       .sw-add,
       .sw-template {
         display: inline-flex;
@@ -1767,10 +1837,12 @@
       }
       .sw-template select {
         width: auto;
+        padding-left: 10px;
+        padding-right: 8px;
       }
       .sw-layout {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) 292px;
+        grid-template-columns: minmax(0, 1fr) 308px;
         gap: 12px;
         align-items: start;
         margin-top: calc(var(--space) * 2);
@@ -1845,7 +1917,7 @@
       }
       #swTable td,
       #swTable th {
-        padding: 5px 3px;
+        padding: 5px 2px;
       }
       #swTable th {
         white-space: nowrap;
@@ -1906,12 +1978,12 @@
         border-style: dashed;
       }
       #swTable input.inherit::placeholder {
-        color: var(--muted);
+        color: var(--inherit);
         font-style: italic;
         font-weight: 400;
       }
       #swTable tr.defaults td {
-        color: var(--muted);
+        color: var(--inherit);
         background: var(--thead-bg);
         font-size: 12px;
         font-style: italic;
@@ -2100,36 +2172,25 @@
       #preview {
         max-height: 338px; /* 16 lines */
       }
-      /* IOS lines in the side panel wrap at spaces only (never inside an address, a date or a VLAN
-         list) and a continued line hangs 3 characters in, behind a faint bar, so it never reads as a
-         second command. A single token wider than the panel scrolls sideways instead. */
+      /* IOS lines in the side panel never wrap (a wrapped command could read as two): every line is
+         whole, and the box scrolls sideways for the few comment lines wider than the panel. 12 px
+         gives 40 characters across, so "ip address a.b.c.d m.m.m.m" fits. */
       #swPreview {
         max-height: 378px; /* 20 lines of 18 px */
-        font-size: 11.5px; /* 39 characters across: an "ip address a.b.c.d m.m.m.m" line stays whole */
+        font-size: 12px;
         line-height: 18px;
+        white-space: pre;
         overflow-wrap: normal;
-        padding: 0 8px;
+        padding: 0 10px;
       }
       #swPreview::before,
       #swPreview::after {
-        margin: 0 -8px;
+        margin: 0 -10px;
       }
-      #swPreview .pl {
-        display: block;
-        position: relative;
-        padding-left: 3ch;
-        text-indent: -3ch;
-      }
-      #swPreview .tok {
-        white-space: nowrap;
-      }
-      #swPreview .pl::before {
-        content: "";
-        position: absolute;
-        left: 0.6ch;
-        top: 19px;
-        bottom: 3px;
-        border-left: 2px solid var(--faint); /* 5.6:1 dark, 6.2:1 light on the preview background */
+      /* A wide line fades out at the right edge: there is more, and the box scrolls that way. */
+      #swPreview.wide {
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 36px), rgba(0, 0, 0, 0.2));
+        mask-image: linear-gradient(to right, #000 calc(100% - 36px), rgba(0, 0, 0, 0.2));
       }
       #swPanelEmpty {
         margin: 0;
@@ -2428,7 +2489,9 @@
         font-weight: 600;
       }
       .gate-list li button.finding-link::after {
-        margin-left: 3px;
+        margin-left: 4px;
+        padding: 0 4.5px 1px;
+        font-size: 12px;
       }
       .gate-fix {
         margin-left: auto;
@@ -2713,31 +2776,21 @@
         white-space: normal;
         cursor: pointer;
       }
-      /* A dotted underline says "this goes somewhere" without reading as a hyperlink; hovering the row
-         makes it solid, tints the row and nudges the chevron. */
-      button.finding-link {
-        text-decoration: underline dotted;
-        text-decoration-thickness: 1px;
-        text-underline-offset: 3px;
-        text-decoration-color: color-mix(in srgb, currentColor 55%, transparent);
-      }
-      /* The chevron is drawn at the end of the item's last line (never alone on a line of its own). */
-      button.finding-link {
-        position: relative;
-        padding-right: 13px;
-      }
+      /* "This goes somewhere": a small round chevron badge right after the text (on its line, in its
+         colour); hovering the row underlines the text, tints the row and fills the badge. */
       button.finding-link::after {
-        content: "\203A";
-        position: absolute;
-        right: 0;
-        bottom: 0;
+        content: "\2060\203A"; /* a word joiner first: the badge never wraps away from its last word */
+        display: inline;
+        margin-left: 5px;
+        padding: 0 5.5px 1px;
+        border-radius: 999px;
+        background: color-mix(in srgb, currentColor 16%, transparent);
         color: inherit;
-        font-size: 1.15em;
-        line-height: 1.25;
+        font-size: 13px;
+        line-height: 1;
         font-weight: 700;
-        opacity: 0.85;
         text-decoration: none;
-        transition: transform var(--ease), opacity var(--ease);
+        transition: background var(--ease);
       }
       .notice li:has(> button.finding-link),
       .sw-checks li:has(> button.finding-link) {
@@ -2759,9 +2812,9 @@
         text-underline-offset: 3px;
         text-decoration-color: currentColor;
       }
-      button.finding-link:hover::after {
-        opacity: 1;
-        transform: translateX(2px);
+      button.finding-link:hover::after,
+      li:hover > button.finding-link::after {
+        background: color-mix(in srgb, currentColor 30%, transparent);
       }
       button.finding-link:active:not(:disabled) {
         transform: none;
@@ -3036,13 +3089,10 @@
               </div>
               <div id="checks"></div>
               <pre id="preview" tabindex="0"></pre>
-              <p id="previewMeter" class="muted" style="margin-top: 6px"></p>
-              <div class="actions even">
-                <button id="downloadConfig">Save text only</button
-                ><button id="copyPreview" type="button">Copy preview</button
-                ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
-              </div>
-              <div id="exportWhy" class="gate" role="status"></div>
+              <!-- Lines and bytes of the text; on the right, which lines the box shows when it scrolls. -->
+              <p class="muted preview-meter" style="margin-top: 6px">
+                <span id="previewMeter"></span><span id="previewCue" aria-live="off"></span>
+              </p>
               <div id="asciiFix" class="notice warning" hidden>
                 <strong class="notice-head">Non-ASCII characters block export.</strong>
                 <button type="button" id="fixAscii">Transliterate to ASCII</button>
@@ -3056,14 +3106,22 @@
                 <summary id="diffSummary">Changes since the last export</summary>
                 <pre id="diffOut" class="diff"></pre>
               </details>
-              <!-- Shown once export is possible (while blocked, the gate says what to do instead). -->
-              <p id="exportNote">
-                <small
-                  >Extract ZIP contents to the SD card <strong>root</strong> (so
-                  <code>editcontent.txt</code> sits beside baseline files). Source folder is never
-                  modified.</small
-                >
-              </p>
+              <!-- The footer stays in view at the bottom of the pane: buttons, gate, extract note. -->
+              <div class="pane-foot">
+                <div class="actions even">
+                  <button id="downloadConfig">Save text only</button
+                  ><button id="copyPreview" type="button">Copy preview</button
+                  ><button id="downloadCard" class="primary">Export SD-card ZIP</button>
+                </div>
+                <div id="exportWhy" class="gate" role="status"></div>
+                <p id="exportNote">
+                  <small
+                    >Extract ZIP contents to the SD card <strong>root</strong> (so
+                    <code>editcontent.txt</code> sits beside baseline files). Source folder is never
+                    modified.</small
+                  >
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -3253,22 +3311,30 @@
             </div>
             <div class="field">
               <!-- Management interface: {{MGMT_INTERFACE}} = Vlan<MGMT_VLAN> (SVI) or Loopback<MGMT_LOOPBACK>. -->
-              <label for="mgmtInterface">Management interface ({{MGMT_INTERFACE}})</label
+              <label for="mgmtInterface">Management interface <code class="dlg-ph">MGMT_INTERFACE</code></label
               ><select id="mgmtInterface">
                 <option value="svi">SVI — interface Vlan{{MGMT_VLAN}}</option>
                 <option value="loopback">Loopback — interface Loopback{{MGMT_LOOPBACK}}</option>
               </select>
               <small class="template-help"
                 >SVI: Build asks for the management VLAN. Loopback: Build asks for the loopback
-                number. Write <code>interface {{MGMT_INTERFACE}}</code> in the template and use the same
-                placeholder wherever a source interface is needed. A loopback design also needs
-                <code>ip routing</code>, a Routed uplink or SVI towards the gateway, and
-                <code>ip route 0.0.0.0 0.0.0.0 {{GATEWAY}}</code> instead of
-                <code>ip default-gateway</code>.</small
+                number. Either way, write <code>interface {{MGMT_INTERFACE}}</code> in the template.</small
               >
+              <details class="sku-notes">
+                <summary>How Loopback mode works</summary>
+                <p>
+                  <small
+                    >Use <code>{{MGMT_INTERFACE}}</code> wherever a source interface is needed, so
+                    the NTP, RADIUS, logging and SSH sources follow the choice above. A loopback
+                    design also needs <code>ip routing</code>, a Routed uplink or an SVI towards the
+                    gateway, and <code>ip route 0.0.0.0 0.0.0.0 {{GATEWAY}}</code> instead of
+                    <code>ip default-gateway</code>.</small
+                  >
+                </p>
+              </details>
             </div>
             <details>
-              <summary>Edit management source commands ({{MGMT_SOURCES}})</summary>
+              <summary>Edit management source commands <code class="dlg-ph">MGMT_SOURCES</code></summary>
               <p>
                 <small
                   >One command per line. <code>{{MGMT_INTERFACE}}</code> follows the choice above, so
@@ -3411,13 +3477,15 @@
               <button type="button" id="swExport">Export</button>
               <span class="sw-template"
                 ><select id="swTemplateMode" aria-label="Columns in the CSV template" title="Columns in the CSV template">
-                  <option value="description">Fields + port descriptions</option>
-                  <option value="all">Fields + all port settings</option>
-                  <option value="none">Switch fields only</option></select
+                  <option value="description">Template: fields + port descriptions</option>
+                  <option value="all">Template: fields + all port settings</option>
+                  <option value="none">Template: switch fields only</option></select
                 ><button type="button" id="swTemplate" title="Download an empty CSV with these columns; row 1 is the switch on Build a card">Download template</button></span
               >
             </div>
-            <button type="button" id="swRemoveAll" class="danger tool-end" title="Remove every switch from the list">Remove all</button>
+            <div class="tool-group tool-end">
+              <button type="button" id="swRemoveAll" class="danger" title="Remove every switch from the list">Remove all</button>
+            </div>
           </div>
           <p id="swNotes" class="muted" hidden></p>
         </div>
@@ -6209,10 +6277,17 @@
           return;
         }
         const items = reasons.map((t) => {
-          // The checks box above already lists each error as a link: the gate only counts them.
+          // The input-errors item names each error in a few characters ("MGMT_IP", "Gi1/4 VLAN"), each
+          // a link to the field or cell it is about.
           if (t === GATE_ERRORS && errors && errors.length) {
             const n = errors.length;
-            return el("li", { title: t }, n + (n === 1 ? " error" : " errors") + " in the checks above");
+            const li = el("li", { title: t }, n + (n === 1 ? " error: " : " errors: "));
+            errors.forEach((f, i) => {
+              if (i) li.append(", ");
+              li.append(el("button", { type: "button", className: "finding-link", title: f.text, onclick: () => focusFinding(f.where, { view: "build" }) },
+                findingShortName(f)));
+            });
+            return li;
           }
           return el("li", { title: t }, gateLabel(t));
         });
@@ -6222,6 +6297,14 @@
             box.append(el("button", { type: "button", id: fixId, className: "gate-fix", onclick: run }, label));
             break;
           }
+      }
+      // Text in a <pre> as one block per line (so CSS can number them): each block holds the line's
+      // text node and its newline, and the box's textContent is the text byte for byte.
+      function fillLines(pre, text) {
+        const lines = String(text).split("\n");
+        const last = lines.length - 1;
+        pre.replaceChildren(...lines.map((line, i) => el("span", { className: "pl" }, line, i < last ? "\n" : ""))
+          .filter((b, i) => i < last || lines[i] !== ""));
       }
       // A finding's place in a few characters: the field key, "Gi1/4 VLAN", "template", ...
       function findingShortName(f) {
@@ -6271,9 +6354,11 @@
         const r = current(),
           g = generate(r),
           b = blockers(r, g);
-        $("preview").textContent = g.text;
+        // One block per line (its number is drawn by CSS); the box's textContent stays the text itself.
+        fillLines($("preview"), g.text);
         const meter = $("previewMeter");
         if (meter) meter.textContent = previewSizeLabel(g.text);
+        if (typeof updatePreviewCue === "function") updatePreviewCue();
         // Status above the preview: at most one red box (errors) and one box for the result
         // (yellow with the notes to review, or green when there is nothing to review). Export
         // blockers are listed under the Export button (#exportWhy) and, once the checks pass, also in the
@@ -6346,9 +6431,6 @@
         $("downloadCard").title = $("downloadCard").disabled
           ? why.join(" ") || "Export blocked"
           : "Download ZIP for the SD card root";
-        // The "extract to the card root" note belongs with a possible export; while blocked, the gate
-        // above it says what to do instead.
-        if ($("exportNote")) $("exportNote").hidden = $("downloadCard").disabled;
         $("downloadConfig").title = $("downloadConfig").disabled
           ? editorPending
             ? "Apply recipe changes or Discard unapplied draft first."
@@ -8695,15 +8777,17 @@
       // The Build pane (the sticky preview card) never runs past the bottom of the window: its
       // height limit follows its position, so at the top of the page it ends above the fold and,
       // once pinned under the header, it may use the whole window. Below 981 px it is not sticky.
-      // When the pane is short, the preview gives up height first; its box then ends on a whole line
-      // (n lines of 20 px + the 18 px of border and top band), never half-way through one.
+      // The preview box takes all the height the rest of the pane leaves, snapped to whole lines
+      // (n lines of 20 px + the 18 px of border and top band, never half-way through one) and never
+      // taller than its text; at least 2 lines, below which the pane scrolls and its footer stays put.
       const buildPane = document.querySelector("#build .card.pane");
       function sizeBuildPane() {
         if (!buildPane) return;
         const preview = $("preview");
         if ($("build").hidden || window.innerWidth <= 980) {
           buildPane.style.maxHeight = "";
-          if (preview) preview.style.maxHeight = "";
+          if (preview) preview.style.height = "";
+          updatePreviewCue();
           return;
         }
         const header = document.querySelector("header");
@@ -8712,14 +8796,41 @@
         const limit = Math.max(280, window.innerHeight - top - 12);
         buildPane.style.maxHeight = limit + "px";
         if (!preview) return;
-        // Room for the preview = the pane's limit minus everything else in it; snapped down to whole
-        // lines (at least 5) when that is less than the preview's own 16-line maximum.
-        preview.style.maxHeight = "";
-        const own = preview.getBoundingClientRect().height;
-        const rest = buildPane.scrollHeight - own;
-        const room = limit - rest;
-        if (room < own - 0.5) preview.style.maxHeight = Math.max(5, Math.floor((room - 18) / 20)) * 20 + 18 + "px";
+        // The text's own height is its scroll height (the box may be squeezed by the pane right now);
+        // the rest of the pane is everything else in it (the pane's own padding included).
+        const total = Math.max(1, Math.round((preview.scrollHeight - 36) / 20));
+        const rest = buildPane.scrollHeight - preview.getBoundingClientRect().height;
+        const lines = Math.min(total, Math.max(2, Math.floor((limit - 2 - rest - 18) / 20)));
+        preview.style.height = lines * 20 + 18 + "px";
+        updatePreviewCue();
       }
+      // "Lines 1–20 of 76 · scroll for more" under the box while it scrolls; nothing when it all fits.
+      function updatePreviewCue() {
+        const pre = $("preview"), cue = $("previewCue");
+        if (!pre || !cue) return;
+        const blocks = pre.querySelectorAll(".pl");
+        const total = blocks.length;
+        if (!total || pre.scrollHeight <= pre.clientHeight + 1) {
+          cue.textContent = "";
+          return;
+        }
+        // The first and last line blocks that are at least half inside the box (a long line wraps,
+        // so this is measured, not counted).
+        const box = pre.getBoundingClientRect();
+        const top = box.top + 1 + 16, bottom = box.top + pre.clientHeight + 1;
+        let first = 0, last = 0;
+        blocks.forEach((b, i) => {
+          const r = b.getBoundingClientRect();
+          const mid = (r.top + r.bottom) / 2;
+          if (mid >= top && mid <= bottom) {
+            if (!first) first = i + 1;
+            last = i + 1;
+          }
+        });
+        if (!first) first = last = Math.min(total, Math.floor(pre.scrollTop / 20) + 1);
+        cue.textContent = "Showing lines " + first + "–" + last + " of " + total + (last < total ? " · scroll for more" : "");
+      }
+      if ($("preview")) $("preview").addEventListener("scroll", updatePreviewCue, { passive: true });
       window.addEventListener("scroll", sizeBuildPane, { passive: true });
       window.addEventListener("resize", sizeBuildPane);
       if (buildPane && typeof ResizeObserver === "function") {
@@ -9668,16 +9779,30 @@
       function switchStatus(x) {
         const notes = x.warnings.length;
         const n = x.errors.length + x.policy.length;
-        // A duplicate says so under the count ("1 error · duplicate"): its red cell alone would not say
-        // what is wrong with it. Read off the checks, which keep their own wording.
-        const dup = x.errors.some((e) => /^duplicate /.test(e));
+        // The kind of error sits under the count ("1 error · duplicate", "· policy", "· bad IP"): a red
+        // cell alone would not say what is wrong. Read off the checks, which keep their own wording.
+        const kind = n ? errorKind(x) : "";
         return {
           text: n
-            ? n + (n === 1 ? " error" : " errors") + (dup ? " · duplicate" : "")
+            ? n + (n === 1 ? " error" : " errors") + (kind ? " · " + kind : "")
             : "OK" + (notes ? " · " + notes + (notes === 1 ? " note" : " notes") : ""),
           title: [...x.errors, ...x.policy.map((p) => "Team policy: " + p), ...x.warnings].join("\n"),
           bad: n > 0,
         };
+      }
+      // A word for the first error of a row: "duplicate", "policy" (a team rule), "bad IP" and the like
+      // for a field, "Gi1/4 VLAN" for a port cell, "template" for the recipe. Derived from the checks'
+      // locations; the check texts themselves are unchanged.
+      const ERROR_KIND_FIELD = { MGMT_IP: "bad IP", GATEWAY: "bad gateway", MGMT_MASK: "bad mask", MGMT_VLAN: "bad VLAN", MGMT_LOOPBACK: "bad loopback", HOSTNAME: "bad hostname" };
+      function errorKind(x) {
+        if (x.errors.some((e) => /^duplicate /.test(e))) return "duplicate";
+        const f = (x.findings || []).find((y) => y.level === "error");
+        if (!f) return x.policy.length ? "policy" : "";
+        const w = f.where || {};
+        if (w.kind === "field" || w.kind === "row") return ERROR_KIND_FIELD[w.key] || ("bad " + String(w.key || "value").replaceAll("_", " ").toLowerCase());
+        if (w.kind === "port" || w.kind === "ports") return findingShortName(f);
+        if (w.kind === "file") return "config text";
+        return w.kind ? findingShortName(f) : "";
       }
       // Re-checks the list (cached per row) and updates values, placeholders, inherit marks, port
       // counts, statuses and the side panel in the existing table.
@@ -9797,25 +9922,16 @@
                 el("button", { type: "button", title: "Copy this switch below itself", onclick: () => copySwitchRow(x.row.id) }, "Copy below"),
                 el("button", { type: "button", className: "danger", title: "Remove this switch", onclick: () => removeSwitchRow(x.row.id) }, "Remove")))));
         }
-        fillConfigPre($("swPreview"), x.text || "No output: fix the errors above.");
+        // The text as it is, one whole line per line (the box scrolls sideways for a wide comment, and
+        // fades at that edge to say so).
+        const pre = $("swPreview");
+        pre.textContent = x.text || "No output: fix the errors above.";
+        pre.classList.toggle("wide", pre.scrollWidth > pre.clientWidth + 1);
         const prev = lastExport(r, x.host);
         if (prev && !x.errors.length) {
           $("swDiffPanel").hidden = false;
           fillDiff($("swDiffSummary"), $("swDiff"), prev, x.text);
         }
-      }
-      // IOS text in the side panel: every line is a block that wraps only at spaces (a token such as
-      // 2026-10-01 or 255.255.255.0 is never split) with a hanging indent and a continuation bar, so a
-      // continued line can never read as a second command. The box's textContent stays the text byte
-      // for byte (the newline ends each block).
-      function fillConfigPre(pre, text) {
-        const lines = String(text).split("\n");
-        pre.replaceChildren(...lines.map((line, i) => {
-          const b = el("span", { className: "pl" });
-          for (const part of line.split(/( +)/)) if (part) b.append(/^ +$/.test(part) ? part : el("span", { className: "tok" }, part));
-          if (i < lines.length - 1) b.append("\n");
-          return b;
-        }).filter((b, i) => i < lines.length - 1 || lines[i] !== ""));
       }
       function selectSwitch(id) {
         if (id === swSelectedId) return;
@@ -10125,16 +10241,23 @@
         draw();
         const n = (r.switches || []).indexOf(row) + 1;
         const host = String((row.values && row.values.HOSTNAME) || (r.values && r.values.HOSTNAME) || "").trim();
+        // Edits apply as they are typed (the grid and the preview follow). Done keeps them; Cancel (or
+        // Esc) puts this switch's port settings back as they were when the dialog opened.
+        const before = JSON.stringify(row.ports || {});
         return showDialog({
           title: "Ports · switch " + n + (host ? " (" + host + ")" : ""),
           body: wrap,
-          actions: [{ label: "Close", value: true, primary: true }],
-          note: "Changes apply as you type. Use table puts a port back on the table.",
+          actions: [{ label: "Cancel", value: false }, { label: "Done", value: true, primary: true }],
+          note: "Changes apply as you type. Done keeps them; Cancel or Esc puts the ports back as they were.",
           onOpen: (dlg) => {
             dlg.classList.add("dlg-wide");
             if (focus) draw(focus);
           },
-        }).then(() => {
+        }).then((v) => {
+          if (v !== true && JSON.stringify(row.ports || {}) !== before) {
+            row.ports = JSON.parse(before);
+            touch();
+          }
           if (currentView !== "switches") return;
           renderSwitches();
           // A fixed check removes the button that opened the dialog: focus goes to this row's Ports button.
@@ -10240,11 +10363,20 @@
         let end = text.indexOf("\n", start);
         if (end < 0) end = text.length;
         if (end > start && text[end - 1] === "\r") end--;
-        const node = pre.firstChild;
-        if (!node || node.nodeType !== Node.TEXT_NODE) return false;
         const range = document.createRange();
-        range.setStart(node, start);
-        range.setEnd(node, end);
+        const blocks = pre.querySelectorAll(".pl");
+        if (blocks.length) {
+          // One block per line (Build's numbered preview): select that block's text node.
+          const b = blocks[line - 1], t = b && b.firstChild;
+          if (!t || t.nodeType !== Node.TEXT_NODE) return false;
+          range.setStart(t, 0);
+          range.setEnd(t, t.data.length - (t.data.endsWith("\r") ? 1 : 0));
+        } else {
+          const node = pre.firstChild;
+          if (!node || node.nodeType !== Node.TEXT_NODE) return false;
+          range.setStart(node, start);
+          range.setEnd(node, end);
+        }
         const sel = window.getSelection();
         sel.removeAllRanges();
         sel.addRange(range);
@@ -10534,10 +10666,9 @@
         $("cdAll").disabled = blocked || !items.length;
         $("cdText").disabled = blocked || !items.length;
         $("cdChanged").disabled = blocked || changed === 0;
-        // While a gate blocks, all three carry the padlock and their title names the gate (one look
-        // says every export is off, text-only included); otherwise each title says what it exports.
+        // While a gate blocks, the title of each disabled button names the gate (text-only included);
+        // otherwise each title says what it exports.
         const why = gates.length ? "Export blocked: " + gates.map(gateLabel).join(" · ") : busy ? "An export is running." : "";
-        for (const id of ["cdAll", "cdChanged", "cdText"]) $(id).classList.toggle("locked", blocked);
         $("cdAll").title = why || (items.length ? "One SD-card ZIP per switch, plus a manifest" : "No switches to export yet");
         $("cdText").title = why || (items.length ? "One ZIP holding every editcontent.txt (no baseline files)" : "No switches to export yet");
         $("cdChanged").title = why || (changed ? "Only the switches that are new or changed since their last export" : "Nothing is new or changed since the last export");
