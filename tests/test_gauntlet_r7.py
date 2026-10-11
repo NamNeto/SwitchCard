@@ -89,9 +89,11 @@ def test_restore_dialog_names_not_now_and_esc_means_it(page):
     page.reload(wait_until="domcontentloaded")
     page.wait_for_selector("dialog[open]")
     text = page.inner_text("dialog[open]")
-    assert "Not now" in text and "Esc = Not now. Nothing is deleted." in text
+    # The secondary button names its outcome; the body says what Esc does once (no duplicate footnote).
+    assert "Start with the examples (or Esc) keeps your v0.7.2 work as a backup." in text and "Nothing is deleted." in text
+    assert text.count("Nothing is deleted.") == 1 and "Esc =" not in text
     labels = [b.inner_text().strip() for b in page.locator("dialog[open] .dialog-actions button").all()]
-    assert labels == ["Not now", "Restore it"]
+    assert labels == ["Start with the examples", "Restore it"]
     page.keyboard.press("Escape")
     page.wait_for_function("bootDone === true")
     assert ev(page, "() => recipes.length") == 4
@@ -119,23 +121,49 @@ def test_import_dialog_replace_stands_apart(page):
     assert page.problems == []
 
 
-# --- (6) Allowed baseline labels shows three lines ---
-def test_allowed_baseline_labels_is_three_lines(page):
+# --- (6) Allowed baseline labels: one control-height line beside Model family (round 8: the row
+#         stays aligned), growing a line per label typed ---
+def test_allowed_baseline_labels_is_one_line_that_grows(page):
     ev(page, "() => showView('manage')")
-    assert ev(page, "() => $('firmwareRule').rows") == 3
+    assert ev(page, "() => $('firmwareRule').rows") == 1
+    page.fill("#firmwareRule", "")
+    m = ev(page, """() => { const t = $('firmwareRule').getBoundingClientRect(), s = $('recipeModel').getBoundingClientRect();
+        return { h: t.height, sameTop: Math.abs(t.top - s.top) < 2, sameHeight: Math.abs(t.height - s.height) < 2 }; }""")
+    assert 38 <= m["h"] <= 42 and m["sameTop"] and m["sameHeight"], m
+    page.fill("#firmwareRule", "17.12.4\n17.15.1\n17.15.2")
     assert ev(page, "() => $('firmwareRule').clientHeight") >= 76
     assert ev(page, "() => getComputedStyle($('firmwareRule')).resize") == "vertical"
 
 
-# --- (5) at 900 px the row's Copy and Remove columns are in the box ---
+# --- (5) at 900 px the grid fits its box, and the selected row's Copy below and Remove are
+#         labelled buttons inline under the row (round 8: no per-row icons at any width) ---
 def test_grid_row_actions_fit_at_900(page):
     page.set_viewport_size({"width": 900, "height": 900})
     _real(page)
-    ev(page, "() => { const r = current(); r.switches = countedUpRows(r, [], 12).rows; renderAll(); showView('switches'); }")
+    ids = ev(page, "() => { const r = current(); r.switches = countedUpRows(r, [], 12).rows; renderAll(); showView('switches'); return r.switches.map((x) => x.id); }")
     page.wait_for_timeout(150)
-    m = ev(page, """() => { const box = document.querySelector('#switches .scroll'); const t = $('swTable');
-        const c = t.querySelector('td.c-copy button'), x = t.querySelector('td.c-remove button');
-        return { over: box.scrollWidth - box.clientWidth, copy: c.getBoundingClientRect().width, remove: x.getBoundingClientRect().width,
-          inside: x.getBoundingClientRect().right <= box.getBoundingClientRect().right }; }""")
-    assert m["over"] <= 0 and m["copy"] >= 28 and m["remove"] >= 28 and m["inside"], m
+    assert ev(page, "() => $('swTable').querySelectorAll('td.c-copy, td.c-remove, button.sw-icon').length") == 0
+    ev(page, "(id) => selectSwitch(id)", ids[4])
+    m = ev(page, """() => { const box = document.querySelector('#switches .scroll'); const d = $('swTable').querySelector('tr.sw-detail');
+        const bs = [...d.querySelectorAll('.sw-detail-actions button')];
+        return { over: box.scrollWidth - box.clientWidth, labels: bs.map((b) => b.textContent), shown: bs.map((b) => b.getBoundingClientRect().width >= 60),
+          inside: bs.every((b) => b.getBoundingClientRect().right <= box.getBoundingClientRect().right) }; }""")
+    assert m["over"] <= 0 and m["labels"] == ["Copy below", "Remove"] and all(m["shown"]) and m["inside"], m
+    assert page.problems == []
+
+
+# --- round 8: beside the grid the same two actions sit in the side panel, for the selected row ---
+def test_panel_row_actions_act_on_the_selected_switch(page):
+    _real(page)
+    ids = ev(page, "() => { const r = current(); r.switches = countedUpRows(r, [], 3).rows; renderAll(); showView('switches'); return r.switches.map((x) => x.id); }")
+    assert ev(page, "() => $('swPanel').querySelector('.sw-panel-actions').hidden") is True
+    ev(page, "(id) => selectSwitch(id)", ids[1])
+    assert ev(page, "() => $('swPanel').querySelector('.sw-panel-actions').hidden") is False
+    assert ev(page, "() => $('swTable').querySelector('tr.sw-detail')") is None  # no inline row beside the grid
+    page.click("#swCopyRow")
+    rows = ev(page, "() => current().switches")
+    assert len(rows) == 4 and rows[2]["values"] == rows[1]["values"]
+    page.click("#swRemoveRow")
+    click_dialog(page, "Remove")
+    page.wait_for_function("() => current().switches.length === 3")
     assert page.problems == []

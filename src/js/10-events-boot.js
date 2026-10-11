@@ -55,7 +55,9 @@ $("teamPoliciesEditor").addEventListener("input", () => applyTeamPoliciesFromEdi
 const GROWING_TEXTAREAS = ["template", "interfaces", "teamHintsEditor", "teamPoliciesEditor", "mgmtSources"];
 function growTextarea(ta) {
   if (!ta || !ta.offsetParent) return;
-  ta.style.height = "auto";
+  // The template is measured from zero, so its rows attribute (24) never pads it below a short
+  // text: it ends a line or two after its last line (CSS keeps an 8-line floor).
+  ta.style.height = ta.id === "template" ? "0px" : "auto";
   ta.style.height = ta.scrollHeight + 2 + "px";
 }
 function growEditorTextareas() {
@@ -123,6 +125,9 @@ function sizeBuildPane() {
   }
   const ps = getComputedStyle(buildPane);
   rest += px(ps.paddingTop) + px(ps.paddingBottom) + px(ps.borderTopWidth) + px(ps.borderBottomWidth);
+  // Whole pixels, with 2 px to spare: fractional heights summed could leave the pane a sub-pixel
+  // too tall, and the pinned footer would then cover the tails of the "Lines · Bytes" row.
+  rest = Math.ceil(rest) + 2;
   // The text's own height in lines (a wrapped line counts as the rows it takes).
   const total = Math.max(1, Math.round((preview.scrollHeight - 36) / 20));
   const fit = Math.floor((limit - rest - 18) / 20);

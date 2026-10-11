@@ -158,7 +158,7 @@ def test_boot_restore_dialog_for_other_version(page):
     assert ev(page, "() => recipes.some((r) => r.name === 'Seeded recipe')")
     _seed_old_autosave(page, "Second seed")
     page.reload(wait_until="domcontentloaded")
-    click_dialog(page, "Not now")
+    click_dialog(page, "Start with the examples")
     page.wait_for_function("bootDone === true")
     assert ev(page, "() => recipes.length") == 4
     assert not ev(page, "() => recipes.some((r) => r.name === 'Second seed')")
@@ -617,14 +617,16 @@ def test_switches_duplicate_flagged_and_cleared(page):
     assert page.inner_text(status) in ("OK", "OK · 1 note")
     assert "duplicate" not in page.get_attribute(status, "title")
     # Copy makes an exact copy (flagged), Remove asks first
-    page.click("#swRows tr[data-row='%s'] button.sw-copy" % ids[1])
+    ev(page, "(id) => selectSwitch(id)", ids[1])
+    page.click("#swCopyRow")
     rows = ev(page, "() => current().switches")
     assert len(rows) == 3 and rows[2]["values"] == rows[1]["values"] and rows[2]["id"] not in ids
     assert "duplicate HOSTNAME" in page.get_attribute("#swRows tr[data-row='%s'] td.status" % rows[2]["id"], "title")
-    page.click("#swRows tr[data-row='%s'] button.sw-remove" % rows[2]["id"])
+    ev(page, "(id) => selectSwitch(id)", rows[2]["id"])
+    page.click("#swRemoveRow")
     click_dialog(page, "Cancel")
     assert ev(page, "() => current().switches.length") == 3
-    page.click("#swRows tr[data-row='%s'] button.sw-remove" % rows[2]["id"])
+    page.click("#swRemoveRow")
     click_dialog(page, "Remove")
     page.wait_for_function("() => current().switches.length === 2")
     page.click("#swRemoveAll")
@@ -1191,21 +1193,26 @@ def test_copy_remove_and_card_status_move_focus(page):
         { id: 'sw-c', values: { HOSTNAME: 'A-03', MGMT_IP: '192.0.2.73' }, ports: {} }]; showView('switches'); }""")
     first = """() => { const a = document.activeElement; const tr = a.closest('tr');
         const f = tr && tr.querySelector('input[data-key]'); return [a.dataset.row || null, a === f]; }"""
-    page.click("#swRows tr[data-row='sw-a'] button.sw-copy")
+    # round 8: Copy below and Remove act on the selected row from the side panel
+    ev(page, "() => selectSwitch('sw-a')")
+    page.click("#swCopyRow")
     copy = ev(page, "() => current().switches[1].id")
     assert ev(page, first) == [copy, True]
     # remove the copy -> focus on the next row (sw-b)
-    page.click("#swRows tr[data-row='%s'] button.sw-remove" % copy)
+    ev(page, "(id) => selectSwitch(id)", copy)
+    page.click("#swRemoveRow")
     click_dialog(page, "Remove")
     page.wait_for_function("() => !document.querySelector('dialog[open]')")
     assert ev(page, first) == ["sw-b", True]
     # remove the last row -> focus on the previous row
-    page.click("#swRows tr[data-row='sw-c'] button.sw-remove")
+    ev(page, "() => selectSwitch('sw-c')")
+    page.click("#swRemoveRow")
     click_dialog(page, "Remove")
     page.wait_for_function("() => !document.querySelector('dialog[open]')")
     assert ev(page, first) == ["sw-b", True]
     for rid in ("sw-a", "sw-b"):
-        page.click("#swRows tr[data-row='%s'] button.sw-remove" % rid)
+        ev(page, "(id) => selectSwitch(id)", rid)
+        page.click("#swRemoveRow")
         click_dialog(page, "Remove")
         page.wait_for_function("() => !document.querySelector('dialog[open]')")
     assert ev(page, "() => document.activeElement.id") == "swAdd"
@@ -1227,11 +1234,14 @@ def test_import_header_decode_hint(page):
     click_dialog(page, "Cancel")
 
 
-def test_copy_remove_headers_have_hidden_text(page):
+def test_grid_has_no_per_row_copy_remove_columns(page):
+    # gauntlet r8: Copy below and Remove act on the selected row from the side panel (labelled
+    # buttons), so the grid ends with the Ports column and carries no icon buttons.
     ev(page, """() => { current().switches = [{ id: 'sw-a', values: { HOSTNAME: 'A-01' }, ports: {} }]; showView('switches'); }""")
-    ths = ev(page, """() => [...$('swHead').querySelectorAll('th')].slice(-2).map((t) => {
-        const s = t.querySelector('.visually-hidden'); return [t.textContent, !!s && getComputedStyle(s).position, !!s && s.getBoundingClientRect().width <= 1]; })""")
-    assert ths == [["Copy", "absolute", True], ["Remove", "absolute", True]]
+    ths = ev(page, "() => [...$('swHead').querySelectorAll('th')].map((t) => t.textContent)")
+    assert ths[-1] == "Ports" and "Copy" not in ths and "Remove" not in ths
+    assert ev(page, "() => $('swRows').querySelectorAll('button').length") == 1  # the Ports button only
+    assert ev(page, "() => [$('swCopyRow').textContent, $('swRemoveRow').textContent]") == ["Copy below", "Remove"]
 
 
 def test_bulk_export_records_rows_before_a_failure(page):

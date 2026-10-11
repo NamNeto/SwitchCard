@@ -136,8 +136,8 @@
         --ok-line: rgba(21, 102, 68, 0.4);
         --info-bg: rgba(30, 88, 168, 0.08);
         --info-line: rgba(30, 88, 168, 0.4);
-        --backdrop: rgba(20, 20, 16, 0.5);
-        --backdrop-light: rgba(20, 20, 16, 0.28);
+        --backdrop: rgba(20, 20, 16, 0.62);
+        --backdrop-light: rgba(20, 20, 16, 0.42);
         --glow2: rgba(61, 139, 253, 0.06);
         --tab-hover: rgba(0, 0, 0, 0.04);
         --btn-hover: #e9e7e0;
@@ -188,8 +188,8 @@
           --ok-line: rgba(21, 102, 68, 0.4);
           --info-bg: rgba(30, 88, 168, 0.08);
           --info-line: rgba(30, 88, 168, 0.4);
-          --backdrop: rgba(20, 20, 16, 0.5);
-          --backdrop-light: rgba(20, 20, 16, 0.28);
+          --backdrop: rgba(20, 20, 16, 0.62);
+          --backdrop-light: rgba(20, 20, 16, 0.42);
           --glow2: rgba(61, 139, 253, 0.06);
           --tab-hover: rgba(0, 0, 0, 0.04);
           --btn-hover: #e9e7e0;
@@ -451,7 +451,10 @@
         }
         #build .card.pane > .pane-foot {
           position: sticky;
-          bottom: 0;
+          /* The footer reaches into the pane's bottom padding (negative margin, same padding back),
+             and so must its sticky bottom: at 0 the browser would lift it by that padding and its
+             top would cover the tails of the "Lines · Bytes" row above. */
+          bottom: calc(var(--space) * -2.25);
           z-index: 2;
           margin: 0 calc(var(--space) * -2.5) calc(var(--space) * -2.25);
           padding: 0 calc(var(--space) * 2.5) calc(var(--space) * 2.25);
@@ -958,11 +961,16 @@
         font-size: 11px;
         user-select: none;
       }
+      /* Room for descenders ("Bytes"): a full line-height and nothing clipping below the row, so the
+         pinned footer under it never covers a glyph's tail at any sub-pixel position. */
       .preview-meter {
         display: flex;
         justify-content: space-between;
         gap: 12px;
         flex-wrap: wrap;
+        line-height: 1.5;
+        padding-bottom: 2px;
+        overflow: visible;
       }
       #previewCue {
         color: var(--faint);
@@ -1347,7 +1355,7 @@
          most of the window; the handle still resizes it). The two team lists and the interface
          list start at 4-6 lines and grow the same way. */
       #template {
-        min-height: 506px; /* 24 lines of 20.15 px + padding */
+        min-height: 180px; /* 8 lines; growTextarea sizes it to its text plus two lines */
         max-height: 80vh;
       }
       #interfaces {
@@ -1369,11 +1377,11 @@
         resize: vertical;
         font-size: 0.92em;
       }
-      /* Allowed baseline labels: three lines tall ("one per line" is visible as such), grows a line per
-         label typed (up to 180 px, then scrolls), and can be dragged taller. */
+      /* Allowed baseline labels: one control-height line beside Model family (the row stays aligned),
+         grows a line per label typed (up to 180 px, then scrolls), and can be dragged taller. */
       #firmwareRule {
-        height: 80px;
-        min-height: 80px;
+        height: auto; /* field-sizing: content sizes it; an explicit height would pin it */
+        min-height: var(--control-h);
         max-height: 180px;
         field-sizing: content;
         padding-top: 9px;
@@ -2015,16 +2023,6 @@
         padding-left: 8px;
         padding-right: 4px;
       }
-      #swTable th.c-copy,
-      #swTable th.c-remove,
-      #swTable td.c-copy,
-      #swTable td.c-remove {
-        padding-left: 2px;
-        padding-right: 2px;
-      }
-      #swTable td.c-remove {
-        padding-right: 4px;
-      }
       /* Cell widths: the whole row fits beside the side panel at 1440 px and alone at 900 px. An
          address (255.255.255.0) fits an address cell; Site takes whatever width is left (at least
          160 px) because it holds free text; a value longer than its cell ends in an ellipsis and the
@@ -2085,8 +2083,13 @@
       #swTable tr.defaults td[data-key] {
         padding-left: 13px;
       }
+      /* The selected row: a clear accent tint (16 %, visible in light too), a 2 px accent frame (so an
+         error row, whose edge and tint are red, still shows that it is the selected one) and a 3 px
+         accent edge. */
       #swTable tr.selected {
-        background: var(--accent-glow);
+        background: var(--accent-dim);
+        outline: 2px solid var(--accent);
+        outline-offset: -2px;
       }
       #swTable tr.selected > td:first-child {
         box-shadow: inset 3px 0 0 var(--accent-text); /* the accent as text: 5:1 on the table in light */
@@ -2096,7 +2099,7 @@
         background: var(--err-bg);
       }
       #swTable tr.row-bad.selected {
-        background: linear-gradient(var(--accent-glow), var(--accent-glow)), var(--err-bg);
+        background: linear-gradient(var(--accent-dim), var(--accent-dim)), var(--err-bg);
       }
       #swTable tr.row-bad > td:first-child {
         box-shadow: inset 3px 0 0 var(--err);
@@ -2164,10 +2167,10 @@
         font-size: 12.5px;
         font-weight: 650;
       }
-      /* The row's own Copy and Remove columns are there at every width, so the detail row does not
-         repeat them. */
+      /* The selected row's Copy below and Remove, inline under the row while the panel sits below the
+         grid (the detail row shows only then); beside the grid they are in the panel. */
       #swTable tr.sw-detail .sw-detail-actions {
-        display: none;
+        display: flex;
         gap: 8px;
         margin-top: 8px;
       }
@@ -2179,42 +2182,11 @@
         color: var(--muted);
         font-weight: 500;
       }
-      /* Row actions as 30 px icon buttons: a drawn "two pages" for Copy, a red × for Remove. */
-      #swTable button.sw-icon {
-        position: relative;
-        width: 30px;
-        padding: 0;
-        color: var(--muted);
-      }
-      #swTable button.sw-icon:hover {
-        color: var(--text);
-      }
-      #swTable button.sw-copy::before,
-      #swTable button.sw-copy::after {
-        content: "";
-        position: absolute;
-        width: 9px;
-        height: 11px;
-        border: 1.5px solid currentColor;
-        border-radius: 2px;
-      }
-      #swTable button.sw-copy::before {
-        left: 8px;
-        top: 6px;
-      }
-      #swTable button.sw-copy::after {
-        left: 12px;
-        top: 10px;
-        background: var(--card2);
-      }
-      #swTable button.sw-remove {
-        color: var(--err);
-        font-size: 17px;
-        line-height: 1;
-      }
-      #swTable button.sw-remove:hover {
-        color: var(--err);
-        border-color: var(--err);
+      /* A team-policy hit has no single cell: the status cell is the marked one (the rule is its title,
+         and the side panel names it). */
+      #swTable td.status.policy {
+        box-shadow: inset 0 0 0 1px var(--err);
+        border-radius: 6px;
       }
       #swTable button.sw-ports.has-set {
         color: var(--accent-text);
@@ -2250,6 +2222,19 @@
       }
       .sw-checks {
         margin: 0 0 12px;
+        font-size: 13px;
+      }
+      /* Copy below (left) and the red Remove set apart at the right, above the preview. */
+      .sw-panel-actions {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin: 0 0 12px;
+      }
+      .sw-panel-actions button {
+        height: 32px;
+        min-height: 32px;
+        padding: 0 12px;
         font-size: 13px;
       }
       .sw-checks li.bad {
@@ -2330,10 +2315,13 @@
       /* The Ports dialog keeps the side panel in view: it sits to the left and its veil is lighter, so
          the panel's preview (which follows every keystroke) can be read while typing. */
       @media (min-width: 1300px) {
-        dialog.dlg.dlg-ports {
-          margin-left: 24px;
-          margin-right: auto;
-          max-width: min(920px, 100vw - 24px - 356px);
+        /* Centred over the content column: between the rail (24 px gutter + 210 px + 24 px gap) and
+           the side panel (308 px + 12 px gap + 24 px gutter), so it reads as placed over the grid. */
+        dialog.dlg.dlg-ports[open] {
+          left: 258px;
+          right: 344px;
+          width: min(920px, 100vw - 602px); /* auto margins then centre it in that band */
+          max-width: 920px;
         }
         .dlg-veil:has(+ dialog.dlg-ports) {
           background: var(--backdrop-light);
@@ -2836,6 +2824,13 @@
         border-radius: 50%;
         background: currentColor;
       }
+      /* It opens the changes: a chevron after the text says so, and hovering underlines it. */
+      #cdTable button.cd-diff::after {
+        content: "\2060\203A";
+        margin-left: 5px;
+        font-size: 14px;
+        font-weight: 700;
+      }
       #cdTable button.cd-diff:hover {
         text-decoration: underline;
         text-underline-offset: 3px;
@@ -2911,17 +2906,24 @@
         white-space: normal;
         cursor: pointer;
       }
-      /* "This goes somewhere": a small round chevron badge right after the text (on its line, in its
-         colour); hovering the row underlines the text, tints the row and fills the badge. */
+      /* In a checks list the whole line is the button (a click anywhere on it jumps); in the gate line
+         the links stay inline in their sentence. */
+      .notice li > button.finding-link,
+      .sw-checks li > button.finding-link {
+        display: block;
+        width: 100%;
+      }
+      /* "This goes somewhere": a text-size chevron badge in the accent colour right after the text (on
+         its line); hovering the row underlines the text, tints the row and fills the badge. */
       button.finding-link::after {
         content: "\2060\203A"; /* a word joiner first: the badge never wraps away from its last word */
         display: inline;
-        margin-left: 5px;
-        padding: 0 5.5px 1px;
+        margin-left: 6px;
+        padding: 0 6.5px 1px;
         border-radius: 999px;
-        background: color-mix(in srgb, currentColor 16%, transparent);
-        color: inherit;
-        font-size: 13px;
+        background: var(--accent-dim);
+        color: var(--accent-text);
+        font-size: 15px;
         line-height: 1;
         font-weight: 700;
         text-decoration: none;
@@ -2949,7 +2951,7 @@
       }
       button.finding-link:hover::after,
       li:hover > button.finding-link::after {
-        background: color-mix(in srgb, currentColor 30%, transparent);
+        background: color-mix(in srgb, var(--accent) 34%, transparent);
       }
       button.finding-link:active:not(:disabled) {
         transform: none;
@@ -3366,7 +3368,7 @@
                   </div>
                   <p class="muted">
                     A failing or invalid rule blocks export of a single card and of Cards; hints
-                    never do. Rules apply as you type.
+                    never do.
                   </p>
                   <div class="field">
                     <label for="teamPoliciesEditor">Rules</label>
@@ -3421,13 +3423,16 @@
                   <option>IE9300</option>
                 </select>
               </div>
+              <!-- One control-height line beside Model family (the row stays aligned); it grows a
+                   line per label typed. -->
               <div class="field">
                 <label for="firmwareRule">Allowed baseline labels</label
                 ><textarea
                   id="firmwareRule"
                   class="compact-xs"
-                  rows="3"
-                  placeholder="One per line; blank = any"
+                  rows="1"
+                  placeholder="One per line"
+                  title="Blank: any baseline label of this model family"
                 ></textarea>
               </div>
             </div>
@@ -3654,6 +3659,12 @@
           <aside id="swPanel" class="card">
             <h2 id="swPanelTitle" tabindex="-1">Selected switch</h2>
             <ul id="swChecks" class="sw-checks"></ul>
+            <!-- The selected row's actions live here (and inline under the row while the panel sits
+                 below the grid), not as icons on every row. -->
+            <div class="sw-panel-actions" hidden>
+              <button type="button" id="swCopyRow" class="sw-copy" title="Copy this switch below itself">Copy below</button
+              ><button type="button" id="swRemoveRow" class="sw-remove danger" title="Remove this switch">Remove</button>
+            </div>
             <p id="swPanelEmpty" class="muted" hidden>Select a row to see its checks and its editcontent.txt.</p>
             <pre id="swPreview" tabindex="0"></pre>
             <details id="swDiffPanel" hidden>
@@ -4610,21 +4621,21 @@
               nSwitches + (nSwitches === 1 ? " switch" : " switches") + (parsed.draft ? ", an unapplied recipe draft" : "");
             const base = p.baseline ? p.baseline.model + " / " + p.baseline.version + " (label only; firmware files are never stored)" : "none recorded";
             const kv = (k, v) => el("tr", {}, el("th", { scope: "row" }, k), el("td", {}, v));
-            // One line per button; Esc takes the safe choice, and the sentence says nothing is deleted.
+            // One line per button, each named for its outcome; Esc takes the safe choice, and the
+            // sentence says nothing is deleted.
             body = el("div", {},
               el("p", {}, found),
               el("table", { className: "dlg-kv dlg-kv-plain" }, kv("Holds", holds), kv("Baseline", base)),
               el("ul", { className: "dlg-choices" },
                 el("li", {}, el("strong", {}, "Restore it"), " opens that work in this page."),
-                el("li", {}, el("strong", {}, "Not now"), " (or Esc) shows the example recipes and keeps that autosave as a backup," +
-                  " which Save your work → Restore autosave backup brings back at any time. Nothing is deleted.")));
+                el("li", {}, el("strong", {}, "Start with the examples"), " (or Esc) keeps your v" + meta.release +
+                  " work as a backup. To get it later: Save your work → Restore autosave backup. Nothing is deleted.")));
           }
           const ok = await confirmDialog(
             "Restore an autosave from v" + meta.release + "?",
             body,
             // At boot the default is the user's own work, so Enter never hides it.
-            { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Not now", focusOk: !fromBackup,
-              note: fromBackup ? undefined : "Esc = Not now. Nothing is deleted." },
+            { ok: "Restore it", cancel: fromBackup ? "Keep the current workspace" : "Start with the examples", focusOk: !fromBackup },
           );
           if (!ok) return fail("declined", "you chose not to restore data saved by v" + meta.release);
         }
@@ -9010,7 +9021,9 @@
       const GROWING_TEXTAREAS = ["template", "interfaces", "teamHintsEditor", "teamPoliciesEditor", "mgmtSources"];
       function growTextarea(ta) {
         if (!ta || !ta.offsetParent) return;
-        ta.style.height = "auto";
+        // The template is measured from zero, so its rows attribute (24) never pads it below a short
+        // text: it ends a line or two after its last line (CSS keeps an 8-line floor).
+        ta.style.height = ta.id === "template" ? "0px" : "auto";
         ta.style.height = ta.scrollHeight + 2 + "px";
       }
       function growEditorTextareas() {
@@ -9078,6 +9091,9 @@
         }
         const ps = getComputedStyle(buildPane);
         rest += px(ps.paddingTop) + px(ps.paddingBottom) + px(ps.borderTopWidth) + px(ps.borderBottomWidth);
+        // Whole pixels, with 2 px to spare: fractional heights summed could leave the pane a sub-pixel
+        // too tall, and the pinned footer would then cover the tails of the "Lines · Bytes" row.
+        rest = Math.ceil(rest) + 2;
         // The text's own height in lines (a wrapped line counts as the rows it takes).
         const total = Math.max(1, Math.round((preview.scrollHeight - 36) / 20));
         const fit = Math.floor((limit - rest - 18) / 20);
@@ -10071,24 +10087,21 @@
       // Short column headers for the common fields, so headers stay on one line; the title has the rest.
       const SW_SHORT_LABELS = { MGMT_IP: "Mgmt IP", MGMT_MASK: "Mask", MGMT_VLAN: "VLAN", GATEWAY: "Gateway", MGMT_LOOPBACK: "Loopback" };
       function buildSwitchGrid(cols, rows) {
-        // Every cell carries its column as a class (c-HOSTNAME, c-ports, c-copy, ...) for the widths
-        // and for the narrow layout, which folds the two icon columns into the selected row's line.
+        // Every cell carries its column as a class (c-HOSTNAME, c-ports, ...) for the widths. Copy and
+        // Remove act on the selected row from the side panel (and from the inline detail row while the
+        // panel sits below the grid), not as icons on every row.
         $("swHead").replaceChildren(
           el("tr", {},
             el("th", {}, "#"),
             el("th", {}, "Status"),
             cols.map((k) => el("th", { className: "c-" + k, dataKey: k, title: fieldLabel(k) + " {{" + k + "}}" }, SW_SHORT_LABELS[k] || fieldLabel(k))),
-            el("th", { className: "c-ports" }, "Ports"),
-            el("th", { className: "c-copy" }, el("span", { className: "visually-hidden" }, "Copy")),
-            el("th", { className: "c-remove" }, el("span", { className: "visually-hidden" }, "Remove"))),
+            el("th", { className: "c-ports" }, "Ports")),
         );
         const body = [
           el("tr", { className: "defaults" },
             el("td", { colSpan: 2, title: "Device details and the port table on Build a card" }, "Defaults"),
             cols.map((k) => el("td", { className: "c-" + k, dataKey: k })),
-            el("td", { className: "c-ports", title: "The port table on Build a card" }, "Build"),
-            el("td", { className: "c-copy" }),
-            el("td", { className: "c-remove" })),
+            el("td", { className: "c-ports", title: "The port table on Build a card" }, "Build")),
         ];
         rows.forEach((row, i) => {
           body.push(
@@ -10098,12 +10111,7 @@
               cols.map((k) =>
                 // size 12: the cell's CSS width rules, not the input's 20-character default.
                 el("td", { className: "c-" + k }, el("input", { dataRow: row.id, dataKey: k, size: 12, autocomplete: "off", ariaLabel: fieldLabel(k) + ", switch " + (i + 1) }))),
-              el("td", { className: "c-ports" }, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" })),
-              // Compact icon buttons (their words stay for screen readers), so the row fits beside the panel.
-              el("td", { className: "c-copy" }, el("button", { type: "button", className: "sw-copy sw-icon", title: "Copy this switch below itself", ariaLabel: "Copy switch " + (i + 1) + " below itself" },
-                el("span", { className: "visually-hidden" }, "Copy"))),
-              el("td", { className: "c-remove" }, el("button", { type: "button", className: "sw-remove sw-icon", title: "Remove this switch", ariaLabel: "Remove switch " + (i + 1) },
-                el("span", { ariaHidden: "true" }, "×"), el("span", { className: "visually-hidden" }, "Remove")))),
+              el("td", { className: "c-ports" }, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" }))),
           );
         });
         $("swRows").replaceChildren(...body);
@@ -10194,7 +10202,8 @@
             !tail || st.bad ? head : el("span", {}, head, el("span", { className: "st-notes" }, " · " + tail)));
           td.replaceChildren(pill, tail && st.bad ? el("span", { className: "st-what" }, el("span", { className: "visually-hidden" }, " · "), tail) : "");
           td.title = st.title;
-          td.className = "status " + (st.bad ? "bad" : "ok");
+          // A team-policy hit is about the whole card text, not one cell: the status cell is the marked one.
+          td.className = "status " + (st.bad ? "bad" : "ok") + (x.policy.length ? " policy" : "");
           tr.classList.toggle("row-bad", st.bad);
         }
         $("swEmpty").hidden = rows.length > 0;
@@ -10228,6 +10237,13 @@
         const checks = $("swChecks");
         $("swPanelEmpty").hidden = !!x;
         $("swPreview").hidden = !x;
+        // The selected row's Copy below and Remove, in the panel.
+        const actions = $("swPanel").querySelector(".sw-panel-actions");
+        actions.hidden = !x;
+        if (x) {
+          $("swCopyRow").onclick = () => copySwitchRow(x.row.id);
+          $("swRemoveRow").onclick = () => removeSwitchRow(x.row.id);
+        }
         if (!x) {
           if (swPanelKeys.checks === "none") return;
           swPanelKeys = { checks: "none", text: null, diff: null };
@@ -10272,7 +10288,7 @@
           // (narrow windows), so the reason for an error is never out of view.
           if (tr) {
             const cols = tr.children.length;
-            // Copy and Remove here too: below 1000 px the icon columns are hidden and these show instead.
+            // Copy below and Remove here too: the panel (and its buttons) sits below the grid then.
             tr.after(el("tr", { className: "sw-detail", dataFor: x.row.id },
               el("td", { colSpan: cols },
                 el("span", { className: "sw-detail-title" }, title),
@@ -10818,9 +10834,7 @@
         if (!tr) return;
         const id = tr.dataset.row;
         selectSwitch(id);
-        if (e.target.closest("button.sw-copy")) copySwitchRow(id);
-        else if (e.target.closest("button.sw-remove")) removeSwitchRow(id);
-        else if (e.target.closest("button.sw-ports")) {
+        if (e.target.closest("button.sw-ports")) {
           const row = (current().switches || []).find((x) => x.id === id);
           if (row) openPortsDialog(row);
         }

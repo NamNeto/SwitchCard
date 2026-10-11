@@ -420,7 +420,7 @@
                   </div>
                   <p class="muted">
                     A failing or invalid rule blocks export of a single card and of Cards; hints
-                    never do. Rules apply as you type.
+                    never do.
                   </p>
                   <div class="field">
                     <label for="teamPoliciesEditor">Rules</label>
@@ -475,13 +475,16 @@
                   <option>IE9300</option>
                 </select>
               </div>
+              <!-- One control-height line beside Model family (the row stays aligned); it grows a
+                   line per label typed. -->
               <div class="field">
                 <label for="firmwareRule">Allowed baseline labels</label
                 ><textarea
                   id="firmwareRule"
                   class="compact-xs"
-                  rows="3"
-                  placeholder="One per line; blank = any"
+                  rows="1"
+                  placeholder="One per line"
+                  title="Blank: any baseline label of this model family"
                 ></textarea>
               </div>
             </div>
@@ -708,6 +711,12 @@
           <aside id="swPanel" class="card">
             <h2 id="swPanelTitle" tabindex="-1">Selected switch</h2>
             <ul id="swChecks" class="sw-checks"></ul>
+            <!-- The selected row's actions live here (and inline under the row while the panel sits
+                 below the grid), not as icons on every row. -->
+            <div class="sw-panel-actions" hidden>
+              <button type="button" id="swCopyRow" class="sw-copy" title="Copy this switch below itself">Copy below</button
+              ><button type="button" id="swRemoveRow" class="sw-remove danger" title="Remove this switch">Remove</button>
+            </div>
             <p id="swPanelEmpty" class="muted" hidden>Select a row to see its checks and its editcontent.txt.</p>
             <pre id="swPreview" tabindex="0"></pre>
             <details id="swDiffPanel" hidden>

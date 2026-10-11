@@ -21,7 +21,7 @@ def _real(page, n=3):
 
 # --- I1: focus after the boot dialog lands on the recipe picker, for every choice ---
 def test_boot_dialog_leaves_focus_on_the_recipe_picker(page):
-    for how in ("Escape", "Not now", "Restore it"):
+    for how in ("Escape", "Start with the examples", "Restore it"):
         _seed_old_autosave(page)
         page.reload(wait_until="domcontentloaded")
         page.wait_for_selector("dialog[open]")
