@@ -18,6 +18,11 @@ Many-switches release. Single-card output is byte-for-byte unchanged (golden tes
 - **Keyboard focus** returns to the button you used after dialogs and exports, and stays on a port control after changing it.
 - CSV import warnings name the data row and column of cells that could not be read as UTF-8.
 - An autosave written by v0.7.3 is offered for restore with the usual "saved by another version" dialog.
+- **Save text only is blocked for example recipes**, like the SD-card export (v0.7.3 allowed it); Copy preview still works.
+- **Gate lines name the problem.** The Cards gate and the bulk-export status group the rows by what is wrong, for example "Rows with errors: 2, 3 (duplicate HOSTNAME PA-D-SW02) · 5 (template still contains the example header)".
+- **A running card export keeps the Cards view.** Clicking another view during a bulk export says why it stays closed; progress, pacing and *Cancel after this card* are kept.
+- Focus no longer falls to the page after *Got it* (moves to the recipe picker), after fixing a check in the Ports dialog (the row's Ports button) or after *Remove all* (Add switches). Tab wraps inside dialogs, and the rail item you just opened keeps its focus ring.
+- The Switches side panel lists team-policy failures next to other errors. A multi-line paste into one cell is refused with a pointer to Import CSV. "Export finished: 1 switch as one card ZIP".
 
 ## v0.7.3 — 2026-09-28
 

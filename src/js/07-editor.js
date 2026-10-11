@@ -20,6 +20,7 @@ function blockers(r, g) {
 // Short, actionable labels for the export gate (what is wrong and what to do); the full
 // sentence stays as the item's title. Team-policy and "Rows with errors" lines stay verbatim.
 const GATE_ERRORS = "Fix red input errors first.";
+const EXAMPLE_TEXT_BLOCKED = "Example recipe: its text is a fictional example, so Save text only is blocked like the SD-card export. Copy preview still works for reading it.";
 function gateLabel(reason) {
   if (/^Example recipe:/.test(reason)) return "Example recipe: untick it in the recipe editor, then Apply";
   const short = {
@@ -173,7 +174,9 @@ function renderPreview() {
   }
   // Preview and export use the APPLIED recipe only. An unapplied Maintain draft disables the
   // file downloads (the card ZIP via blockers()); Copy preview only needs a clean generate().
-  $("downloadConfig").disabled = busy || editorPending || !!g.errors.length || !!policyHits.length;
+  // An example recipe's text is fictional: Save text only is gated like the card export (v0.8.0
+  // operator round). Copy preview stays so the example can still be read and compared.
+  $("downloadConfig").disabled = busy || editorPending || !!r.example || !!g.errors.length || !!policyHits.length;
   $("copyPreview").disabled = busy || !!g.errors.length;
   $("downloadCard").disabled =
     busy || !!g.errors.length || !!b.length;
@@ -191,7 +194,11 @@ function renderPreview() {
   $("downloadConfig").title = $("downloadConfig").disabled
     ? editorPending
       ? "Apply recipe changes or Discard unapplied draft first."
-      : "Fix validation errors first."
+      : r.example
+        ? EXAMPLE_TEXT_BLOCKED
+        : policyHits.length
+          ? "Team policy: " + policyHits[0]
+          : "Fix validation errors first."
     : "Download preview as editcontent.txt";
   updateDiscardButton();
   // v0.7.0 panels: transliteration offer, changes since the last export.

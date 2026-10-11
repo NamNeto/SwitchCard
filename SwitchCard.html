@@ -372,6 +372,21 @@
         background: var(--card);
         color: var(--text);
       }
+      /* The focus ring stays visible on the item just activated (keyboard), over the active bar. */
+      .rail button:focus-visible {
+        box-shadow: 0 0 0 3px var(--accent-dim);
+      }
+      .rail button[aria-current="page"]:focus-visible {
+        box-shadow: 0 0 0 3px var(--accent-dim), inset 3px 0 0 var(--accent);
+      }
+      /* During a bulk card export the other views are closed (a click says why). */
+      .rail.rail-locked button.rail-off,
+      .rail.rail-locked button.rail-off:hover {
+        color: var(--muted);
+        background: transparent;
+        cursor: not-allowed;
+        opacity: 0.7;
+      }
       .rail button:hover:not([aria-current="page"]) {
         color: var(--text);
         background: var(--tab-hover);
@@ -2250,6 +2265,10 @@
         flex: 1 1 260px;
         overflow-wrap: anywhere;
       }
+      .cd-progress-hint {
+        flex: 1 1 100%;
+        font-size: 13px;
+      }
       .cd-summary {
         display: flex;
         flex-wrap: wrap;
@@ -3209,6 +3228,7 @@
           <div id="cdProgress" class="cd-progress" hidden>
             <span id="cdProgressText" role="status" aria-live="polite"></span>
             <button type="button" id="cdCancel">Cancel after this card</button>
+            <span class="cd-progress-hint muted">Other views stay closed until the export ends, so it keeps its pace.</span>
           </div>
         </div>
         <div class="card">
@@ -4842,6 +4862,20 @@
           }
           dlg.append(el("h2", {}, title), el("div", { className: "dialog-body" }, body), bar);
           dlg.addEventListener("cancel", (e) => { e.preventDefault(); finish(null); });
+          // Tab wraps inside the dialog: from the last control to the first and back, never via <body>.
+          dlg.addEventListener("keydown", (e) => {
+            if (e.key !== "Tab" || e.altKey || e.ctrlKey || e.metaKey) return;
+            const list = [...dlg.querySelectorAll("button, input, select, textarea, a[href], summary, [tabindex]:not([tabindex='-1'])")]
+              .filter((n) => canFocus(n) && n.tabIndex >= 0);
+            if (!list.length) return;
+            const first = list[0],
+              last = list[list.length - 1],
+              a = document.activeElement;
+            if (e.shiftKey ? a === first || !dlg.contains(a) : a === last || !dlg.contains(a)) {
+              e.preventDefault();
+              (e.shiftKey ? last : first).focus();
+            }
+          });
           document.body.appendChild(dlg);
           dlg.showModal();
           if (onOpen) onOpen(dlg);
@@ -5888,6 +5922,7 @@
       // Short, actionable labels for the export gate (what is wrong and what to do); the full
       // sentence stays as the item's title. Team-policy and "Rows with errors" lines stay verbatim.
       const GATE_ERRORS = "Fix red input errors first.";
+      const EXAMPLE_TEXT_BLOCKED = "Example recipe: its text is a fictional example, so Save text only is blocked like the SD-card export. Copy preview still works for reading it.";
       function gateLabel(reason) {
         if (/^Example recipe:/.test(reason)) return "Example recipe: untick it in the recipe editor, then Apply";
         const short = {
@@ -6041,7 +6076,9 @@
         }
         // Preview and export use the APPLIED recipe only. An unapplied Maintain draft disables the
         // file downloads (the card ZIP via blockers()); Copy preview only needs a clean generate().
-        $("downloadConfig").disabled = busy || editorPending || !!g.errors.length || !!policyHits.length;
+        // An example recipe's text is fictional: Save text only is gated like the card export (v0.8.0
+        // operator round). Copy preview stays so the example can still be read and compared.
+        $("downloadConfig").disabled = busy || editorPending || !!r.example || !!g.errors.length || !!policyHits.length;
         $("copyPreview").disabled = busy || !!g.errors.length;
         $("downloadCard").disabled =
           busy || !!g.errors.length || !!b.length;
@@ -6059,7 +6096,11 @@
         $("downloadConfig").title = $("downloadConfig").disabled
           ? editorPending
             ? "Apply recipe changes or Discard unapplied draft first."
-            : "Fix validation errors first."
+            : r.example
+              ? EXAMPLE_TEXT_BLOCKED
+              : policyHits.length
+                ? "Team policy: " + policyHits[0]
+                : "Fix validation errors first."
           : "Download preview as editcontent.txt";
         updateDiscardButton();
         // v0.7.0 panels: transliteration offer, changes since the last export.
@@ -7654,6 +7695,30 @@
         result.warnings.push(...checked.warnings);
         return result;
       }
+      // The running bulk card export ({ step: "Card n of N: file" }), or null. While it is set the other
+      // views stay closed (showView says why), so its progress and Cancel stay in sight and its pacing
+      // between downloads is never cut short.
+      let cardRun = null;
+      const RAIL_LOCK_TITLE = "A card export is running: other views open again when it ends (or use Cancel after this card).";
+      function lockRailForCardRun(on) {
+        const rail = $("rail");
+        rail.classList.toggle("rail-locked", on);
+        for (const b of rail.querySelectorAll("button")) {
+          const other = b.getAttribute("aria-current") !== "page";
+          // run() disabled the rail; enabled here so a click explains the lock instead of doing nothing.
+          b.disabled = on ? false : busy;
+          // A class, not aria-disabled: the click must still reach showView, which says why it refuses.
+          if (on && other) {
+            b.classList.add("rail-off");
+            b.dataset.lockTitle = b.title || "";
+            b.title = RAIL_LOCK_TITLE;
+          } else if (b.classList.contains("rail-off")) {
+            b.classList.remove("rail-off");
+            b.title = b.dataset.lockTitle || "";
+            delete b.dataset.lockTitle;
+          }
+        }
+      }
       // Bulk export of checked switch rows (checkSwitchRows or checkFleet results): asks in the write
       // dialog, then one ZIP per switch plus the manifest, or one text-only ZIP; records each row in the
       // recipe's export history. Resolves false when cancelled. Runs inside run().
@@ -7663,8 +7728,8 @@
         const gates = blockers(r);
         if (gates.length) throw Error(gates[0]);
         if (!results.length) throw Error("No switches to export.");
-        const bad = results.filter((x) => x.errors.length || x.policy.length).map((x) => x.n);
-        if (bad.length) throw Error("Rows with errors: " + bad.join(", ") + "; nothing was exported.");
+        const bad = results.filter((x) => x.errors.length || x.policy.length);
+        if (bad.length) throw Error("Rows with errors: " + badRowsSummary(bad) + "; nothing was exported.");
         const n = results.length;
         const dkeys = deviceKeys(r);
         const lines = [
@@ -7728,11 +7793,14 @@
             stop.disabled = false;
             box.hidden = false;
             if (currentView === "cards") stop.focus({ preventScroll: true });
+            cardRun = { step: "" };
+            lockRailForCardRun(true);
             try {
               for (let i = 0; i < n && !stopped; i++) {
                 const row = results[i];
                 const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
                 const step = "Card " + (i + 1) + " of " + n + ": " + name;
+                cardRun.step = step;
                 label.textContent = step;
                 download(await zip(buildCardFiles({ text: row.text }), when), name);
                 message(step); // after zip(), whose own "Packaging" lines would hide it
@@ -7743,6 +7811,8 @@
                 await new Promise((resolve) => setTimeout(resolve, 400));
               }
             } finally {
+              cardRun = null;
+              lockRailForCardRun(false); // run() then restores the rail as it was before the run
               if (document.activeElement === stop) stop.blur(); // run() puts focus back on the opener
               box.hidden = true;
               stop.onclick = null;
@@ -7764,7 +7834,7 @@
         }
         message(
           "Export finished: " + n + " switch" + (n === 1 ? "" : "es") +
-            (textOnly ? " in one text-only ZIP (HOSTNAME/editcontent.txt + fleet-manifest.txt)." : " as separate card ZIPs plus a manifest with every SHA-256. If the browser blocked some downloads, allow multiple downloads for this page and export again.") +
+            (textOnly ? " in one text-only ZIP (HOSTNAME/editcontent.txt + fleet-manifest.txt)." : (n === 1 ? " as one card ZIP" : " as separate card ZIPs") + " plus a manifest with every SHA-256. If the browser blocked some downloads, allow multiple downloads for this page and export again.") +
             " Each hostname's text is remembered for the next comparison; Save project to keep that.",
         );
         return true;
@@ -8587,6 +8657,8 @@
 
       $("dismissOnboarding").onclick = () => {
         $("onboarding").hidden = true;
+        // The button just hid itself: focus moves on to step 1 (the recipe picker), never to <body>.
+        if (canFocus($("recipe"))) $("recipe").focus({ preventScroll: true });
         // Storage may be blocked (file:// policies, private mode): never throw here.
         try {
           localStorage.setItem(ONBOARD_KEY, "1");
@@ -8898,7 +8970,12 @@
           message("Apply recipe changes or Discard unapplied draft first.");
           return;
         }
-        const g = generate(current());
+        const r = current();
+        if (r.example) {
+          message(EXAMPLE_TEXT_BLOCKED);
+          return;
+        }
+        const g = generate(r);
         if (g.errors.length) return;
         const policyHits = policyViolations(g.text, teamPolicies);
         if (policyHits.length) {
@@ -9181,6 +9258,10 @@
       // Shows one view. Leaving the recipe editor is refused while it holds an unapplied draft.
       function showView(name) {
         if (!VIEW_SECTIONS[name]) return false;
+        if (typeof cardRun !== "undefined" && cardRun && name !== currentView) {
+          message("A card export is running (" + cardRun.step + "). Other views open again when it ends; use Cancel after this card to stop early.");
+          return false;
+        }
         if (name !== "manage" && editorPending) {
           message("Apply your recipe changes before leaving the recipe editor.");
           return false;
@@ -9379,7 +9460,10 @@
         $("swPanelTitle").textContent = title;
         const items = [
           ...x.findings.map((f) => ({ level: f.level, text: f.text, where: f.where })),
-          ...x.policy.map((p) => ({ level: "error", text: "Team policy: " + p, where: { kind: "policy" } })),
+          // Team-policy results are listed even while the row has other errors (the row check stops at
+          // the first kind; the panel shows both, as Build does).
+          ...(x.policy.length ? x.policy : x.errors.length && x.text ? policyViolations(x.text, teamPolicies) : [])
+            .map((p) => ({ level: "error", text: "Team policy: " + p, where: { kind: "policy" } })),
         ].sort((a, b) => (a.level === "error" ? 0 : 1) - (b.level === "error" ? 0 : 1)); // errors first (stable)
         // Each check is a button that jumps to what it is about (this row's cell, its Ports dialog, ...).
         const ctx = { view: "switches", rowId: x.row.id };
@@ -9729,7 +9813,14 @@
             if (focus) draw(focus);
           },
         }).then(() => {
-          if (currentView === "switches") renderSwitches();
+          if (currentView !== "switches") return;
+          renderSwitches();
+          // A fixed check removes the button that opened the dialog: focus goes to this row's Ports button.
+          if (focusLost() || !canFocus(document.activeElement)) {
+            const tr = [...$("swRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === row.id);
+            const pb = tr && tr.querySelector("button.sw-ports");
+            if (canFocus(pb)) pb.focus({ preventScroll: true });
+          }
         });
       }
       // --- Clickable checks: a check's location -> the control it is about ---
@@ -9847,6 +9938,16 @@
         // Addresses and numbers are trimmed while typing, as on Build a card.
         const k = t.dataset.key;
         setSwitchCell(t, cleanInput(t, fieldLabel(k), /(?:^|_)(?:IP|MASK|VLAN|LOOPBACK)$|^GATEWAY$/.test(k)));
+      });
+      // Several lines or spreadsheet cells pasted into one cell would join into one value: refused with
+      // a pointer to Import CSV. Surrounding spaces and line breaks alone are fine (trimmed as before).
+      $("swRows").addEventListener("paste", (e) => {
+        const t = e.target;
+        if (!t.matches("input[data-key]") || !e.clipboardData) return;
+        const text = e.clipboardData.getData("text/plain").trim();
+        if (!/[\r\n\t]/.test(text)) return;
+        e.preventDefault();
+        message("Not pasted: that text holds several lines or cells, and one cell takes one value. To fill many switches, use Import CSV (a header row, then one row per switch).");
       });
       // Trim when the cell loses focus, not while typing.
       $("swRows").addEventListener("change", (e) => {
@@ -9976,6 +10077,8 @@
         swSelectedId = null;
         touch();
         renderSwitches();
+        // Remove all is hidden with the list: focus goes to the empty state's Add switches.
+        if ((focusLost() || !canFocus(document.activeElement)) && canFocus($("swEmptyAdd"))) $("swEmptyAdd").focus({ preventScroll: true });
         message("Removed all " + n + " switch" + (n === 1 ? "" : "es") + ".");
       };
       // The shared recipe picker re-renders the list (its onchange, set earlier, switches the recipe).
@@ -9996,6 +10099,32 @@
       // Team-policy hits block export, so a row with them counts as a row with errors (fail closed).
       function cardRowBad(x) {
         return x.errors.length > 0 || x.policy.length > 0;
+      }
+      // What is wrong with a row, in a few words, for the gate and bulk status lines: the first error
+      // (duplicates name the shared value), else the first team-policy hit.
+      function rowProblem(x) {
+        const e = x.errors[0];
+        if (!e) return x.policy.length ? "team policy: " + String(x.policy[0]).replace(/\.$/, "") : "";
+        if (/^duplicate HOSTNAME/.test(e)) return "duplicate HOSTNAME " + x.host;
+        if (/^duplicate MGMT_IP/.test(e)) return "duplicate MGMT_IP " + x.ip;
+        if (/^The template still contains the example header line/.test(e)) return "template still contains the example header";
+        const t = String(e).replace(/\.$/, "");
+        return t.length > 70 ? t.slice(0, 67) + "…" : t;
+      }
+      // "2, 3 (duplicate MGMT_IP 10.20.30.13) · 5 (template still contains the example header)": rows
+      // grouped by problem, the first three problems, then "and N more rows".
+      function badRowsSummary(xs) {
+        const groups = new Map();
+        for (const x of xs) {
+          const why = rowProblem(x);
+          if (groups.has(why)) groups.get(why).push(x.n);
+          else groups.set(why, [x.n]);
+        }
+        const list = (ns) => (ns.length > 6 ? ns.slice(0, 5).join(", ") + " +" + (ns.length - 5) + " more" : ns.join(", "));
+        const all = [...groups];
+        const shown = all.slice(0, 3).map(([why, ns]) => list(ns) + (why ? " (" + why + ")" : ""));
+        const rest = all.slice(3).reduce((sum, [, ns]) => sum + ns.length, 0);
+        return shown.join(" · ") + (rest ? " · and " + rest + " more row" + (rest === 1 ? "" : "s") : "");
       }
       // The checked rows plus their export states, for the current recipe.
       function cardRows(r) {
@@ -10064,10 +10193,9 @@
         $("cdTable").classList.toggle("is-blocked", blocked);
         $("cdEmpty").hidden = items.length > 0;
         const badRows = items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x.n);
-        const policyRows = items.filter(({ x }) => x.policy.length).map(({ x }) => x.n);
         const reasons = [...gates];
         if (badRows.length)
-          reasons.push("Rows with errors: " + badRows.join(", ") + (policyRows.length ? " (team policy: " + policyRows.join(", ") + ")" : "") + ".");
+          reasons.push("Rows with errors: " + badRowsSummary(items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x)) + ".");
         renderGate($("cdGates"), reasons, items.length ? "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + "." : "", "cdFixGate");
         const changed = items.filter(({ st }) => st.state === "new" || st.state === "changed").length;
         // Counts at a glance: "12 switches · 6 up to date · 3 changed · 3 new · 1 with errors".
@@ -10115,9 +10243,9 @@
             message(which === "changed" ? "Every card is up to date." : "No switches to export yet.");
             return;
           }
-          const bad = items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x.n);
+          const bad = items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x);
           if (bad.length) {
-            message("Rows with errors: " + bad.join(", ") + ". Fix them in Switches; nothing was exported.");
+            message("Rows with errors: " + badRowsSummary(bad) + ". Fix them in Switches; nothing was exported.");
             return;
           }
           await exportSwitchCards(r, items.map(({ x }) => x), { textOnly: which === "text" });

@@ -42,7 +42,7 @@ def test_typo_duplicating_another_rows_ip_blocks_both_rows(page):
     assert page.is_disabled(_cd(ids[1], "button.cd-card"))
     assert page.is_disabled(_cd(ids[2], "button.cd-card"))
     assert page.is_enabled(_cd(ids[0], "button.cd-card"))
-    assert "Rows with errors: 2, 3." in page.inner_text("#cdGates")
+    assert "Rows with errors: 2, 3 (duplicate MGMT_IP %s)." % ip3 in page.inner_text("#cdGates")
     stub_downloads(page)
     page.click(_cd(ids[1], "button.cd-card"), force=True)  # disabled: nothing happens
     # and the export path itself refuses row 2 even when called directly
@@ -87,7 +87,7 @@ def test_example_header_blocks_a_non_example_recipe(page):
     _take_over(page, 2)
     ev(page, "(h) => { current().template = h + '\\n' + current().template; renderAll(); renderPreview(); }", HEADER)
     ev(page, "() => showView('cards')")
-    assert "Rows with errors: 1, 2." in page.inner_text("#cdGates")
+    assert "Rows with errors: 1, 2 (template still contains the example header)." in page.inner_text("#cdGates")
     page.wait_for_function("() => $('chipSwitches').textContent.includes('2 errors')")
     assert ev(page, "() => $('chipSwitches').classList.contains('chip-bad')")
     assert ev(page, "() => checkSwitchRows(current(), current().switches).rows[0].errors.some((e) => e.includes('still contains the example header line'))")
