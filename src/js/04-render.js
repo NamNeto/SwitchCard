@@ -244,13 +244,21 @@ function renderBaseline() {
     : baselineExpected
       ? "No baseline loaded. The project expects " + baselineExpected.model + " / " + baselineExpected.version +
         (baselineExpected.fingerprint ? " (" + baselineExpected.fingerprint.fileCount + " files, fingerprint recorded)" : "") +
-        " — load that sync-export folder in Manage recipes & baseline; it is compared with the record."
+        " — load that sync-export folder in Manage recipes & baseline (Model family and label are filled in from the record); it is compared with the record."
       : "No baseline loaded. Explore the examples, then import a complete sync export in Manage recipes & baseline.";
   $("baselineInfo").textContent = description;
   $("baseDetails").textContent = description;
   $("fileList").textContent = baseline
     ? baseline.files.map((f) => f.path + "  (" + size(f.blob.size) + ")").join("\n")
     : "No files loaded.";
+}
+// After Open, a team package or an autosave restore with no baseline loaded: the loader's Model
+// family and label are set from the project's record, so one folder pick re-attaches it.
+function prefillBaselineFields() {
+  if (baseline || !baselineExpected) return;
+  const m = $("baseModel");
+  if ([...m.options].some((o) => o.value === baselineExpected.model)) m.value = baselineExpected.model;
+  if (typeof baselineExpected.version === "string" && baselineExpected.version) $("baseVersion").value = baselineExpected.version;
 }
 function size(n) {
   return n >= 1048576 ? (n / 1048576).toFixed(1) + " MiB" : (n / 1024).toFixed(1) + " KiB";

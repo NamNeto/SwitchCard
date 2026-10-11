@@ -163,7 +163,7 @@ function summaryView(text, rows) {
     }
     if (!kv) box.append((kv = el("table", { className: "dlg-kv" })));
     // A hash never breaks inside (it is compared with a manifest by eye): one line that scrolls.
-    kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : "" }, el("th", { scope: "row" }, summaryKeyLabel(m[1])),
+    kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : /DIFFERS/.test(m[2]) ? "dlg-differs" : "" }, el("th", { scope: "row" }, summaryKeyLabel(m[1])),
       el("td", { className: /^[0-9a-f]{64}$/i.test(m[2]) ? "dlg-hash" : "" }, m[2])));
   }
   return box;
@@ -182,7 +182,9 @@ function summaryKeyLabel(key) {
 }
 // Review-before-download gate: the primary action stays disabled until the box is ticked.
 // rows (bulk exports): [{ n, host, ip, sha256, lines, state }] for the switch table.
-function writeDialog({ title, summary, primary, rows }) {
+// warning: a review note shown above the summary (the baseline fingerprint differs from the
+// project's record); it does not block, the tick still decides.
+function writeDialog({ title, summary, primary, rows, warning }) {
   const text = String(summary).replace(/\s*Cancel = no download\.\s*$/, "");
   const check = el("input", { type: "checkbox" });
   const copy = el("button", {
@@ -195,6 +197,7 @@ function writeDialog({ title, summary, primary, rows }) {
   });
   // The tick is a boxed safety step of its own, and gets the first focus.
   const body = el("div", {},
+    warning ? el("p", { className: "dlg-warning", role: "note" }, el("strong", {}, "Review: "), warning) : null,
     summaryView(text, rows),
     el("div", { className: "dlg-copy" }, copy),
     el("label", { className: "review-tick" }, check,

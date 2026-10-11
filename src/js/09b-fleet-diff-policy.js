@@ -358,6 +358,8 @@ function parseCsv(text) {
     rawHeader,
     rows: nonEmpty.slice(1).map((r) => r.map((c) => sanitizeSingleLine(c).text.trim())),
     delimiter: delim,
+    // Quoted data cells that held line breaks (joined into one line by sanitizeSingleLine).
+    multiline: nonEmpty.slice(1).reduce((n, r) => n + r.filter((c) => /[\r\n]/.test(c)).length, 0),
   };
 }
 // --- Fleet CSV helpers (v0.7.1): column order, CSV text, "Duplicate switch" rows ---
@@ -652,6 +654,8 @@ function checkFleet(r, csvText) {
 // views stay closed (showView says why), so its progress and Cancel stay in sight and its pacing
 // between downloads is never cut short.
 let cardRun = null;
+// Shown beside the progress for a few seconds after a click on another view during the run.
+const CARD_RUN_NOTE = " · other views open again when this run ends (or use Cancel after this card)";
 const RAIL_LOCK_TITLE = "A card export is running: other views open again when it ends (or use Cancel after this card).";
 function lockRailForCardRun(on) {
   const rail = $("rail");
@@ -690,6 +694,7 @@ async function exportSwitchCards(r, results, opts) {
     "",
     "Recipe: " + r.name,
     "Baseline: " + (baseline ? baseline.model + " / " + baseline.version : "(none)"),
+    baselineFingerprintLine(),
     "",
   ];
   // Padded columns, so rows 1-9 and 10+ line up in the monospace summary.
@@ -706,6 +711,7 @@ async function exportSwitchCards(r, results, opts) {
     title: textOnly ? "Export text-only ZIP?" : "Export SD-card ZIPs?",
     summary: lines.join("\n"),
     primary: textOnly ? "Download ZIP" : "Download ZIPs",
+    warning: baselineDiffersWarning(),
     // The dialog's switch table marks each card's state against its last export.
     rows: results.map((row) => ({ n: row.n, host: row.host, ip: row.ip, sha256: row.sha256, lines: row.lines,
       state: exportState(r, row.host, row.sha256).state })),
@@ -730,6 +736,7 @@ async function exportSwitchCards(r, results, opts) {
       download(await zip(files, when), "switchcard-fleet-" + RELEASE + "-text.zip");
       for (const row of results) recordExport(r, row.host, row.text);
       recorded = n;
+      touchAndAutosaveNow();
     } else {
       // Progress in the Cards view ("Card 8 of 24: file") with a Cancel button that ends the run
       // after the card being written. run() disabled every button, so Cancel is enabled here.
@@ -754,11 +761,13 @@ async function exportSwitchCards(r, results, opts) {
           const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
           const step = "Card " + (i + 1) + " of " + n + ": " + name;
           cardRun.step = step;
-          label.textContent = step;
+          const noted = cardRun.noteUntil > Date.now();
+          label.textContent = step + (noted ? CARD_RUN_NOTE : "") + (stopped ? STOPPING : "");
           download(await zip(buildCardFiles({ text: row.text }), when), name);
-          message(step); // after zip(), whose own "Packaging" lines would hide it
+          if (!(cardRun.noteUntil > Date.now())) message(step); // after zip(), whose own "Packaging" lines would hide it
           recordExport(r, row.host, row.text); // right away, so a later failure keeps this one
           recorded++;
+          touchAndAutosaveNow(); // and in the browser autosave, so a reload mid-run keeps it too
           if (typeof scheduleRailUpdate === "function") scheduleRailUpdate(); // chips and rows follow the run
           manifest.push([row.n, row.host, row.ip, name, row.sha256, row.lines, row.bytes].join("\t"));
           await new Promise((resolve) => setTimeout(resolve, 400));
