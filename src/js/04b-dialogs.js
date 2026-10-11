@@ -87,6 +87,7 @@ function showDialog({ title, body, actions, onOpen, note }) {
     const dlg = el("dialog", { className: "dlg", ariaModal: "true", ariaLabelledby: titleId });
     const veil = el("div", { className: "dlg-veil" });
     const opener = document.activeElement;
+    const openerGroup = typeof focusNet !== "undefined" ? focusNet.groupOf(opener) : null;
     let done = false;
     let lastInside = null; // the control that last had focus inside: where focus comes back to
     const controls = () => [...dlg.querySelectorAll("button, input, select, textarea, a[href], summary, [tabindex]:not([tabindex='-1'])")]
@@ -135,8 +136,12 @@ function showDialog({ title, body, actions, onOpen, note }) {
       dlg.remove();
       veil.remove();
       // Back to the opener when it can take focus now; inside run() (opener disabled) run()
-      // puts it back once the work is done.
+      // puts it back once the work is done. An opener that is gone or hidden by now (Discard
+      // hides itself) hands focus to its neighbour through the safety net.
       restoreFocus(opener, false);
+      // The caller's own focus handling (its .then) runs first; a macrotask later the net moves
+      // focus only if it is still lost and the opener cannot take it.
+      if (typeof focusNet !== "undefined" && opener && opener !== document.body) setTimeout(() => focusNet.rescue(opener, openerGroup), 0);
       resolve(value);
     };
     const bar = el("div", { className: "dialog-actions" });
@@ -166,11 +171,26 @@ function showDialog({ title, body, actions, onOpen, note }) {
     };
     document.body.append(veil, dlg);
     if (!openDialogs.length) setPageHidden(true);
+    // A dialog over a dialog (Remove from the row menu's dialog, a confirm over the Ports dialog):
+    // each pair sits two steps above the one below, so the lower dialog is under the upper veil.
+    const depth = openDialogs.length;
+    veil.style.zIndex = String(1000 + depth * 2);
+    dlg.style.zIndex = String(1001 + depth * 2);
     openDialogs.push(dlg);
     document.addEventListener("keydown", onKey, true);
     document.addEventListener("focusin", onFocus, true);
     dlg.show();
-    if (onOpen) onOpen(dlg);
+    // onOpen that throws (a broken body builder) must not leave the dialog open with the page
+    // hidden and its listeners on: the dialog closes as cancelled, the error is still reported.
+    if (onOpen) {
+      try {
+        onOpen(dlg);
+      } catch (e) {
+        finish(null);
+        setTimeout(() => { throw e; });
+        return;
+      }
+    }
     keepInside();
     requestAnimationFrame(() => setTimeout(keepInside, 0));
   });

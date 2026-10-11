@@ -981,11 +981,22 @@
         padding-bottom: 2px;
         overflow: visible;
       }
-      #previewCue {
+      #previewCue,
+      #swPreviewCue {
         color: var(--faint);
         font-size: 12.5px;
       }
-      #previewCue:empty {
+      #previewCue:empty,
+      #swPreviewCue:empty {
+        display: none;
+      }
+      /* The side panel's cue: right under its box, nothing when the box shows the whole text. */
+      .sw-preview-meter {
+        justify-content: flex-end;
+        margin-top: 4px;
+        padding-bottom: 0;
+      }
+      .sw-preview-meter:not(:has(#swPreviewCue:not(:empty))) {
         display: none;
       }
 
@@ -3786,6 +3797,8 @@
             </div>
             <p id="swPanelEmpty" class="muted" hidden>Select a row to see its checks and its editcontent.txt.</p>
             <pre id="swPreview" tabindex="0"></pre>
+            <!-- Which lines the box shows when it scrolls (the same cue as Build's preview). -->
+            <p class="muted preview-meter sw-preview-meter"><span id="swPreviewCue" aria-live="off"></span></p>
             <details id="swDiffPanel" hidden>
               <summary id="swDiffSummary">Changes since the last export</summary>
               <pre id="swDiff" class="diff"></pre>
@@ -4267,8 +4280,19 @@
             type: "button", id: "statusClose", ariaLabel: "Dismiss this message", title: "Dismiss",
             onclick: () => {
               s.hidden = true;
+              // Back to the control that raised the message (the one focused before this close
+              // control) when it can still take focus; else the view heading, brought into view.
+              const back = typeof focusNet !== "undefined" ? focusNet.previous() : null;
+              if (back && canFocus(back) && back.id !== "statusClose") {
+                back.focus({ preventScroll: true });
+                if (back.scrollIntoView) back.scrollIntoView({ block: "nearest" });
+                return;
+              }
               const h = $("viewTitle");
-              if (h) h.focus({ preventScroll: true });
+              if (h) {
+                h.focus({ preventScroll: true });
+                if (h.scrollIntoView) h.scrollIntoView({ block: "nearest" });
+              }
             },
           }),
         );
@@ -5481,6 +5505,7 @@
           const dlg = el("dialog", { className: "dlg", ariaModal: "true", ariaLabelledby: titleId });
           const veil = el("div", { className: "dlg-veil" });
           const opener = document.activeElement;
+          const openerGroup = typeof focusNet !== "undefined" ? focusNet.groupOf(opener) : null;
           let done = false;
           let lastInside = null; // the control that last had focus inside: where focus comes back to
           const controls = () => [...dlg.querySelectorAll("button, input, select, textarea, a[href], summary, [tabindex]:not([tabindex='-1'])")]
@@ -5529,8 +5554,12 @@
             dlg.remove();
             veil.remove();
             // Back to the opener when it can take focus now; inside run() (opener disabled) run()
-            // puts it back once the work is done.
+            // puts it back once the work is done. An opener that is gone or hidden by now (Discard
+            // hides itself) hands focus to its neighbour through the safety net.
             restoreFocus(opener, false);
+            // The caller's own focus handling (its .then) runs first; a macrotask later the net moves
+            // focus only if it is still lost and the opener cannot take it.
+            if (typeof focusNet !== "undefined" && opener && opener !== document.body) setTimeout(() => focusNet.rescue(opener, openerGroup), 0);
             resolve(value);
           };
           const bar = el("div", { className: "dialog-actions" });
@@ -5560,11 +5589,26 @@
           };
           document.body.append(veil, dlg);
           if (!openDialogs.length) setPageHidden(true);
+          // A dialog over a dialog (Remove from the row menu's dialog, a confirm over the Ports dialog):
+          // each pair sits two steps above the one below, so the lower dialog is under the upper veil.
+          const depth = openDialogs.length;
+          veil.style.zIndex = String(1000 + depth * 2);
+          dlg.style.zIndex = String(1001 + depth * 2);
           openDialogs.push(dlg);
           document.addEventListener("keydown", onKey, true);
           document.addEventListener("focusin", onFocus, true);
           dlg.show();
-          if (onOpen) onOpen(dlg);
+          // onOpen that throws (a broken body builder) must not leave the dialog open with the page
+          // hidden and its listeners on: the dialog closes as cancelled, the error is still reported.
+          if (onOpen) {
+            try {
+              onOpen(dlg);
+            } catch (e) {
+              finish(null);
+              setTimeout(() => { throw e; });
+              return;
+            }
+          }
           keepInside();
           requestAnimationFrame(() => setTimeout(keepInside, 0));
         });
@@ -5711,6 +5755,102 @@
           },
         }).then((v) => v === true);
       }
+      /* ============================================================
+         Focus safety net: focus never silently falls to <body> (operator round 6)
+         ============================================================ */
+      // A click or an activation key (Enter, Space) often rebuilds, hides or disables the control it
+      // was on (Transliterate hides its own panel, Discard hides its own button, a render replaces a
+      // row), and the browser then drops focus to <body> or leaves it on a dead control: a keyboard
+      // user loses their place and the next Tab starts from the page top. After every such event,
+      // after a dialog closes, and after any DOM change that removes, hides or disables the focused
+      // control, the net checks: if focus is lost AND the control it came from is gone, hidden or
+      // disabled, focus moves to a sensible neighbour (the same control by id, else the first enabled
+      // control of its group, else the view heading). It never moves focus that the user has (nothing
+      // is stolen from a control they just reached, and a deliberate blur stays a blur), does nothing
+      // while a dialog is open or a task runs (those put focus back themselves), and never runs on a
+      // typing key.
+      const focusNet = (() => {
+        let last = null; // the control that last had focus (the event target of the last focusin)
+        let lastGroup = null; // its group, noted while it was in the page (a removed node has no ancestors)
+        let prev = null; // the one before it: where a dismissed status message hands focus back to
+        const GROUP = ".dialog-actions, .actions, .sw-toolbar, .sw-panel-actions, .notice, .gate, .field, .card, section";
+        const groupOf = (n) => (n && n.closest && n.isConnected ? n.closest(GROUP) : null);
+        document.addEventListener("focusin", (e) => {
+          const t = e.target;
+          if (!t || t === document.body || t === document.documentElement || t === last) return;
+          prev = last;
+          last = t;
+          lastGroup = groupOf(t);
+        }, true);
+        const idle = () => (typeof busy !== "undefined" && busy) || (typeof openDialogs !== "undefined" && openDialogs.length > 0);
+        // Lost: on <body>, or on a control that cannot take focus any more (disabled, hidden).
+        const lost = () => focusLost() || !canFocus(document.activeElement);
+        // The heading of the open view, as the last resort (tabindex -1: focusable by script only).
+        const heading = () => {
+          const h = document.getElementById("viewTitle");
+          return h && !h.closest("[hidden]") ? h : null;
+        };
+        // Where focus goes for a control that is gone: the same id, else its group's first enabled
+        // control, else the heading. Returns the element it focused, or null.
+        function rescue(from, group) {
+          if (!lost() || idle()) return null;
+          const src = from && from !== document.body ? from : last;
+          if (!src || src === document.body || src === document.documentElement) return null;
+          // Still focusable: the user blurred it on purpose (a click on empty space); leave it.
+          if (canFocus(src)) return null;
+          let t = src.id ? document.getElementById(src.id) : null;
+          if (!canFocus(t)) {
+            const box = groupOf(src) || [group, src === last ? lastGroup : null].find((g) => g && g.isConnected && !g.closest("[hidden]"));
+            t = box ? [...box.querySelectorAll("button, input, select, textarea, summary, a[href]")].find(canFocus) : null;
+          }
+          if (!canFocus(t)) t = heading();
+          if (!t) return null;
+          t.focus({ preventScroll: true });
+          if (t.scrollIntoView) t.scrollIntoView({ block: "nearest" });
+          return t;
+        }
+        // After the event's own handlers ran (a macrotask later: a handler that opens a dialog or
+        // moves focus itself has done so by then, and the net then sees focus is not lost).
+        const later = (src) => {
+          const group = groupOf(src);
+          setTimeout(() => rescue(src, group), 0);
+        };
+        const control = (n) => (n && n.closest ? n.closest("button, input, select, textarea, summary, a[href]") : null);
+        document.addEventListener("click", (e) => {
+          const c = control(e.target);
+          if (c) later(c);
+        });
+        document.addEventListener("keydown", (e) => {
+          // Activation keys on a button-like control only; typing in a text field is never touched.
+          if (e.key !== "Enter" && e.key !== " ") return;
+          const c = control(e.target);
+          if (!c || !c.matches("button, summary, a[href], input[type='checkbox'], input[type='radio']")) return;
+          later(c);
+        });
+        // A change that removes, hides or disables the focused control (a render after an awaited
+        // dialog, a panel that hides itself): one check per batch of changes, a macrotask later.
+        let pending = false;
+        const check = () => {
+          pending = false;
+          // A whole view hidden (showView) is not a lost control: the view switch places focus itself.
+          if (last && !idle() && lost() && !canFocus(last) && !(last.isConnected && last.closest("section[hidden]"))) rescue(last, lastGroup);
+        };
+        if (typeof MutationObserver === "function")
+          new MutationObserver(() => {
+            // No layout here (this runs after every batch of changes): the attribute checks suffice.
+            if (pending || !last || (last.isConnected && !last.disabled && !last.closest("[hidden]"))) return;
+            pending = true;
+            setTimeout(check, 0);
+          }).observe(document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "hidden"] });
+        return {
+          rescue,
+          groupOf,
+          // The control focused before the current one (the status message's close control hands focus
+          // back to the control that raised the message, when it still can take it).
+          previous: () => prev,
+          last: () => last,
+        };
+      })();
       // --- Validation helpers ---
       function ipv4(v) {
         return (
@@ -7845,7 +7985,9 @@
           const want = runFocusTarget;
           runFocusTarget = null;
           // The task's own target first (a view changed under the opener); else back to the opener.
-          if (want && focusLost() && canFocus(want)) {
+          // Focus on the view heading (only ever a fallback, never a control the user reached) counts
+          // as lost here.
+          if (want && (focusLost() || document.activeElement === $("viewTitle")) && canFocus(want)) {
             want.focus({ preventScroll: true });
             if (want.scrollIntoView) want.scrollIntoView({ block: "nearest" });
           } else restoreFocus(opener);
@@ -9322,10 +9464,12 @@
       // "Showing lines 1–20 of 76 · scroll for more" under the box while it scrolls; nothing when it all
       // fits. Measured from the line blocks that are inside the box now, so it is never a guess: a
       // ResizeObserver on the box runs it again whenever the box changes size for any reason.
-      function updatePreviewCue() {
-        const pre = $("preview"), cue = $("previewCue");
+      function updatePreviewCue(preArg, cueArg) {
+        // Called from a scroll or resize event too: an Event argument means the Build preview.
+        const pre = preArg instanceof Element ? preArg : $("preview");
+        const cue = cueArg instanceof Element ? cueArg : pre === $("preview") ? $("previewCue") : null;
         if (!pre || !cue) return;
-        const range = visiblePreviewLines(pre);
+        const range = pre.hidden || pre.closest("[hidden]") ? null : visiblePreviewLines(pre);
         if (!range) {
           cue.textContent = "";
           return;
@@ -9333,29 +9477,33 @@
         cue.textContent = "Showing lines " + range.first + "–" + range.last + " of " + range.total +
           (range.last < range.total ? " · scroll for more" : "");
       }
-      // The first and last line blocks that are at least half inside the box, or null when the whole
-      // text fits. A long line wraps, so this is measured, not counted.
+      // The first and last line blocks that are wholly inside the box (one rule for both ends,
+      // operator round 6: a line cut by the edge is not shown), or null when the whole text fits. A
+      // long line wraps, so this is measured, not counted.
       function visiblePreviewLines(pre) {
         const blocks = pre.querySelectorAll(".pl");
         const total = blocks.length;
         if (!total || pre.scrollHeight <= pre.clientHeight + 1) return null;
         const box = pre.getBoundingClientRect();
-        // The box's inner edge is its border (the top inset scrolls with the text, so a line shown there
-        // counts; operator round 5: a fully visible top line was left out of the cue mid-scroll).
-        const top = box.top + 1, bottom = box.top + pre.clientHeight + 1;
+        // The box's inner edges are its borders (the top inset scrolls with the text, so a line shown
+        // there counts); a pixel of slack at each edge for fractional layout.
+        const top = box.top, bottom = box.top + pre.clientHeight + 2;
         let first = 0, last = 0;
         blocks.forEach((b, i) => {
           const r = b.getBoundingClientRect();
-          const mid = (r.top + r.bottom) / 2;
-          if (mid >= top && mid <= bottom) {
+          if (r.top >= top && r.bottom <= bottom) {
             if (!first) first = i + 1;
             last = i + 1;
           }
         });
-        if (!first) first = last = Math.min(total, Math.floor(pre.scrollTop / 20) + 1);
+        if (!first) {
+          const lh = parseFloat(getComputedStyle(pre).lineHeight) || 20;
+          first = last = Math.min(total, Math.floor(pre.scrollTop / lh) + 1);
+        }
         return { first, last, total };
       }
       if ($("preview")) $("preview").addEventListener("scroll", updatePreviewCue, { passive: true });
+      if ($("swPreview")) $("swPreview").addEventListener("scroll", () => updatePreviewCue($("swPreview"), $("swPreviewCue")), { passive: true });
       window.addEventListener("scroll", sizeBuildPane, { passive: true });
       window.addEventListener("resize", sizeBuildPane);
       if (buildPane && typeof ResizeObserver === "function") {
@@ -9368,6 +9516,7 @@
         for (const id of ["checks", "exportWhy"]) if ($(id)) ro.observe($(id));
         // The cue follows the box itself, whatever changed its size.
         if ($("preview")) new ResizeObserver(() => requestAnimationFrame(updatePreviewCue)).observe($("preview"));
+        if ($("swPreview")) new ResizeObserver(() => requestAnimationFrame(() => updatePreviewCue($("swPreview"), $("swPreviewCue")))).observe($("swPreview"));
       }
       // Theme picker (header).
       $("themeSelect").onchange = () => {
@@ -9406,6 +9555,9 @@
           touch();
           renderAll();
         }
+        // The panel with this button hides once the values are clean: focus goes to the first field
+        // that was fixed (or, when the template was loaded into the editor, to the template there).
+        let focusTo = changedValues.length ? $("value_" + changedValues[0]) : null;
         let msg = "Transliterated " + (changedValues.length ? "values " + changedValues.join(", ") : "no values") + (changedPorts ? " and " + changedPorts + " port description(s)" : "") + ".";
         if (editorNeeds) {
           if (editorPending) msg += " The recipe editor holds an unapplied draft; Apply or Discard it, then run this again for the template.";
@@ -9419,10 +9571,15 @@
             updateDiscardButton();
             touch();
             renderPreview();
+            focusTo = $("template");
             msg += " A transliterated template, role templates and source block are loaded in the recipe editor — review them and click Apply recipe changes.";
           }
         } else if (!changedValues.length && !changedPorts) msg += " No translatable characters found; the reported character must be edited by hand.";
         message(msg);
+        if (canFocus(focusTo)) {
+          focusTo.focus({ preventScroll: true });
+          focusTo.scrollIntoView({ block: "nearest" });
+        }
       };
       // Interface list from pasted show output (recipe editor).
       $("useIfaceBrief").onclick = () => {
@@ -9755,13 +9912,21 @@
           message("No unapplied draft to discard.");
           return;
         }
-        if (!(await confirmDialog("Discard the draft?", "Discard unapplied draft and reload the applied recipe?", { ok: "Discard", danger: true }))) return;
+        if (!(await confirmDialog("Discard the draft?", "Discard unapplied draft and reload the applied recipe?", { ok: "Discard", danger: true }))) {
+          message("Discard cancelled; the draft is kept.");
+          return;
+        }
         editorPending = false;
         loadEditor();
         autosave();
         updateDiscardButton();
         renderPreview();
         message("Unapplied draft discarded. Editor reloaded from the applied recipe.");
+        // This button hides itself: focus goes to Apply recipe changes beside it (the bar stays in view).
+        if (focusLost() || document.activeElement === $("discardDraft")) {
+          const b = $("applyRecipe");
+          if (canFocus(b)) b.focus({ preventScroll: true });
+        }
       };
       async function copyText(text) {
         if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
@@ -9830,8 +9995,10 @@
               "\n\nIn-memory work stays until you reload.",
             { ok: "Clear", danger: true },
           ))
-        )
+        ) {
+          message("Clear cancelled; nothing was removed.");
           return;
+        }
         clearTimeout(autosaveTimer);
         autosaveTimer = null;
         try {
@@ -10576,6 +10743,8 @@
           swPanelKeys.text = shown;
           fillLines(pre, shown);
         }
+        // The same "Showing lines a–b of n" cue as Build's preview, under the panel's box.
+        if (typeof updatePreviewCue === "function") updatePreviewCue(pre, $("swPreviewCue"));
         const prev = lastExport(r, x.host);
         const diffKey = prev && !x.errors.length ? JSON.stringify([prev.at, prev.sha256, x.text]) : "";
         if (diffKey !== swPanelKeys.diff) {
@@ -10929,10 +11098,12 @@
           },
         }).then((v) => {
           autosavePaused = pausedBefore;
-          if (v !== true && JSON.stringify(row.ports || {}) !== before) {
+          if (v === true) {
+            if (dirty) touchAndAutosaveNow(); // Done commits: written now, so an immediate reload keeps it
+          } else if (JSON.stringify(row.ports || {}) !== before) {
             row.ports = JSON.parse(before);
             touch();
-          } else if (dirty) touchAndAutosaveNow(); // Done commits: written now, so an immediate reload keeps it
+          } // Cancel or Esc with nothing typed: nothing changed, nothing to mark or write.
           if (currentView !== "switches") return;
           renderSwitches();
           // A fixed check removes the button that opened the dialog: focus goes to this row's Ports button.
@@ -11331,7 +11502,15 @@
         // An address check names the value it refused, so the bad cell is found without a hunt.
         const bad = /^(MGMT_IP|GATEWAY|MGMT_MASK) must be a valid IPv4 address/.exec(e);
         const got = bad && x.values && x.values[bad[1]] ? ' (got "' + x.values[bad[1]] + '")' : "";
-        return (t.length > 70 ? t.slice(0, 67) + "…" : t) + got;
+        return (t.length > 70 ? clauseCut(t, 67) + "…" : t) + got;
+      }
+      // A message cut for a short line ends at a clause boundary (", " / "; " / " — " / " (") when one
+      // sits past the first third, so the cut never lands in the middle of the part that matters.
+      function clauseCut(t, max) {
+        const head = t.slice(0, max);
+        let at = -1;
+        for (const sep of [" — ", "; ", ", ", " ("]) at = Math.max(at, head.lastIndexOf(sep));
+        return at > max / 3 ? head.slice(0, at) : head;
       }
       // "2, 3 (duplicate MGMT_IP 10.20.30.13) · 5 (template still contains the example header)": rows
       // grouped by problem, the first three problems, then "and N more rows".

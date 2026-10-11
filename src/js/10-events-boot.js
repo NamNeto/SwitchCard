@@ -152,10 +152,12 @@ function sizeBuildPane() {
 // "Showing lines 1–20 of 76 · scroll for more" under the box while it scrolls; nothing when it all
 // fits. Measured from the line blocks that are inside the box now, so it is never a guess: a
 // ResizeObserver on the box runs it again whenever the box changes size for any reason.
-function updatePreviewCue() {
-  const pre = $("preview"), cue = $("previewCue");
+function updatePreviewCue(preArg, cueArg) {
+  // Called from a scroll or resize event too: an Event argument means the Build preview.
+  const pre = preArg instanceof Element ? preArg : $("preview");
+  const cue = cueArg instanceof Element ? cueArg : pre === $("preview") ? $("previewCue") : null;
   if (!pre || !cue) return;
-  const range = visiblePreviewLines(pre);
+  const range = pre.hidden || pre.closest("[hidden]") ? null : visiblePreviewLines(pre);
   if (!range) {
     cue.textContent = "";
     return;
@@ -163,29 +165,33 @@ function updatePreviewCue() {
   cue.textContent = "Showing lines " + range.first + "–" + range.last + " of " + range.total +
     (range.last < range.total ? " · scroll for more" : "");
 }
-// The first and last line blocks that are at least half inside the box, or null when the whole
-// text fits. A long line wraps, so this is measured, not counted.
+// The first and last line blocks that are wholly inside the box (one rule for both ends,
+// operator round 6: a line cut by the edge is not shown), or null when the whole text fits. A
+// long line wraps, so this is measured, not counted.
 function visiblePreviewLines(pre) {
   const blocks = pre.querySelectorAll(".pl");
   const total = blocks.length;
   if (!total || pre.scrollHeight <= pre.clientHeight + 1) return null;
   const box = pre.getBoundingClientRect();
-  // The box's inner edge is its border (the top inset scrolls with the text, so a line shown there
-  // counts; operator round 5: a fully visible top line was left out of the cue mid-scroll).
-  const top = box.top + 1, bottom = box.top + pre.clientHeight + 1;
+  // The box's inner edges are its borders (the top inset scrolls with the text, so a line shown
+  // there counts); a pixel of slack at each edge for fractional layout.
+  const top = box.top, bottom = box.top + pre.clientHeight + 2;
   let first = 0, last = 0;
   blocks.forEach((b, i) => {
     const r = b.getBoundingClientRect();
-    const mid = (r.top + r.bottom) / 2;
-    if (mid >= top && mid <= bottom) {
+    if (r.top >= top && r.bottom <= bottom) {
       if (!first) first = i + 1;
       last = i + 1;
     }
   });
-  if (!first) first = last = Math.min(total, Math.floor(pre.scrollTop / 20) + 1);
+  if (!first) {
+    const lh = parseFloat(getComputedStyle(pre).lineHeight) || 20;
+    first = last = Math.min(total, Math.floor(pre.scrollTop / lh) + 1);
+  }
   return { first, last, total };
 }
 if ($("preview")) $("preview").addEventListener("scroll", updatePreviewCue, { passive: true });
+if ($("swPreview")) $("swPreview").addEventListener("scroll", () => updatePreviewCue($("swPreview"), $("swPreviewCue")), { passive: true });
 window.addEventListener("scroll", sizeBuildPane, { passive: true });
 window.addEventListener("resize", sizeBuildPane);
 if (buildPane && typeof ResizeObserver === "function") {
@@ -198,6 +204,7 @@ if (buildPane && typeof ResizeObserver === "function") {
   for (const id of ["checks", "exportWhy"]) if ($(id)) ro.observe($(id));
   // The cue follows the box itself, whatever changed its size.
   if ($("preview")) new ResizeObserver(() => requestAnimationFrame(updatePreviewCue)).observe($("preview"));
+  if ($("swPreview")) new ResizeObserver(() => requestAnimationFrame(() => updatePreviewCue($("swPreview"), $("swPreviewCue")))).observe($("swPreview"));
 }
 // Theme picker (header).
 $("themeSelect").onchange = () => {
@@ -236,6 +243,9 @@ $("fixAscii").onclick = () => {
     touch();
     renderAll();
   }
+  // The panel with this button hides once the values are clean: focus goes to the first field
+  // that was fixed (or, when the template was loaded into the editor, to the template there).
+  let focusTo = changedValues.length ? $("value_" + changedValues[0]) : null;
   let msg = "Transliterated " + (changedValues.length ? "values " + changedValues.join(", ") : "no values") + (changedPorts ? " and " + changedPorts + " port description(s)" : "") + ".";
   if (editorNeeds) {
     if (editorPending) msg += " The recipe editor holds an unapplied draft; Apply or Discard it, then run this again for the template.";
@@ -249,10 +259,15 @@ $("fixAscii").onclick = () => {
       updateDiscardButton();
       touch();
       renderPreview();
+      focusTo = $("template");
       msg += " A transliterated template, role templates and source block are loaded in the recipe editor — review them and click Apply recipe changes.";
     }
   } else if (!changedValues.length && !changedPorts) msg += " No translatable characters found; the reported character must be edited by hand.";
   message(msg);
+  if (canFocus(focusTo)) {
+    focusTo.focus({ preventScroll: true });
+    focusTo.scrollIntoView({ block: "nearest" });
+  }
 };
 // Interface list from pasted show output (recipe editor).
 $("useIfaceBrief").onclick = () => {
@@ -585,13 +600,21 @@ $("discardDraft").onclick = async () => {
     message("No unapplied draft to discard.");
     return;
   }
-  if (!(await confirmDialog("Discard the draft?", "Discard unapplied draft and reload the applied recipe?", { ok: "Discard", danger: true }))) return;
+  if (!(await confirmDialog("Discard the draft?", "Discard unapplied draft and reload the applied recipe?", { ok: "Discard", danger: true }))) {
+    message("Discard cancelled; the draft is kept.");
+    return;
+  }
   editorPending = false;
   loadEditor();
   autosave();
   updateDiscardButton();
   renderPreview();
   message("Unapplied draft discarded. Editor reloaded from the applied recipe.");
+  // This button hides itself: focus goes to Apply recipe changes beside it (the bar stays in view).
+  if (focusLost() || document.activeElement === $("discardDraft")) {
+    const b = $("applyRecipe");
+    if (canFocus(b)) b.focus({ preventScroll: true });
+  }
 };
 async function copyText(text) {
   if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
@@ -660,8 +683,10 @@ $("clearAutosave").onclick = async () => {
         "\n\nIn-memory work stays until you reload.",
       { ok: "Clear", danger: true },
     ))
-  )
+  ) {
+    message("Clear cancelled; nothing was removed.");
     return;
+  }
   clearTimeout(autosaveTimer);
   autosaveTimer = null;
   try {
