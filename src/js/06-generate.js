@@ -442,6 +442,15 @@ function generate(r) {
       );
     }
   }
+  // A recipe taken over from an example (Example recipe unticked) must not ship the example's
+  // header line. Example recipes are already blocked by the example gate, so their text and
+  // findings stay as they were.
+  if (r.example !== true && normalized.split("\r\n").some((l) => l.trim() === CONFIG.EXAMPLE_HEADER_LINE))
+    E(
+      "The template still starts with the example header (" + CONFIG.EXAMPLE_HEADER_LINE +
+        "). Replace it with your own tested configuration header.",
+      TPL,
+    );
   if (normalized.length > MAX_GENERATED_CHARS)
     E(
       "Generated config exceeds " +
