@@ -42,18 +42,25 @@ function renderCards() {
   const body = items.map(({ x, st }) => {
     const status = switchStatus(x);
     let last;
-    if (st.state === "current") last = el("td", { className: "cd-last cd-current" }, "up to date · " + formatExportAt(st.at));
+    // One pill grammar for the export state: green up to date, amber changed (opens the diff),
+    // blue not exported, grey not tracked.
+    if (st.state === "current")
+      last = el("td", { className: "cd-last cd-current" },
+        el("span", { className: "pill pill-ok" }, "up to date"), el("span", { className: "cd-when" }, " · " + formatExportAt(st.at)));
     else if (st.state === "changed")
       last = el("td", { className: "cd-last" },
         el("button", { type: "button", className: "cd-diff", title: "Show the changes since the last export" }, "changed since " + formatExportAt(st.at)));
-    else if (st.state === "new") last = el("td", { className: "cd-last" }, "not exported");
-    else last = el("td", { className: "cd-last muted", title: "The recipe does not use HOSTNAME, so exports are not remembered." }, "not tracked");
+    else if (st.state === "new") last = el("td", { className: "cd-last" }, el("span", { className: "pill pill-new" }, "not exported"));
+    else
+      last = el("td", { className: "cd-last", title: "The recipe does not use HOSTNAME, so exports are not remembered." },
+        el("span", { className: "pill pill-muted" }, "not tracked"));
     return el("tr", { dataRow: x.row.id },
       el("td", { className: "num" }, String(x.n)),
       el("td", {}, x.host || "(no hostname)"),
       el("td", {}, x.ip),
       el("td", {},
-        el("button", { type: "button", className: "cd-status " + (status.bad ? "cd-bad" : "cd-ok"), title: status.title || "Open this switch in Switches" }, status.text)),
+        el("button", { type: "button", className: "cd-status " + (status.bad ? "cd-bad" : "cd-ok"),
+          title: (status.title ? status.title + "\n" : "") + "Open this switch in Switches" }, status.text)),
       last,
       el("td", {},
         el("button", {
@@ -70,6 +77,7 @@ function renderCards() {
     if (b && !b.disabled) b.focus();
   }
   $("cdTable").hidden = !items.length;
+  $("cdTable").classList.toggle("is-blocked", blocked);
   $("cdEmpty").hidden = items.length > 0;
   const badRows = items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x.n);
   const policyRows = items.filter(({ x }) => x.policy.length).map(({ x }) => x.n);
@@ -82,6 +90,17 @@ function renderCards() {
   else gl.textContent = "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + ".";
   gl.className = "cd-gates " + (reasons.length ? "cd-bad" : "cd-ok");
   const changed = items.filter(({ st }) => st.state === "new" || st.state === "changed").length;
+  // Counts at a glance: "12 switches · 6 up to date · 3 changed · 3 new · 1 with errors".
+  const count = (state) => items.filter(({ st }) => st.state === state).length;
+  const sum = [["sum-total", items.length + (items.length === 1 ? " switch" : " switches")]];
+  if (count("current")) sum.push(["sum-ok", count("current") + " up to date"]);
+  if (count("changed")) sum.push(["sum-warn", count("changed") + " changed"]);
+  if (count("new")) sum.push(["sum-new", count("new") + " new"]);
+  if (count("nohost")) sum.push(["sum-muted", count("nohost") + " not tracked"]);
+  if (badRows.length) sum.push(["sum-bad", badRows.length + " with errors"]);
+  $("cdSummary").replaceChildren(...(items.length ? sum.map(([c, t]) =>
+    el("span", { className: c }, t)) : []));
+  $("cdFixGate").hidden = !r.example;
   $("cdChanged").textContent = "Changed and new only (" + changed + ")";
   $("cdAll").disabled = blocked || !items.length;
   $("cdText").disabled = blocked || !items.length;
@@ -157,6 +176,14 @@ document.addEventListener("focusin", (e) => {
 $("cdAll").onclick = () => exportCardsBulk("all");
 $("cdChanged").onclick = () => exportCardsBulk("changed");
 $("cdText").onclick = () => exportCardsBulk("text");
+// The example gate's way out: the Example recipe checkbox in Manage.
+$("cdFixGate").onclick = () => {
+  if (!showView("manage")) return;
+  const t = $("exampleFlag");
+  t.focus({ preventScroll: true });
+  t.scrollIntoView({ block: "center" });
+  flashTarget(t.closest("label") || t);
+};
 // The shared recipe picker re-renders the list (its onchange, set earlier, switches the recipe).
 $("cdRecipe").addEventListener("change", () => {
   if (currentView === "cards") renderCards();

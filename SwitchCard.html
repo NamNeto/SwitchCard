@@ -57,9 +57,26 @@
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
         --ease: 140ms ease;
         --font: "Segoe UI", system-ui, -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-        --mono: ui-monospace, "Cascadia Code", Consolas, monospace;
+        /* Consolas first: its hyphen is clearly shorter than a dash, so "ip default-gateway" never
+           reads as an em dash. Cascadia Mono (no ligatures) and ui-monospace/Menlo cover other systems. */
+        --mono: Consolas, "Cascadia Mono", ui-monospace, Menlo, "DejaVu Sans Mono", "Liberation Mono", monospace;
         /* Surfaces that were hard-coded before the light theme existed. */
-        --header-bg: rgba(14, 14, 18, 0.78);
+        --header-bg: #0e0e12;
+        --field-bg: #0f0f13;
+        --field-line: #33333e;
+        --on-accent: #04140f;
+        --primary-bg: var(--accent);
+        --primary-hover: #4fe0ba;
+        --err-bg: rgba(255, 107, 107, 0.08);
+        --err-line: rgba(255, 107, 107, 0.45);
+        --warn-bg: rgba(230, 184, 77, 0.1);
+        --warn-line: rgba(230, 184, 77, 0.45);
+        --ok-bg: rgba(62, 207, 142, 0.1);
+        --ok-line: rgba(62, 207, 142, 0.4);
+        --info-bg: rgba(125, 183, 255, 0.1);
+        --info-line: rgba(125, 183, 255, 0.4);
+        --backdrop: rgba(0, 0, 0, 0.72);
+        --header-h: 76px;
         --glow2: rgba(61, 139, 253, 0.055);
         --tab-hover: rgba(255, 255, 255, 0.03);
         --btn-hover: #26262f;
@@ -93,7 +110,21 @@
         --info: #2160b8;
         --shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 8px 24px rgba(20, 20, 10, 0.1);
         --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
-        --header-bg: rgba(250, 249, 246, 0.82);
+        --header-bg: #faf9f6;
+        --field-bg: #ffffff;
+        --field-line: #bdb8ac;
+        --on-accent: #ffffff;
+        --primary-bg: #12805f;
+        --primary-hover: #0f6e52;
+        --err-bg: rgba(197, 48, 48, 0.07);
+        --err-line: rgba(197, 48, 48, 0.5);
+        --warn-bg: rgba(143, 100, 0, 0.08);
+        --warn-line: rgba(143, 100, 0, 0.45);
+        --ok-bg: rgba(30, 138, 92, 0.09);
+        --ok-line: rgba(30, 138, 92, 0.4);
+        --info-bg: rgba(33, 96, 184, 0.08);
+        --info-line: rgba(33, 96, 184, 0.4);
+        --backdrop: rgba(20, 20, 16, 0.5);
         --glow2: rgba(61, 139, 253, 0.06);
         --tab-hover: rgba(0, 0, 0, 0.04);
         --btn-hover: #e9e7e0;
@@ -124,7 +155,21 @@
           --info: #2160b8;
           --shadow: 0 1px 0 rgba(255, 255, 255, 0.6) inset, 0 8px 24px rgba(20, 20, 10, 0.1);
           --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.08);
-          --header-bg: rgba(250, 249, 246, 0.82);
+          --header-bg: #faf9f6;
+          --field-bg: #ffffff;
+          --field-line: #bdb8ac;
+          --on-accent: #ffffff;
+          --primary-bg: #12805f;
+          --primary-hover: #0f6e52;
+          --err-bg: rgba(197, 48, 48, 0.07);
+          --err-line: rgba(197, 48, 48, 0.5);
+          --warn-bg: rgba(143, 100, 0, 0.08);
+          --warn-line: rgba(143, 100, 0, 0.45);
+          --ok-bg: rgba(30, 138, 92, 0.09);
+          --ok-line: rgba(30, 138, 92, 0.4);
+          --info-bg: rgba(33, 96, 184, 0.08);
+          --info-line: rgba(33, 96, 184, 0.4);
+          --backdrop: rgba(20, 20, 16, 0.5);
           --glow2: rgba(61, 139, 253, 0.06);
           --tab-hover: rgba(0, 0, 0, 0.04);
           --btn-hover: #e9e7e0;
@@ -161,8 +206,8 @@
         position: sticky;
         top: 0;
         z-index: 20;
-        backdrop-filter: blur(12px) saturate(1.2);
-        -webkit-backdrop-filter: blur(12px) saturate(1.2);
+        /* Opaque: scrolled content must never ghost through the header. */
+        min-height: var(--header-h);
       }
       header .brand {
         display: flex;
@@ -281,8 +326,10 @@
         border-radius: var(--radius, 12px);
         border: 1px solid var(--line);
         box-shadow: var(--shadow-sm);
+        /* Sticks just below the sticky header, so the current view stays marked while the page scrolls. */
         position: sticky;
-        top: 12px;
+        top: calc(var(--header-h) + 12px);
+        z-index: 10;
       }
       .rail button {
         display: flex;
@@ -304,14 +351,28 @@
         font-weight: 600;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.28), inset 3px 0 0 var(--accent);
       }
+      .rail button:disabled,
+      .rail button:disabled:hover {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+      }
+      .rail button[aria-current="page"]:disabled {
+        background: var(--card);
+        color: var(--text);
+      }
       .rail button:hover:not([aria-current="page"]) {
         color: var(--text);
         background: var(--tab-hover);
       }
       .rail .chip {
-        font-size: 11.5px;
-        font-weight: 400;
+        font-size: 12px;
+        font-weight: 500;
         color: var(--muted);
+      }
+      .rail .chip.chip-bad {
+        color: var(--err);
+        font-weight: 600;
       }
       .rail .chip:empty {
         display: none;
@@ -369,8 +430,8 @@
       select,
       textarea {
         width: 100%;
-        border: 1px solid var(--line);
-        background: var(--bg2);
+        border: 1px solid var(--field-line);
+        background: var(--field-bg);
         color: var(--text);
         padding: 10px 12px;
         border-radius: var(--radius-sm);
@@ -390,6 +451,7 @@
       }
       textarea {
         font: 13px/1.55 var(--mono);
+        font-variant-ligatures: none;
         min-height: 160px;
         resize: vertical;
       }
@@ -414,10 +476,39 @@
         border-color: var(--accent);
         box-shadow: 0 0 0 3px var(--accent-dim);
       }
+      /* Disabled: a flat grey well with no border (editable fields are bordered, inherited ones dashed). */
       input:disabled,
       select:disabled,
-      textarea:disabled {
-        opacity: 0.45;
+      textarea:disabled,
+      input:disabled:hover {
+        background: var(--bg2);
+        border-color: transparent;
+        color: var(--faint);
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
+      input::placeholder,
+      textarea::placeholder {
+        color: var(--faint);
+      }
+      /* An invalid field (from the checks): red border plus a short message under it. */
+      input[aria-invalid="true"],
+      select[aria-invalid="true"] {
+        border-color: var(--err);
+        background: var(--err-bg);
+      }
+      input[aria-invalid="true"]:focus,
+      select[aria-invalid="true"]:focus {
+        border-color: var(--err);
+        box-shadow: 0 0 0 3px var(--err-bg);
+      }
+      .field-error {
+        display: block;
+        margin-top: 4px;
+        color: var(--err);
+        font-size: 12.5px;
+        font-weight: 600;
+        line-height: 1.4;
       }
       /* Checkboxes: a fixed 16px box. Without this the generic input rule above gives them a 40px
          min-height and padding, which pushes the visible box above its label text. */
@@ -481,27 +572,34 @@
       .filebutton:active {
         transform: translateY(1px);
       }
+      /* One flat primary style in both themes. */
       button.primary {
-        background: linear-gradient(135deg, #5ee4c0 0%, var(--accent) 40%, var(--accent2) 100%);
-        color: #04140f;
-        border-color: transparent;
+        background: var(--primary-bg);
+        color: var(--on-accent);
+        border-color: var(--primary-bg);
         font-weight: 700;
-        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.25) inset, 0 4px 12px rgba(45, 212, 168, 0.24);
+        box-shadow: var(--shadow-sm);
       }
       button.primary:hover {
-        filter: brightness(1.06);
-        background: linear-gradient(135deg, #8af0d0 0%, #5ee4c0 45%, var(--accent) 100%);
-        box-shadow: 0 1px 0 rgba(255, 255, 255, 0.3) inset, 0 6px 16px rgba(45, 212, 168, 0.28);
+        background: var(--primary-hover);
+        border-color: var(--primary-hover);
       }
       button.primary:active:not(:disabled) {
         filter: brightness(0.97);
         transform: translateY(1px);
       }
       button.primary:focus-visible {
-        box-shadow: 0 0 0 3px var(--accent-dim), 0 4px 12px rgba(45, 212, 168, 0.24);
+        box-shadow: 0 0 0 3px var(--accent-dim);
       }
-      button:disabled {
-        opacity: 0.4;
+      /* Disabled buttons are flat, dashed and muted in both themes, so none of them reads as live. */
+      button:disabled,
+      button:disabled:hover,
+      button.primary:disabled,
+      button.primary:disabled:hover {
+        background: transparent;
+        border: 1px dashed var(--line2);
+        color: var(--faint);
+        opacity: 1;
         cursor: not-allowed;
         filter: none;
         transform: none;
@@ -546,11 +644,44 @@
         display: block;
         font-weight: 600;
       }
-      .notice ul {
+      /* Check lists: a drawn dot sits on the FIRST line of a wrapped item (a list marker would follow
+         the item's button and land on its last line). */
+      .notice ul,
+      .sw-checks {
+        list-style: none;
         margin: 6px 0 0;
-        padding-left: 18px;
+        padding: 0;
       }
-      .notice li + li {
+      .notice li,
+      .sw-checks li {
+        position: relative;
+        padding-left: 16px;
+      }
+      .notice li::before,
+      .sw-checks li::before {
+        content: "";
+        position: absolute;
+        left: 3px;
+        top: 0.62em;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      .notice.error li::before,
+      .sw-checks li.bad::before {
+        background: var(--err);
+      }
+      .notice.warning li::before,
+      .sw-checks li.warn::before {
+        background: var(--warn);
+      }
+      .notice.ok li::before,
+      .sw-checks li.ok::before {
+        background: var(--ok);
+      }
+      .notice li + li,
+      .sw-checks li + li {
         margin-top: 4px;
       }
       .notice-foot {
@@ -564,19 +695,28 @@
         line-height: 1.5;
       }
       .warning {
-        background: rgba(245, 197, 66, 0.06);
-        border-color: rgba(245, 197, 66, 0.32);
+        background: var(--warn-bg);
+        border-color: var(--warn-line);
         border-left-color: var(--warn);
       }
       .error {
-        background: rgba(255, 107, 107, 0.07);
-        border-color: rgba(255, 107, 107, 0.32);
+        background: var(--err-bg);
+        border-color: var(--err-line);
         border-left-color: var(--err);
       }
+      .error > .notice-head {
+        color: var(--err);
+      }
       .ok {
-        background: rgba(62, 207, 142, 0.07);
-        border-color: rgba(62, 207, 142, 0.28);
+        background: var(--ok-bg);
+        border-color: var(--ok-line);
         border-left-color: var(--ok);
+      }
+      /* Notes in the checks are calm: a neutral box with an amber edge and amber dots; errors stay red. */
+      #checks .notice.warning {
+        background: var(--card2);
+        border-color: var(--line);
+        border-left-color: var(--warn);
       }
       .hint {
         background: rgba(45, 212, 168, 0.05);
@@ -607,7 +747,8 @@
         min-height: 1.2em;
       }
       pre {
-        font: 12.5px/1.65 var(--mono);
+        font: 13px/1.6 var(--mono);
+        font-variant-ligatures: none;
         white-space: pre-wrap;
         overflow-wrap: anywhere;
         margin: 0;
@@ -758,8 +899,9 @@
       }
       .badge {
         display: inline-block;
-        background: var(--accent-dim);
-        color: var(--accent);
+        background: var(--card2);
+        color: var(--muted);
+        border: 1px solid var(--line);
         border-radius: 999px;
         padding: 3px 10px;
         font-size: 10.5px;
@@ -1031,7 +1173,8 @@
         .rail {
           flex-direction: row;
           flex-wrap: wrap;
-          position: static;
+          top: var(--header-h);
+          margin: 0 -2px;
         }
         .rail button {
           width: auto;
@@ -1074,7 +1217,7 @@
         width: 100%;
       }
       dialog.dlg::backdrop {
-        background: rgba(0, 0, 0, 0.55);
+        background: var(--backdrop);
       }
       dialog.dlg h2 {
         margin: 0 0 10px;
@@ -1115,12 +1258,34 @@
       }
 
       /* --- v0.8.0: Switches view (grid, side panel, Ports and Import dialogs) --- */
+      /* Toolbars: labelled groups (add rows | CSV), the destructive action on its own at the far end. */
       .sw-toolbar {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 10px 16px;
         align-items: center;
         margin-top: 12px;
+      }
+      .tool-group {
+        display: inline-flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      .tool-group + .tool-group {
+        padding-left: 16px;
+        border-left: 1px solid var(--line);
+      }
+      .tool-label {
+        font-size: 11.5px;
+        font-weight: 650;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--muted);
+        margin: 0;
+      }
+      .tool-end {
+        margin-left: auto;
       }
       .sw-add,
       .sw-template {
@@ -1129,33 +1294,155 @@
         align-items: center;
       }
       #swCount {
-        width: 80px;
+        width: 72px;
       }
       .sw-template select {
         width: auto;
       }
       .sw-layout {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+        grid-template-columns: minmax(0, 1fr) minmax(260px, 300px);
         gap: calc(var(--space) * 2);
         align-items: start;
         margin-top: calc(var(--space) * 2);
       }
+      /* Status pills: colour plus words, the same in the Switches grid and on Cards. */
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 1px 9px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.6;
+        white-space: nowrap;
+      }
+      .pill::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: currentColor;
+        flex: none;
+      }
+      .pill-bad {
+        color: var(--err);
+        background: var(--err-bg);
+        border-color: var(--err-line);
+      }
+      .pill-ok {
+        color: var(--ok);
+        background: var(--ok-bg);
+        border-color: var(--ok-line);
+      }
+      .pill-warn {
+        color: var(--warn);
+        background: var(--warn-bg);
+        border-color: var(--warn-line);
+      }
+      .pill-new {
+        color: var(--info);
+        background: var(--info-bg);
+        border-color: var(--info-line);
+      }
+      .pill-muted {
+        color: var(--muted);
+        background: var(--card2);
+        border-color: var(--line);
+      }
+      /* Quiet: no box, a green dot and muted words (a clean row should not compete with errors). */
+      .pill-quiet {
+        color: var(--muted);
+        padding-left: 0;
+        font-weight: 500;
+      }
+      .pill-quiet::before {
+        background: var(--ok);
+      }
+      /* The grid takes its natural width and scrolls inside its own box; Status sits right after #. */
+      #swTable {
+        width: max-content;
+        min-width: 100%;
+      }
+      #swTable td,
+      #swTable th {
+        padding: 5px 4px;
+      }
+      #swTable th {
+        white-space: nowrap;
+      }
+      #swTable th:first-child,
+      #swTable td.num {
+        padding-left: 10px;
+        padding-right: 6px;
+      }
       #swTable td input {
-        min-width: 96px;
+        width: 124px;
+        min-width: 0;
+        height: 32px;
+        min-height: 32px;
+      }
+      #swTable td input[data-key="HOSTNAME"] {
+        width: 150px;
+      }
+      #swTable td input[data-key="SITE"] {
+        width: 176px;
+      }
+      #swTable td input[data-key$="VLAN"],
+      #swTable td input[data-key$="LOOPBACK"] {
+        width: 64px;
+      }
+      /* Typed values: solid field, normal text. Inherited values: dashed, transparent, italic grey. */
+      #swTable input:not(.inherit) {
+        font-weight: 500;
+      }
+      #swTable input.inherit {
+        background: transparent;
+        border-style: dashed;
       }
       #swTable input.inherit::placeholder {
-        color: var(--faint);
+        color: var(--muted);
         font-style: italic;
+        font-weight: 400;
       }
       #swTable tr.defaults td {
         color: var(--muted);
         background: var(--thead-bg);
-        font-size: 12.5px;
+        font-size: 12px;
         font-style: italic;
+        white-space: nowrap;
+      }
+      #swTable tr.defaults td[data-key] {
+        padding-left: 13px;
       }
       #swTable tr.selected {
         background: var(--accent-glow);
+      }
+      #swTable tr.selected > td:first-child {
+        box-shadow: inset 3px 0 0 var(--accent);
+      }
+      /* A row with an error: red tint, red edge, red number; the offending cell has a red border. */
+      #swTable tr.row-bad {
+        background: var(--err-bg);
+      }
+      #swTable tr.row-bad.selected {
+        background: linear-gradient(var(--accent-glow), var(--accent-glow)), var(--err-bg);
+      }
+      #swTable tr.row-bad > td:first-child {
+        box-shadow: inset 3px 0 0 var(--err);
+        color: var(--err);
+        font-weight: 700;
+      }
+      #swTable input.cell-bad,
+      #swTable input.cell-bad:hover {
+        border: 1px solid var(--err);
+        background: var(--err-bg);
+        color: var(--err);
+      }
+      #swTable input.cell-bad::placeholder {
+        color: var(--err);
       }
       #swTable td.num {
         color: var(--muted);
@@ -1163,37 +1450,84 @@
       }
       #swTable td.status {
         white-space: nowrap;
+      }
+      #swTable button {
+        height: 32px;
+        min-height: 32px;
+        padding: 0 10px;
         font-size: 12.5px;
       }
-      #swTable td.status.ok,
+      #swTable button.sw-ports:not(.has-set) {
+        color: var(--muted);
+        font-weight: 500;
+      }
+      #swTable button.sw-ports.has-set {
+        color: var(--accent);
+        border-color: var(--accent);
+      }
+      .sw-empty {
+        margin: 12px 0 0;
+        padding: 18px 20px;
+        border: 1px dashed var(--line2);
+        border-radius: var(--radius);
+        background: var(--card);
+      }
+      .sw-empty strong {
+        display: block;
+        margin-bottom: 2px;
+      }
+      .sw-empty p {
+        margin: 0;
+      }
+      .sw-empty .actions {
+        margin-top: 12px;
+      }
+      /* Side panel: errors in red, notes calm (muted text, amber dot). */
+      #swPanel {
+        position: sticky;
+        top: calc(var(--header-h) + 12px);
+      }
+      #swPanel h2 {
+        margin-bottom: 10px;
+      }
+      .sw-checks {
+        margin: 0 0 12px;
+        font-size: 13px;
+      }
+      .sw-checks li.bad {
+        color: var(--err);
+        font-weight: 600;
+      }
+      .sw-checks li.warn {
+        color: var(--muted);
+      }
       .sw-checks li.ok {
         color: var(--ok);
       }
-      #swTable td.status.bad,
-      .sw-checks li.bad,
-      .sw-import-summary .bad {
-        color: var(--err);
-      }
-      .sw-checks li.warn,
-      .sw-import-summary .warn {
-        color: var(--warn);
-      }
-      #swPanel {
-        position: sticky;
-        top: 12px;
-      }
-      .sw-checks {
-        margin: 0 0 10px;
-        padding-left: 18px;
-        font-size: 13px;
+      /* Short enough that the export buttons under the Build preview stay above the fold at 900 px. */
+      #preview {
+        max-height: 400px;
       }
       #swPreview {
         max-height: 420px;
         font-size: 12px;
       }
+      #swPanelEmpty {
+        margin: 0;
+      }
       .sw-import-summary p {
         margin: 4px 0;
         font-size: 13px;
+      }
+      .sw-import-summary .bad {
+        color: var(--err);
+      }
+      .sw-import-summary .warn {
+        color: var(--warn);
+      }
+      .sw-import-summary p.notice {
+        margin-top: 10px;
+        font-weight: 600;
       }
       dialog.dlg.dlg-wide {
         max-width: min(1040px, 96vw);
@@ -1201,9 +1535,39 @@
       dialog.dlg textarea {
         width: 100%;
       }
+      .sw-ports-table {
+        min-width: 0;
+      }
+      .sw-ports-table td,
+      .sw-ports-table th {
+        padding: 5px 6px;
+      }
+      .sw-ports-table td:first-child {
+        white-space: nowrap;
+      }
+      .sw-ports-table select {
+        min-width: 100px;
+      }
+      .sw-ports-table input {
+        min-width: 70px;
+      }
+      .sw-ports-table input[data-attr="description"] {
+        min-width: 150px;
+      }
       .sw-ports-table select.inherit,
       .sw-ports-table input.inherit::placeholder {
-        color: var(--faint);
+        color: var(--muted);
+        font-style: italic;
+      }
+      .sw-ports-table input.inherit:not(:disabled) {
+        background: transparent;
+        border-style: dashed;
+      }
+      .sw-ports-table button.use-table {
+        height: 32px;
+        min-height: 32px;
+        padding: 0 10px;
+        font-size: 12.5px;
       }
       .sw-unknown button {
         margin-left: 6px;
@@ -1216,50 +1580,307 @@
           position: static;
         }
       }
-      #swTable td,
-      #swTable th {
-        padding: 6px 5px;
+      @media (max-width: 980px) {
+        .tool-group + .tool-group {
+          padding-left: 0;
+          border-left: 0;
+        }
+        .tool-end {
+          margin-left: 0;
+        }
       }
-      .sw-ports-table select {
-        min-width: 108px;
+
+      /* Build's port table fits its card: fixed narrow columns, Description takes the rest. */
+      #portsTable {
+        min-width: 0;
       }
-      #swTable td input[data-key="HOSTNAME"] {
-        min-width: 150px;
+      #portsTable td,
+      #portsTable th {
+        padding: 6px 6px;
+      }
+      #portsTable td:nth-child(2) {
+        white-space: nowrap;
+      }
+      #portsTable select[data-attr="role"] {
+        width: 100px;
+      }
+      #portsTable input[data-attr="vlan"],
+      #portsTable input[data-attr="ip"],
+      #portsTable input[data-attr="mask"] {
+        width: 112px;
+      }
+      #portsTable input[data-attr="description"] {
+        min-width: 130px;
+      }
+      #swTable td.status {
+        background: transparent;
+        border-color: var(--line);
+      }
+      /* --- Tables that scroll sideways: thin visible scrollbar, and a fade on the side with more --- */
+      .scroll {
+        scrollbar-width: thin;
+        scrollbar-color: var(--line2) transparent;
+      }
+      .scroll.more-right {
+        -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
+        mask-image: linear-gradient(to right, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
+      }
+      .scroll.more-left {
+        -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.18), #000 40px);
+        mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.18), #000 40px);
+      }
+      .scroll.more-left.more-right {
+        -webkit-mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.18), #000 40px, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
+        mask-image: linear-gradient(to right, rgba(0, 0, 0, 0.18), #000 40px, #000 calc(100% - 56px), rgba(0, 0, 0, 0.18));
+      }
+      .scroll-hint {
+        margin: 6px 2px 0;
+        font-size: 12px;
+        color: var(--muted);
+        text-align: right;
       }
 
       /* --- v0.8.0: Cards view --- */
       .cd-gates {
-        margin: 10px 0 0;
+        margin: 12px 0 0;
+        padding: 8px 12px;
         font-size: 13px;
+        font-weight: 600;
+        border: 1px solid transparent;
+        border-left-width: 3px;
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
       }
-      .cd-gates.cd-ok,
-      #cdTable td.cd-last.cd-current,
-      #cdTable button.cd-status.cd-ok {
+      .cd-gates:empty {
+        display: none;
+      }
+      .cd-gates.cd-ok {
         color: var(--ok);
+        background: var(--ok-bg);
+        border-color: var(--ok-line);
+        border-left-color: var(--ok);
       }
-      .cd-gates.cd-bad,
-      #cdTable button.cd-status.cd-bad {
+      .cd-gates.cd-bad {
         color: var(--err);
+        background: var(--err-bg);
+        border-color: var(--err-line);
+        border-left-color: var(--err);
+      }
+      #cdFixGate {
+        margin-top: 8px;
+      }
+      .cd-summary {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 16px;
+        margin: 0 0 12px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+      .cd-summary:empty {
+        display: none;
+      }
+      .cd-summary span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .cd-summary span::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--faint);
+      }
+      .cd-summary .sum-total::before {
+        display: none;
+      }
+      .cd-summary .sum-total {
+        color: var(--text);
+        font-weight: 650;
+      }
+      .cd-summary .sum-ok::before {
+        background: var(--ok);
+      }
+      .cd-summary .sum-warn::before {
+        background: var(--warn);
+      }
+      .cd-summary .sum-new::before {
+        background: var(--info);
+      }
+      .cd-summary .sum-bad {
+        color: var(--err);
+        font-weight: 600;
+      }
+      .cd-summary .sum-bad::before {
+        background: var(--err);
+      }
+      #cdTable {
+        table-layout: fixed;
+        min-width: 680px;
+      }
+      #cdTable th:nth-child(1) {
+        width: 46px;
+      }
+      #cdTable th:nth-child(2) {
+        width: 20%;
+      }
+      #cdTable th:nth-child(3) {
+        width: 14%;
+      }
+      #cdTable th:nth-child(4) {
+        width: 14%;
+      }
+      #cdTable th:nth-child(6) {
+        width: 104px;
       }
       #cdTable td,
       #cdTable th {
-        padding: 6px 5px;
+        padding: 7px 8px;
+      }
+      #cdTable td:first-child,
+      #cdTable th:first-child {
+        padding-left: 12px;
+      }
+      #cdTable td:last-child {
+        text-align: right;
+        padding-right: 12px;
+      }
+      #cdTable td {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       #cdTable td.num {
         color: var(--muted);
         font-size: 12px;
       }
       #cdTable td.cd-last {
-        white-space: nowrap;
         font-size: 12.5px;
       }
-      #cdTable button.cd-status,
+      #cdTable .pill,
+      #cdTable .cd-when,
       #cdTable button.cd-diff {
+        vertical-align: middle;
+      }
+      #cdTable .cd-when {
+        color: var(--muted);
+      }
+      #cdTable button.cd-card {
+        height: 32px;
+        min-height: 32px;
+        padding: 0 12px;
         font-size: 12.5px;
-        white-space: nowrap;
+      }
+      /* Row status is a quiet link (it opens the switch in Switches); only errors get a red pill. */
+      #cdTable button.cd-status {
+        min-height: 0;
+        height: auto;
+        border: 0;
+        background: none;
+        padding: 2px 0;
+        font-size: 12.5px;
+        font-weight: 500;
+        color: var(--muted);
+        border-radius: 4px;
+      }
+      #cdTable button.cd-status::before {
+        content: "";
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        margin-right: 7px;
+        border-radius: 50%;
+        background: var(--ok);
+        vertical-align: 1px;
+      }
+      #cdTable button.cd-status:hover {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+        color: var(--text);
+      }
+      #cdTable button.cd-status.cd-bad {
+        color: var(--err);
+        background: var(--err-bg);
+        border: 1px solid var(--err-line);
+        border-radius: 999px;
+        padding: 1px 9px;
+        font-weight: 600;
+      }
+      #cdTable button.cd-status.cd-bad::before {
+        background: var(--err);
+      }
+      #cdTable.is-blocked button.cd-status:not(.cd-bad)::before {
+        background: var(--faint);
       }
       #cdTable button.cd-diff {
+        min-height: 0;
+        height: auto;
+        padding: 1px 9px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 600;
+        line-height: 1.6;
         color: var(--warn);
+        background: var(--warn-bg);
+        border: 1px solid var(--warn-line);
+      }
+      #cdTable button.cd-diff::before {
+        content: "";
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        margin-right: 6px;
+        border-radius: 50%;
+        background: currentColor;
+      }
+      #cdTable button.cd-diff:hover {
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      .dlg-summary .dlg-key {
+        color: var(--text);
+        font-weight: 700;
+        background: var(--accent-dim);
+        border-radius: 3px;
+      }
+      /* --- Write dialogs: the review tick is its own boxed safety step --- */
+      .dlg-copy {
+        display: flex;
+        justify-content: flex-end;
+        margin: 8px 0 0;
+      }
+      .dlg-copy button {
+        height: 32px;
+        min-height: 32px;
+        padding: 0 12px;
+        font-size: 12.5px;
+      }
+      label.review-tick {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        margin: 14px 0 0;
+        padding: 12px 14px;
+        border: 1px solid var(--warn-line);
+        border-left: 3px solid var(--warn);
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        background: var(--warn-bg);
+        color: var(--text);
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      label.review-tick > input[type="checkbox"] {
+        width: 20px;
+        height: 20px;
+        margin-top: 1px;
+      }
+      label.review-tick small {
+        display: block;
+        font-weight: 500;
+        color: var(--muted);
+        font-size: 12.5px;
       }
 
       /* --- Clickable checks: items look like text (underlined on hover); the target flashes --- */
@@ -1278,10 +1899,25 @@
         white-space: normal;
         cursor: pointer;
       }
+      button.finding-link::after {
+        content: "\203A";
+        display: inline-block;
+        margin-left: 6px;
+        color: var(--muted);
+        font-weight: 700;
+        opacity: 0.7;
+        transition: transform var(--ease), opacity var(--ease);
+      }
       button.finding-link:hover {
         border: 0;
         background: none;
         text-decoration: underline;
+        text-decoration-thickness: 1px;
+        text-underline-offset: 3px;
+      }
+      button.finding-link:hover::after {
+        opacity: 1;
+        transform: translateX(2px);
       }
       button.finding-link:active:not(:disabled) {
         transform: none;
@@ -1466,7 +2102,7 @@
                 </div>
               </details>
               <div class="scroll">
-                <table>
+                <table id="portsTable">
                   <thead id="portsHead"></thead>
                   <tbody id="ports"></tbody>
                 </table>
@@ -1642,9 +2278,9 @@
               </div>
               <div class="actions even">
                 <button id="duplicate">Duplicate recipe</button
-                ><button id="deleteRecipe" type="button">Delete recipe</button>
+                ><button id="deleteRecipe" type="button" class="danger">Delete recipe</button>
               </div>
-              <div class="notice warning">
+              <div class="notice warning" id="exampleNote">
                 Included recipes are fictional examples, not approved Cisco configurations. Replace
                 and test them before preparing deployment cards.
               </div>
@@ -1740,11 +2376,12 @@
               <!-- Management interface: {{MGMT_INTERFACE}} = Vlan<MGMT_VLAN> (SVI) or Loopback<MGMT_LOOPBACK>. -->
               <label for="mgmtInterface">Management interface ({{MGMT_INTERFACE}})</label
               ><select id="mgmtInterface">
-                <option value="svi">SVI — interface Vlan{{MGMT_VLAN}} (Build asks for the management VLAN)</option>
-                <option value="loopback">Loopback — interface Loopback{{MGMT_LOOPBACK}} (Build asks for the loopback number)</option>
+                <option value="svi">SVI — interface Vlan{{MGMT_VLAN}}</option>
+                <option value="loopback">Loopback — interface Loopback{{MGMT_LOOPBACK}}</option>
               </select>
               <small class="template-help"
-                >Write <code>interface {{MGMT_INTERFACE}}</code> in the template and use the same
+                >SVI: Build asks for the management VLAN. Loopback: Build asks for the loopback
+                number. Write <code>interface {{MGMT_INTERFACE}}</code> in the template and use the same
                 placeholder wherever a source interface is needed. A loopback design also needs
                 <code>ip routing</code>, a Routed uplink or SVI towards the gateway, and
                 <code>ip route 0.0.0.0 0.0.0.0 {{GATEWAY}}</code> instead of
@@ -1880,22 +2517,29 @@
           </div>
           <!-- Toolbar: counted-up rows, CSV in/out, remove all -->
           <div class="sw-toolbar">
-            <span class="sw-add"
-              ><input id="swCount" type="number" min="1" max="500" step="1" value="1" aria-label="Number of switches to add" /><button
-                type="button"
-                id="swAdd"
-              >Add counted up</button></span
-            >
-            <button type="button" id="swImport">Import CSV</button>
-            <button type="button" id="swExport">Export CSV</button>
-            <span class="sw-template"
-              ><select id="swTemplateMode" aria-label="Port columns in the CSV template">
-                <option value="description">Template: fields + port descriptions</option>
-                <option value="all">Template: fields + all port settings</option>
-                <option value="none">Template: switch fields only</option></select
-              ><button type="button" id="swTemplate">CSV template</button></span
-            >
-            <button type="button" id="swRemoveAll" class="danger">Remove all</button>
+            <div class="tool-group" role="group" aria-labelledby="swAddLabel">
+              <label class="tool-label" id="swAddLabel" for="swCount">New rows</label>
+              <span class="sw-add"
+                ><input id="swCount" type="number" min="1" max="500" step="1" value="1" aria-label="Number of switches to add" /><button
+                  type="button"
+                  id="swAdd"
+                  title="Adds rows after the last one, counting hostname and management IP up"
+                >Add counted up</button></span
+              >
+            </div>
+            <div class="tool-group" role="group" aria-labelledby="swCsvLabel">
+              <span class="tool-label" id="swCsvLabel">CSV</span>
+              <button type="button" id="swImport">Import CSV</button>
+              <button type="button" id="swExport">Export CSV</button>
+              <span class="sw-template"
+                ><select id="swTemplateMode" aria-label="Port columns in the CSV template">
+                  <option value="description">Template: fields + port descriptions</option>
+                  <option value="all">Template: fields + all port settings</option>
+                  <option value="none">Template: switch fields only</option></select
+                ><button type="button" id="swTemplate">CSV template</button></span
+              >
+            </div>
+            <button type="button" id="swRemoveAll" class="danger tool-end">Remove all</button>
           </div>
           <p id="swNotes" class="muted" hidden></p>
         </div>
@@ -1907,15 +2551,23 @@
                 <tbody id="swRows"></tbody>
               </table>
             </div>
-            <p id="swEmpty" class="muted">
-              No switches yet. Add counted up starts with the switch on Build a card; Import CSV
-              reads a fleet CSV.
-            </p>
+            <p class="scroll-hint" hidden>More columns to the right: scroll the list sideways (Shift + mouse wheel).</p>
+            <div id="swEmpty" class="sw-empty">
+              <strong>No switches yet</strong>
+              <p class="muted">
+                Add counted up starts with the switch on Build a card; Import CSV reads a fleet CSV.
+              </p>
+              <div class="actions">
+                <button type="button" id="swEmptyAdd" class="primary">Add counted up</button
+                ><button type="button" id="swEmptyImport">Import CSV</button>
+              </div>
+            </div>
           </div>
           <!-- Side panel for the selected row -->
           <aside id="swPanel" class="card">
             <h2 id="swPanelTitle">Selected switch</h2>
             <ul id="swChecks" class="sw-checks"></ul>
+            <p id="swPanelEmpty" class="muted" hidden>Select a row to see its checks and its editcontent.txt.</p>
             <pre id="swPreview" tabindex="0"></pre>
             <details id="swDiffPanel" hidden>
               <summary id="swDiffSummary">Changes since the last export</summary>
@@ -1930,6 +2582,7 @@
             <label for="cdRecipe">Configuration recipe</label><select id="cdRecipe"></select>
           </div>
           <p id="cdGates" class="cd-gates" role="status"></p>
+          <button type="button" id="cdFixGate" hidden>Open recipe settings</button>
           <!-- Bulk exports: every row, only new and changed rows, or one text-only ZIP -->
           <div class="sw-toolbar">
             <button type="button" id="cdAll" class="primary">All card ZIPs</button>
@@ -1938,6 +2591,7 @@
           </div>
         </div>
         <div class="card">
+          <p id="cdSummary" class="cd-summary"></p>
           <div class="scroll">
             <table id="cdTable">
               <thead>
@@ -2648,9 +3302,9 @@
         }
         return c.text;
       }
+      // One date format everywhere on the page: "YYYY-MM-DD HH:MM" in local time (formatExportAt).
       function formatSavedAt(iso) {
-        const d = new Date(iso);
-        return typeof iso === "string" && !isNaN(d) ? d.toLocaleString() : "unknown time";
+        return formatExportAt(iso);
       }
       // --- Autosave backups ---
       // Up to MAX_AUTOSAVE_BACKUPS entries in ONE localStorage key (newest first), so every change
@@ -3527,6 +4181,16 @@
         return showDialog({ title, body, actions: [{ label: "Close", value: true, primary: true }] }).then(() => undefined);
       }
 
+      // The summary as monospace text; the identity lines (hostname, management IP) stand out.
+      // textContent stays exactly the summary text.
+      function summaryPre(text) {
+        const pre = el("pre", { className: "dlg-summary" });
+        String(text).split("\n").forEach((line, i) => {
+          if (i) pre.append("\n");
+          pre.append(/^(Hostname|MGMT_IP): /.test(line) ? el("strong", { className: "dlg-key" }, line) : line);
+        });
+        return pre;
+      }
       // Review-before-download gate: the primary action stays disabled until the box is ticked.
       function writeDialog({ title, summary, primary }) {
         const text = String(summary).replace(/\s*Cancel = no download\.\s*$/, "");
@@ -3539,16 +4203,24 @@
             copy.textContent = ok ? "Copied" : "Copy failed";
           },
         });
+        // The tick is a boxed safety step of its own, and gets the first focus.
         const body = el("div", {},
-          el("pre", { className: "dlg-summary", textContent: text }),
-          el("p", {}, copy),
-          el("label", {}, check, " I reviewed this configuration and the baseline selection."));
+          summaryPre(text),
+          el("div", { className: "dlg-copy" }, copy),
+          el("label", { className: "review-tick" }, check,
+            el("span", {}, "I reviewed this configuration and the baseline selection.",
+              el("small", {}, primary + " stays off until this box is ticked."))));
         return showDialog({
           title, body,
           actions: [{ label: "Cancel", value: false }, { label: primary, value: true, primary: true, disabled: true }],
           onOpen: (dlg) => {
             const btn = dlg.querySelector(".dialog-actions button.primary");
-            check.addEventListener("change", () => { btn.disabled = !check.checked; });
+            btn.title = "Tick the review box first";
+            check.addEventListener("change", () => {
+              btn.disabled = !check.checked;
+              btn.title = check.checked ? "" : "Tick the review box first";
+            });
+            check.focus();
           },
         }).then((v) => v === true);
       }
@@ -4509,6 +5181,7 @@
           $("checks").append(statusNotice(notices.length ? "warning" : "ok", head, notices,
             "Cisco syntax and device behavior are not verified."));
         }
+        markInvalidFields(g);
         const sh = $("securityHints");
         if (sh) {
           sh.replaceChildren();
@@ -4559,6 +5232,44 @@
         renderDiffPanel(r, g);
         scheduleRailUpdate();
       }
+      // Inline error state on Build: a field or port cell named by an error check gets a red border
+      // (aria-invalid) and, for Device details, the check's text under the field.
+      function markInvalidFields(g) {
+        const lower = (t) => String(t).toLowerCase();
+        const bad = new Map();
+        for (const f of g.findings || []) {
+          if (f.level !== "error" || !f.where) continue;
+          let t = null;
+          if (f.where.kind === "field") t = $("value_" + f.where.key);
+          else if (f.where.kind === "port")
+            t = [...$("ports").querySelectorAll("[data-port][data-attr]")]
+              .find((n) => lower(n.dataset.port) === lower(f.where.name) && n.dataset.attr === f.where.attr) || null;
+          if (t && !bad.has(t)) bad.set(t, f.text);
+        }
+        for (const n of document.querySelectorAll("#fields input, #ports [data-port][data-attr]")) {
+          const text = bad.get(n);
+          const msgId = n.id ? n.id + "_error" : "";
+          let msg = msgId ? document.getElementById(msgId) : null;
+          if (text) {
+            n.setAttribute("aria-invalid", "true");
+            if (n.id) {
+              if (!msg) {
+                msg = document.createElement("small");
+                msg.id = msgId;
+                msg.className = "field-error";
+                n.after(msg);
+              }
+              msg.textContent = text;
+              n.setAttribute("aria-describedby", msgId);
+            } else n.title = text;
+          } else if (n.hasAttribute("aria-invalid")) {
+            n.removeAttribute("aria-invalid");
+            n.removeAttribute("aria-describedby");
+            if (!n.id) n.removeAttribute("title");
+            if (msg) msg.remove();
+          }
+        }
+      }
       // One status box: a bold heading, an optional list of items and an optional muted footer.
       // An item is a string, or {text, where}: a button with the same text that runs
       // focusFinding(where, ctx) (ctx defaults to the Build page).
@@ -4602,6 +5313,8 @@
         const r = current();
         ensureRoles(r);
         $("editRecipe").value = active;
+        // The "fictional examples" note only shows while an example recipe is selected.
+        $("exampleNote").hidden = !r.example;
         $("recipeName").value = r.name;
         $("recipeModel").value = r.model;
         $("firmwareRule").value = r.firmware.join("\n");
@@ -6118,8 +6831,14 @@
           "Baseline: " + (baseline ? baseline.model + " / " + baseline.version : "(none)"),
           "",
         ];
-        for (const row of results.slice(0, 20))
-          lines.push(row.n + ". " + (row.host || "(no hostname)") + "  " + (row.ip || "") + "  " + row.sha256.slice(0, 16) + "…  " + row.lines + " lines");
+        // Padded columns, so rows 1-9 and 10+ line up in the monospace summary.
+        const shown = results.slice(0, 20);
+        const wN = Math.max(...shown.map((row) => String(row.n).length));
+        const wHost = Math.max(...shown.map((row) => (row.host || "(no hostname)").length));
+        const wIp = Math.max(...shown.map((row) => String(row.ip || "").length));
+        for (const row of shown)
+          lines.push(String(row.n).padStart(wN) + ". " + (row.host || "(no hostname)").padEnd(wHost) + "  " + String(row.ip || "").padEnd(wIp) + "  " +
+            row.sha256.slice(0, 16) + "…  " + row.lines + " lines");
         if (n > 20) lines.push("… and " + (n - 20) + " more (all listed in the manifest).");
         lines.push("", "Every editcontent.txt is exactly the text checked for that row.", "", "Cancel = no download.");
         const ok = await writeDialog({
@@ -7520,6 +8239,7 @@
       const VIEW_SUBTITLES = {
         switches: "Empty cells use Device details from Build a card.",
         cards: "One SD-card ZIP per switch; Last export shows what changed since.",
+        manage: "Firmware baseline, recipes, templates and team rules. Recipe edits take effect after Apply recipe changes.",
       };
       // Shows one view. Leaving the recipe editor is refused while it holds an unapplied draft.
       function showView(name) {
@@ -7560,9 +8280,12 @@
         const res = rows.length ? checkSwitchRows(r, rows) : { rows: [] };
         // Team-policy hits block export, so they count as errors here too (fail closed).
         const bad = res.rows.filter((x) => x.errors.length || x.policy.length).length;
-        $("chipSwitches").textContent = rows.length + (bad ? " · " + bad + (bad === 1 ? " error" : " errors") : "");
+        $("chipSwitches").textContent = rows.length
+          ? rows.length + (bad ? " · " + bad + (bad === 1 ? " error" : " errors") : "")
+          : "no switches yet";
+        $("chipSwitches").classList.toggle("chip-bad", bad > 0);
         const up = res.rows.filter((x) => exportState(r, x.host, x.sha256).state === "current").length;
-        $("chipCards").textContent = up + " of " + rows.length + " up to date";
+        $("chipCards").textContent = rows.length ? up + " of " + rows.length + " up to date" : "nothing to export yet";
         $("chipManage").textContent = baseline ? baseline.version : "no baseline";
         // The open Cards view follows the same changes (recipe, switches, template, baseline, policies).
         if (currentView === "cards" && typeof renderCards === "function") renderCards();
@@ -7583,29 +8306,32 @@
         swGridKey = gridKey;
         patchSwitchGrid(r);
       }
+      // Short column headers for the common fields, so headers stay on one line; the title has the rest.
+      const SW_SHORT_LABELS = { MGMT_IP: "Mgmt IP", MGMT_MASK: "Mask", MGMT_VLAN: "VLAN", GATEWAY: "Gateway", MGMT_LOOPBACK: "Loopback" };
       function buildSwitchGrid(cols, rows) {
         $("swHead").replaceChildren(
           el("tr", {},
             el("th", {}, "#"),
-            cols.map((k) => el("th", { dataKey: k, title: "{{" + k + "}}" }, fieldLabel(k))),
-            el("th", {}, "Ports"), el("th", {}, "Status"),
+            el("th", {}, "Status"),
+            cols.map((k) => el("th", { dataKey: k, title: fieldLabel(k) + " {{" + k + "}}" }, SW_SHORT_LABELS[k] || fieldLabel(k))),
+            el("th", {}, "Ports"),
             el("th", {}, el("span", { className: "visually-hidden" }, "Copy")),
             el("th", {}, el("span", { className: "visually-hidden" }, "Remove"))),
         );
         const body = [
           el("tr", { className: "defaults" },
-            el("td", { title: "Device details on Build a card" }, "Defaults"),
+            el("td", { colSpan: 2, title: "Device details on Build a card" }, "Defaults"),
             cols.map((k) => el("td", { dataKey: k })),
-            el("td", { colSpan: 4 }, "from Build a card")),
+            el("td", { colSpan: 3 }, "from Build a card")),
         ];
         rows.forEach((row, i) => {
           body.push(
             el("tr", { dataRow: row.id },
               el("td", { className: "num" }, String(i + 1)),
+              el("td", { className: "status" }),
               cols.map((k) =>
                 el("td", {}, el("input", { dataRow: row.id, dataKey: k, autocomplete: "off", ariaLabel: fieldLabel(k) + ", switch " + (i + 1) }))),
               el("td", {}, el("button", { type: "button", className: "sw-ports", title: "Port settings of this switch" })),
-              el("td", { className: "status" }),
               el("td", {}, el("button", { type: "button", className: "sw-copy", title: "Copy this switch below itself" }, "Copy")),
               el("td", {}, el("button", { type: "button", className: "sw-remove danger" }, "Remove"))),
           );
@@ -7636,6 +8362,11 @@
           const x = byId.get(tr.dataset.row);
           if (!x) continue;
           const vals = x.row.values || {};
+          // The cells a check is about (a field or a duplicate), outlined in red with the check as title.
+          const cellErrors = new Map();
+          for (const f of x.findings)
+            if (f.level === "error" && f.where && (f.where.kind === "field" || f.where.kind === "row") && !cellErrors.has(f.where.key))
+              cellErrors.set(f.where.key, f.text);
           for (const input of tr.querySelectorAll("input[data-key]")) {
             const k = input.dataset.key;
             const own = vals[k] == null ? "" : String(vals[k]);
@@ -7643,14 +8374,26 @@
             const inherited = String(defs[k] || "");
             if (input.placeholder !== inherited) input.placeholder = inherited;
             input.classList.toggle("inherit", own === "");
+            const err = cellErrors.get(k);
+            input.classList.toggle("cell-bad", !!err);
+            if (err) {
+              input.setAttribute("aria-invalid", "true");
+              input.title = err;
+            } else if (input.hasAttribute("aria-invalid")) {
+              input.removeAttribute("aria-invalid");
+              input.removeAttribute("title");
+            }
           }
           const set = Object.values(x.row.ports || {}).filter((p) => p && Object.keys(p).length).length;
-          tr.querySelector("button.sw-ports").textContent = set ? set + " set" : "table";
+          const pb = tr.querySelector("button.sw-ports");
+          pb.textContent = set ? set + " set" : "table";
+          pb.classList.toggle("has-set", set > 0);
           const st = switchStatus(x);
           const td = tr.querySelector("td.status");
-          td.textContent = st.text;
+          td.replaceChildren(el("span", { className: "pill " + (st.bad ? "pill-bad" : "pill-quiet") }, st.text));
           td.title = st.title;
           td.className = "status " + (st.bad ? "bad" : "ok");
+          tr.classList.toggle("row-bad", st.bad);
           tr.classList.toggle("selected", tr.dataset.row === swSelectedId);
         }
         $("swEmpty").hidden = rows.length > 0;
@@ -7665,6 +8408,8 @@
         const checks = $("swChecks");
         checks.replaceChildren();
         $("swDiffPanel").hidden = true;
+        $("swPanelEmpty").hidden = !!x;
+        $("swPreview").hidden = !x;
         if (!x) {
           $("swPanelTitle").textContent = "Selected switch";
           $("swPreview").textContent = "Select a row to see its checks and its editcontent.txt.";
@@ -7790,14 +8535,18 @@
             if (parsed.rows.length > room)
               p("warn", "Add after would pass " + CONFIG.MAX_FLEET_ROWS + " switches (the list has " + (r.switches || []).length + "); use Replace.");
             const have = (r.switches || []).length;
-            if (have) p("", "Replace drops the " + have + " switch" + (have === 1 ? "" : "es") + " in the list.");
+            if (have) p("notice warning", "Replace drops the " + have + " switch" + (have === 1 ? "" : "es") + " in the list.");
           }
           if (parsed && parsed.decodeProblems)
             p("bad", parsed.decodeProblems + (parsed.decodeProblems === 1 ? " cell" : " cells") + " could not be read as UTF-8 — save the CSV as UTF-8.");
           const btn = (label) => buttons.find((b) => b.textContent === label);
           if (buttons.length) {
-            btn("Add after").disabled = !ok || parsed.rows.length > room;
-            btn("Replace").disabled = !ok;
+            const add = btn("Add after"),
+              replace = btn("Replace");
+            add.disabled = !ok || parsed.rows.length > room;
+            replace.disabled = !ok;
+            // Replace drops the rows in the list: never the filled primary while it would.
+            replace.classList.toggle("danger", (r.switches || []).length > 0);
           }
         };
         file.addEventListener("change", async () => {
@@ -7833,8 +8582,8 @@
           body,
           actions: [
             { label: "Cancel", value: null },
-            { label: "Add after", value: "add", disabled: true },
-            { label: "Replace", value: "replace", primary: true, disabled: true },
+            { label: "Replace", value: "replace", disabled: true },
+            { label: "Add after", value: "add", primary: true, disabled: true },
           ],
           onOpen: (dlg) => {
             dlg.classList.add("dlg-wide");
@@ -7960,6 +8709,7 @@
                   }, "Remove"))))
               : "",
           );
+          watchScrollHints(wrap);
           if (want) {
             const t = [...wrap.querySelectorAll("[data-port]")].find((n) => lower(n.dataset.port) === lower(want.name) && n.dataset.attr === want.attr);
             if (t) t.focus();
@@ -8153,6 +8903,32 @@
         }
       });
       $("swImport").onclick = () => openImportDialog();
+      // The empty state's own buttons run the toolbar's actions.
+      $("swEmptyAdd").onclick = () => $("swAdd").click();
+      $("swEmptyImport").onclick = () => openImportDialog();
+
+      // --- Tables that scroll sideways: .more-left / .more-right fade the side that has more ---
+      function updateScrollHint(box) {
+        const max = box.scrollWidth - box.clientWidth;
+        box.classList.toggle("more-left", max > 1 && box.scrollLeft > 1);
+        box.classList.toggle("more-right", max > 1 && box.scrollLeft < max - 1);
+        const hint = box.nextElementSibling;
+        if (hint && hint.classList.contains("scroll-hint")) hint.hidden = !(max > 1 && box.scrollLeft < max - 1);
+      }
+      function watchScrollHints(root) {
+        for (const box of (root || document).querySelectorAll(".scroll")) {
+          if (box.__hint) continue;
+          box.__hint = true;
+          box.addEventListener("scroll", () => updateScrollHint(box), { passive: true });
+          if (typeof ResizeObserver === "function") {
+            const ro = new ResizeObserver(() => updateScrollHint(box));
+            ro.observe(box);
+            if (box.firstElementChild) ro.observe(box.firstElementChild);
+          }
+          updateScrollHint(box);
+        }
+      }
+      watchScrollHints();
       $("swExport").onclick = () => {
         const r = current();
         const rows = r.switches || [];
@@ -8244,18 +9020,25 @@
         const body = items.map(({ x, st }) => {
           const status = switchStatus(x);
           let last;
-          if (st.state === "current") last = el("td", { className: "cd-last cd-current" }, "up to date · " + formatExportAt(st.at));
+          // One pill grammar for the export state: green up to date, amber changed (opens the diff),
+          // blue not exported, grey not tracked.
+          if (st.state === "current")
+            last = el("td", { className: "cd-last cd-current" },
+              el("span", { className: "pill pill-ok" }, "up to date"), el("span", { className: "cd-when" }, " · " + formatExportAt(st.at)));
           else if (st.state === "changed")
             last = el("td", { className: "cd-last" },
               el("button", { type: "button", className: "cd-diff", title: "Show the changes since the last export" }, "changed since " + formatExportAt(st.at)));
-          else if (st.state === "new") last = el("td", { className: "cd-last" }, "not exported");
-          else last = el("td", { className: "cd-last muted", title: "The recipe does not use HOSTNAME, so exports are not remembered." }, "not tracked");
+          else if (st.state === "new") last = el("td", { className: "cd-last" }, el("span", { className: "pill pill-new" }, "not exported"));
+          else
+            last = el("td", { className: "cd-last", title: "The recipe does not use HOSTNAME, so exports are not remembered." },
+              el("span", { className: "pill pill-muted" }, "not tracked"));
           return el("tr", { dataRow: x.row.id },
             el("td", { className: "num" }, String(x.n)),
             el("td", {}, x.host || "(no hostname)"),
             el("td", {}, x.ip),
             el("td", {},
-              el("button", { type: "button", className: "cd-status " + (status.bad ? "cd-bad" : "cd-ok"), title: status.title || "Open this switch in Switches" }, status.text)),
+              el("button", { type: "button", className: "cd-status " + (status.bad ? "cd-bad" : "cd-ok"),
+                title: (status.title ? status.title + "\n" : "") + "Open this switch in Switches" }, status.text)),
             last,
             el("td", {},
               el("button", {
@@ -8272,6 +9055,7 @@
           if (b && !b.disabled) b.focus();
         }
         $("cdTable").hidden = !items.length;
+        $("cdTable").classList.toggle("is-blocked", blocked);
         $("cdEmpty").hidden = items.length > 0;
         const badRows = items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x.n);
         const policyRows = items.filter(({ x }) => x.policy.length).map(({ x }) => x.n);
@@ -8284,6 +9068,17 @@
         else gl.textContent = "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + ".";
         gl.className = "cd-gates " + (reasons.length ? "cd-bad" : "cd-ok");
         const changed = items.filter(({ st }) => st.state === "new" || st.state === "changed").length;
+        // Counts at a glance: "12 switches · 6 up to date · 3 changed · 3 new · 1 with errors".
+        const count = (state) => items.filter(({ st }) => st.state === state).length;
+        const sum = [["sum-total", items.length + (items.length === 1 ? " switch" : " switches")]];
+        if (count("current")) sum.push(["sum-ok", count("current") + " up to date"]);
+        if (count("changed")) sum.push(["sum-warn", count("changed") + " changed"]);
+        if (count("new")) sum.push(["sum-new", count("new") + " new"]);
+        if (count("nohost")) sum.push(["sum-muted", count("nohost") + " not tracked"]);
+        if (badRows.length) sum.push(["sum-bad", badRows.length + " with errors"]);
+        $("cdSummary").replaceChildren(...(items.length ? sum.map(([c, t]) =>
+          el("span", { className: c }, t)) : []));
+        $("cdFixGate").hidden = !r.example;
         $("cdChanged").textContent = "Changed and new only (" + changed + ")";
         $("cdAll").disabled = blocked || !items.length;
         $("cdText").disabled = blocked || !items.length;
@@ -8359,6 +9154,14 @@
       $("cdAll").onclick = () => exportCardsBulk("all");
       $("cdChanged").onclick = () => exportCardsBulk("changed");
       $("cdText").onclick = () => exportCardsBulk("text");
+      // The example gate's way out: the Example recipe checkbox in Manage.
+      $("cdFixGate").onclick = () => {
+        if (!showView("manage")) return;
+        const t = $("exampleFlag");
+        t.focus({ preventScroll: true });
+        t.scrollIntoView({ block: "center" });
+        flashTarget(t.closest("label") || t);
+      };
       // The shared recipe picker re-renders the list (its onchange, set earlier, switches the recipe).
       $("cdRecipe").addEventListener("change", () => {
         if (currentView === "cards") renderCards();

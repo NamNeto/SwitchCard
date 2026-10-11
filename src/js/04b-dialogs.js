@@ -64,6 +64,16 @@ function infoDialog(title, textOrNode) {
   return showDialog({ title, body, actions: [{ label: "Close", value: true, primary: true }] }).then(() => undefined);
 }
 
+// The summary as monospace text; the identity lines (hostname, management IP) stand out.
+// textContent stays exactly the summary text.
+function summaryPre(text) {
+  const pre = el("pre", { className: "dlg-summary" });
+  String(text).split("\n").forEach((line, i) => {
+    if (i) pre.append("\n");
+    pre.append(/^(Hostname|MGMT_IP): /.test(line) ? el("strong", { className: "dlg-key" }, line) : line);
+  });
+  return pre;
+}
 // Review-before-download gate: the primary action stays disabled until the box is ticked.
 function writeDialog({ title, summary, primary }) {
   const text = String(summary).replace(/\s*Cancel = no download\.\s*$/, "");
@@ -76,16 +86,24 @@ function writeDialog({ title, summary, primary }) {
       copy.textContent = ok ? "Copied" : "Copy failed";
     },
   });
+  // The tick is a boxed safety step of its own, and gets the first focus.
   const body = el("div", {},
-    el("pre", { className: "dlg-summary", textContent: text }),
-    el("p", {}, copy),
-    el("label", {}, check, " I reviewed this configuration and the baseline selection."));
+    summaryPre(text),
+    el("div", { className: "dlg-copy" }, copy),
+    el("label", { className: "review-tick" }, check,
+      el("span", {}, "I reviewed this configuration and the baseline selection.",
+        el("small", {}, primary + " stays off until this box is ticked."))));
   return showDialog({
     title, body,
     actions: [{ label: "Cancel", value: false }, { label: primary, value: true, primary: true, disabled: true }],
     onOpen: (dlg) => {
       const btn = dlg.querySelector(".dialog-actions button.primary");
-      check.addEventListener("change", () => { btn.disabled = !check.checked; });
+      btn.title = "Tick the review box first";
+      check.addEventListener("change", () => {
+        btn.disabled = !check.checked;
+        btn.title = check.checked ? "" : "Tick the review box first";
+      });
+      check.focus();
     },
   }).then((v) => v === true);
 }
