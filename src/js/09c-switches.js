@@ -156,6 +156,9 @@ function switchRowsFromCsv(r, text) {
     result.errors.push("Paste a CSV with a header row first.");
     return result;
   }
+  if (parsed.multiline)
+    result.warnings.push(parsed.multiline + (parsed.multiline === 1 ? " quoted cell held" : " quoted cells held") +
+      " line breaks; each was joined into one line. Check those values in the list.");
   const rawHeader = parsed.rawHeader || parsed.header;
   rawHeader.forEach((c, i) => {
     if (!String(c).includes("\uFFFD")) return;

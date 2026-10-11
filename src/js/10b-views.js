@@ -21,6 +21,11 @@ function showView(name) {
   if (!VIEW_SECTIONS[name]) return false;
   if (typeof cardRun !== "undefined" && cardRun && name !== currentView) {
     message("A card export is running (" + cardRun.step + "). Other views open again when it ends; use Cancel after this card to stop early.");
+    // The next progress tick would replace that line within a moment: the reason also stays
+    // beside the progress for a few seconds.
+    cardRun.noteUntil = Date.now() + 4000;
+    const label = $("cdProgressText");
+    if (label && !label.textContent.includes(CARD_RUN_NOTE)) label.textContent += CARD_RUN_NOTE;
     return false;
   }
   if (name !== "manage" && editorPending) {
@@ -69,7 +74,9 @@ function updateRail() {
   chip.classList.toggle("chip-bad", bad > 0);
   const up = res.rows.filter((x) => exportState(r, x.host, x.sha256).state === "current").length;
   $("chipCards").textContent = rows.length ? up + " of " + rows.length + " up to date" : "nothing to export yet";
-  $("chipManage").textContent = baseline ? baseline.version : "no baseline";
+  // An unapplied recipe draft locks the other views: the chip says so before a click finds out.
+  $("chipManage").replaceChildren(baseline ? baseline.version : "no baseline");
+  if (editorPending) $("chipManage").append(" · ", el("span", { className: "chip-err" }, "draft not applied"));
   // The open Cards view follows the same changes (recipe, switches, template, baseline, policies).
   if (currentView === "cards" && typeof renderCards === "function") renderCards();
 }
@@ -88,6 +95,8 @@ function renderSwitches() {
   if (gridKey !== swGridKey) buildSwitchGrid(cols, rows);
   swGridKey = gridKey;
   patchSwitchGrid(r);
+  // The view may have been hidden when the preview text was set: measure its width again.
+  scheduleSwPreviewWide();
 }
 // Short column headers for the common fields, so headers stay on one line; the title has the rest.
 const SW_SHORT_LABELS = { MGMT_IP: "Mgmt IP", MGMT_MASK: "Mask", MGMT_VLAN: "VLAN", GATEWAY: "Gateway", MGMT_LOOPBACK: "Loopback" };
@@ -197,9 +206,14 @@ function patchSwitchGrid(r) {
     const set = Object.values(x.row.ports || {}).filter((p) => p && Object.keys(p).length).length;
     const pb = tr.querySelector("button.sw-ports");
     pb.textContent = set ? set + " set" : "table";
+    const label = "Ports of switch " + x.n + ", " + (set ? set + " set for this switch" : "all from the port table");
+    if (pb.getAttribute("aria-label") !== label) pb.setAttribute("aria-label", label);
     pb.classList.toggle("has-set", set > 0);
     const st = switchStatus(x);
     const td = tr.querySelector("td.status");
+    // Unchanged rows are left alone, so a keystroke repaints only the rows whose status moved.
+    tr.classList.toggle("selected", tr.dataset.row === swSelectedId);
+    if (td.textContent === st.text && td.title === st.title && td.classList.contains(st.bad ? "bad" : "ok")) continue;
     // A clean row stays quiet: "OK" in muted text, the note count fainter still (same text). On
     // an error row the kind of error sits under the count ("1 error" / "duplicate"); the cell's
     // text is still "1 error · duplicate" (the separator is there, only not drawn).
@@ -212,7 +226,6 @@ function patchSwitchGrid(r) {
     td.title = st.title;
     td.className = "status " + (st.bad ? "bad" : "ok");
     tr.classList.toggle("row-bad", st.bad);
-    tr.classList.toggle("selected", tr.dataset.row === swSelectedId);
   }
   $("swEmpty").hidden = rows.length > 0;
   // An empty list shows the empty state alone (no placeholder side panel).
@@ -231,21 +244,26 @@ function patchSwitchGrid(r) {
   scheduleRailUpdate();
 }
 // Side panel: the selected row's checks, its editcontent.txt and changes since its last export.
+// Each part is redrawn only when what it shows changed (keys below), so a keystroke that leaves
+// the checks alone does not re-insert the detail row and re-lay out the whole table.
+let swPanelKeys = { checks: null, text: null, diff: null };
 function renderSwitchPanel(r, x) {
   const checks = $("swChecks");
-  checks.replaceChildren();
-  $("swDiffPanel").hidden = true;
   $("swPanelEmpty").hidden = !!x;
   $("swPreview").hidden = !x;
-  const old = $("swRows").querySelector("tr.sw-detail");
-  if (old) old.remove();
   if (!x) {
+    if (swPanelKeys.checks === "none") return;
+    swPanelKeys = { checks: "none", text: null, diff: null };
+    checks.replaceChildren();
+    $("swDiffPanel").hidden = true;
+    const old = $("swRows").querySelector("tr.sw-detail");
+    if (old) old.remove();
     $("swPanelTitle").textContent = "Selected switch";
     $("swPreview").textContent = "Select a row to see its checks and its editcontent.txt.";
+    $("swPreview").classList.remove("wide");
     return;
   }
   const title = "Switch " + x.n + (x.host ? " · " + x.host : "");
-  $("swPanelTitle").textContent = title;
   const items = [
     ...x.findings.map((f) => ({ level: f.level, text: f.text, where: f.where })),
     // Team-policy results are listed even while the row has other errors (the row check stops at
@@ -253,40 +271,64 @@ function renderSwitchPanel(r, x) {
     ...(x.policy.length ? x.policy : x.errors.length && x.text ? policyViolations(x.text, teamPolicies) : [])
       .map((p) => ({ level: "error", text: "Team policy: " + p, where: { kind: "policy" } })),
   ].sort((a, b) => (a.level === "error" ? 0 : 1) - (b.level === "error" ? 0 : 1)); // errors first (stable)
-  // Each check is a button that jumps to what it is about (this row's cell, its Ports dialog, ...).
-  const ctx = { view: "switches", rowId: x.row.id };
-  const checkList = (ul) => {
-    for (const f of items)
-      ul.append(el("li", { className: f.level === "error" ? "bad" : "warn" },
-        el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, ctx) }, f.text)));
-    if (!items.length) ul.append(el("li", { className: "ok" }, "No problems found."));
-    return ul;
-  };
-  checkList(checks);
-  // The same checks inline under the row: shown by CSS only while the panel sits below the grid
-  // (narrow windows), so the reason for an error is never out of view.
   const tr = [...$("swRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === x.row.id);
-  if (tr) {
-    const cols = tr.children.length;
-    // Copy and Remove here too: below 1000 px the icon columns are hidden and these show instead.
-    tr.after(el("tr", { className: "sw-detail" },
-      el("td", { colSpan: cols },
-        el("span", { className: "sw-detail-title" }, title),
-        checkList(el("ul", { className: "sw-checks" })),
-        el("div", { className: "sw-detail-actions" },
-          el("button", { type: "button", title: "Copy this switch below itself", onclick: () => copySwitchRow(x.row.id) }, "Copy below"),
-          el("button", { type: "button", className: "danger", title: "Remove this switch", onclick: () => removeSwitchRow(x.row.id) }, "Remove")))));
+  const detail = $("swRows").querySelector("tr.sw-detail");
+  const detailOk = !tr || (detail && detail.dataset.for === x.row.id && tr.nextElementSibling === detail);
+  const checksKey = JSON.stringify([x.row.id, title, items.map((f) => [f.level, f.text, f.where || null])]);
+  if (checksKey !== swPanelKeys.checks || !detailOk) {
+    swPanelKeys.checks = checksKey;
+    $("swPanelTitle").textContent = title;
+    checks.replaceChildren();
+    if (detail) detail.remove();
+    // Each check is a button that jumps to what it is about (this row's cell, its Ports dialog, ...).
+    const ctx = { view: "switches", rowId: x.row.id };
+    const checkList = (ul) => {
+      for (const f of items)
+        ul.append(el("li", { className: f.level === "error" ? "bad" : "warn" },
+          el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, { ...ctx, text: f.text }) }, f.text)));
+      if (!items.length) ul.append(el("li", { className: "ok" }, "No problems found."));
+      return ul;
+    };
+    checkList(checks);
+    // The same checks inline under the row: shown by CSS only while the panel sits below the grid
+    // (narrow windows), so the reason for an error is never out of view.
+    if (tr) {
+      const cols = tr.children.length;
+      // Copy and Remove here too: below 1000 px the icon columns are hidden and these show instead.
+      tr.after(el("tr", { className: "sw-detail", dataFor: x.row.id },
+        el("td", { colSpan: cols },
+          el("span", { className: "sw-detail-title" }, title),
+          checkList(el("ul", { className: "sw-checks" })),
+          el("div", { className: "sw-detail-actions" },
+            el("button", { type: "button", title: "Copy this switch below itself", onclick: () => copySwitchRow(x.row.id) }, "Copy below"),
+            el("button", { type: "button", className: "danger", title: "Remove this switch", onclick: () => removeSwitchRow(x.row.id) }, "Remove")))));
+    }
   }
   // The text as it is, one whole line per line (the box scrolls sideways for a wide comment, and
-  // fades at that edge to say so).
+  // fades at that edge to say so; measured with the next frame's layout, not forced here).
   const pre = $("swPreview");
-  pre.textContent = x.text || "No output: fix the errors above.";
-  pre.classList.toggle("wide", pre.scrollWidth > pre.clientWidth + 1);
-  const prev = lastExport(r, x.host);
-  if (prev && !x.errors.length) {
-    $("swDiffPanel").hidden = false;
-    fillDiff($("swDiffSummary"), $("swDiff"), prev, x.text);
+  const shown = x.text || "No output: fix the errors above.";
+  if (swPanelKeys.text !== shown) {
+    swPanelKeys.text = shown;
+    pre.textContent = shown;
+    scheduleSwPreviewWide();
   }
+  const prev = lastExport(r, x.host);
+  const diffKey = prev && !x.errors.length ? JSON.stringify([prev.at, prev.sha256, x.text]) : "";
+  if (diffKey !== swPanelKeys.diff) {
+    swPanelKeys.diff = diffKey;
+    $("swDiffPanel").hidden = !diffKey;
+    if (diffKey) fillDiff($("swDiffSummary"), $("swDiff"), prev, x.text);
+  }
+}
+let swWideFrame = 0;
+function scheduleSwPreviewWide() {
+  if (swWideFrame) return;
+  swWideFrame = requestAnimationFrame(() => {
+    swWideFrame = 0;
+    const pre = $("swPreview");
+    if (!pre.hidden) pre.classList.toggle("wide", pre.scrollWidth > pre.clientWidth + 1);
+  });
 }
 function selectSwitch(id) {
   if (id === swSelectedId) return;
@@ -599,20 +641,29 @@ function openPortsDialog(row, focus) {
   // Edits apply as they are typed (the grid and the preview follow). Done keeps them; Cancel (or
   // Esc) puts this switch's port settings back as they were when the dialog opened.
   const before = JSON.stringify(row.ports || {});
+  // Nothing typed here reaches the browser autosave before Done: a pending write of earlier edits
+  // goes out now, then autosave pauses (as during the boot dialog) until the dialog closes, so a
+  // reload or crash with the dialog open restores the ports as they were (an implicit Cancel).
+  if (autosaveTimer && !autosavePaused) autosave();
+  clearTimeout(autosaveTimer);
+  autosaveTimer = null;
+  const pausedBefore = autosavePaused;
+  autosavePaused = true;
   return showDialog({
     title: "Ports · switch " + n + (host ? " (" + host + ")" : ""),
     body: wrap,
     actions: [{ label: "Cancel", value: false }, { label: "Done", value: true, primary: true }],
-    note: "Changes apply as you type. Done keeps them; Cancel or Esc puts the ports back as they were.",
+    note: "Changes apply as you type and are kept (and autosaved) only when you press Done; Cancel or Esc puts the ports back as they were.",
     onOpen: (dlg) => {
       dlg.classList.add("dlg-wide");
       if (focus) draw(focus);
     },
   }).then((v) => {
+    autosavePaused = pausedBefore;
     if (v !== true && JSON.stringify(row.ports || {}) !== before) {
       row.ports = JSON.parse(before);
       touch();
-    }
+    } else if (dirty) scheduleAutosave();
     if (currentView !== "switches") return;
     renderSwitches();
     // A fixed check removes the button that opened the dialog: focus goes to this row's Ports button.
@@ -692,6 +743,12 @@ function focusFinding(where, ctx) {
   // Open the collapsed sections around the target (Management sources, team rules, ...).
   for (let d = target.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) d.open = true;
   target.focus({ preventScroll: true });
+  // A check about one line of the template (the example header) selects that line, so typing
+  // replaces it instead of appending at the end.
+  if (target === $("template") && ctx && /^The template still contains the example header line/.test(ctx.text || "")) {
+    const at = target.value.indexOf(CONFIG.EXAMPLE_HEADER_LINE);
+    if (at >= 0) target.setSelectionRange(at, at + CONFIG.EXAMPLE_HEADER_LINE.length);
+  }
   target.scrollIntoView({ block: "center" });
   if (pre && w.line) highlightPreviewLine(pre, w.line);
   return flashTarget(target);
@@ -855,8 +912,19 @@ $("swExport").onclick = () => {
     return;
   }
   downloadCsv(csv.text, "switchcard-switches-" + csvFileStem(r) + ".csv");
+  // The file keeps the values exactly (a round trip reproduces the list), so a value that a
+  // spreadsheet would run as a formula is pointed out rather than altered.
+  const back = parseCsv(csv.text);
+  const risky = [];
+  back.rows.forEach((cells, i) => cells.forEach((c, j) => {
+    if (/^[=+\-@]/.test(c)) risky.push("row " + (i + 1) + " " + (back.rawHeader[j] || back.header[j]));
+  }));
   message("Exported " + rows.length + " switch" + (rows.length === 1 ? "" : "es") + " as CSV (" + csv.columns.length +
-    " columns; empty cells follow Device details).");
+    " columns; empty cells follow Device details)." +
+    (risky.length
+      ? " Note: " + risky.length + (risky.length === 1 ? " cell starts" : " cells start") + " with =, +, - or @ (" + listFew(risky, 3) +
+        "); a spreadsheet such as Excel may run it as a formula. Open the file as text, or check those cells."
+      : ""));
 };
 $("swTemplate").onclick = () => {
   const r = current();

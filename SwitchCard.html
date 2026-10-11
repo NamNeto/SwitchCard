@@ -1168,6 +1168,23 @@
       [hidden] {
         display: none !important;
       }
+      /* Scale (200+ switches): the Switches view keeps its layout while another view is shown, so
+         coming back to it needs a repaint only, not a fresh style and layout pass over every cell. It
+         stays out of sight, out of the tab order and out of the accessibility tree (visibility), takes
+         no room (absolute, zero height), and keeps the width it has when shown (.views has no padding). */
+      .views {
+        position: relative;
+      }
+      #switches[hidden] {
+        display: block !important;
+        visibility: hidden;
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 0;
+        overflow: hidden;
+      }
       /* --- v0.7.0: theme picker, diff view, transliteration notice --- */
       .theme-pick {
         display: inline-flex;
@@ -1265,6 +1282,12 @@
         outline: none;
         border-color: var(--accent);
         box-shadow: 0 0 0 3px var(--accent-dim);
+      }
+      /* Keyboard focus on a file button (Open project, Load file, ...): a solid ring as well, since the
+         soft halo alone is hard to see on the page background. */
+      .filebutton:has(.fileinput:focus-visible) {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
       }
       .compact {
         min-height: 88px;
@@ -1951,6 +1974,11 @@
         text-overflow: ellipsis;
         border-color: var(--cell-line); /* the solid/dashed cue holds 3:1 on the table background */
       }
+      /* The cell being typed in is its own compositing layer, so a keystroke repaints that cell and
+         not the layers of a 200-row grid. */
+      #swTable td input:focus {
+        will-change: transform;
+      }
       #swTable td input[data-key="HOSTNAME"] {
         width: 106px;
       }
@@ -2459,6 +2487,15 @@
       .gate.gate-bad .gate-head {
         color: var(--err);
       }
+      /* Ready to export, with a review note that does not block (baseline fingerprint differs). */
+      .gate.gate-warn {
+        background: var(--warn-bg);
+        border-color: var(--warn-line);
+        border-left-color: var(--warn);
+      }
+      .gate.gate-warn .gate-head {
+        color: var(--text);
+      }
       .gate-list {
         list-style: none;
         margin: 0;
@@ -2483,6 +2520,12 @@
         height: 6px;
         border-radius: 50%;
         background: var(--err);
+      }
+      .gate-list li.gate-warn-item {
+        font-weight: 650;
+      }
+      .gate-list li.gate-warn-item::before {
+        background: var(--warn);
       }
       .gate-list li button.finding-link {
         color: var(--err);
@@ -2722,6 +2765,21 @@
       }
 
       /* --- Write dialogs: the review tick is its own boxed safety step --- */
+      /* Write dialog review note (baseline fingerprint differs from the project's record). */
+      .dlg-warning {
+        margin: 0 0 12px;
+        padding: 8px 12px;
+        border: 1px solid var(--warn-line);
+        border-left: 3px solid var(--warn);
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        background: var(--warn-bg);
+        font-size: 13px;
+      }
+      .dlg-kv tr.dlg-differs th,
+      .dlg-kv tr.dlg-differs td {
+        background: var(--warn-bg);
+        font-weight: 650;
+      }
       .dlg-copy {
         display: flex;
         justify-content: flex-end;
@@ -3442,7 +3500,8 @@
             </details>
             <div class="actions even">
               <button class="primary" id="applyRecipe">Apply recipe changes</button
-              ><button id="discardDraft" type="button" hidden>Discard unapplied draft</button>
+              ><button id="discardDraft" type="button" hidden>Discard unapplied draft</button
+              ><button id="saveProjectDraft" type="button" hidden title="Save project from here while the draft is unapplied (the draft itself is not included)">Save project</button>
             </div>
             <p>
               <small
@@ -4007,6 +4066,14 @@
         dirty = true;
         scheduleAutosave();
       }
+      // A change that must survive a reload at once (a card just handed to the download): written now,
+      // not after the debounce, unless autosave is paused.
+      function touchAndAutosaveNow() {
+        dirty = true;
+        clearTimeout(autosaveTimer);
+        autosaveTimer = null;
+        if (!autosavePaused) autosave();
+      }
       function scheduleAutosave() {
         clearTimeout(autosaveTimer);
         autosaveTimer = null;
@@ -4524,6 +4591,7 @@
         teamHints = Array.isArray(p.teamHints) ? [...p.teamHints] : [];
         teamPolicies = Array.isArray(p.teamPolicies) ? [...p.teamPolicies] : [];
         baselineExpected = p.baseline ? { ...p.baseline } : null;
+        prefillBaselineFields();
         customSkuPresets = Object.assign(
           Object.create(null),
           loadCustomSkuPresetsFromLocal(),
@@ -5092,13 +5160,21 @@
           : baselineExpected
             ? "No baseline loaded. The project expects " + baselineExpected.model + " / " + baselineExpected.version +
               (baselineExpected.fingerprint ? " (" + baselineExpected.fingerprint.fileCount + " files, fingerprint recorded)" : "") +
-              " — load that sync-export folder in Manage recipes & baseline; it is compared with the record."
+              " — load that sync-export folder in Manage recipes & baseline (Model family and label are filled in from the record); it is compared with the record."
             : "No baseline loaded. Explore the examples, then import a complete sync export in Manage recipes & baseline.";
         $("baselineInfo").textContent = description;
         $("baseDetails").textContent = description;
         $("fileList").textContent = baseline
           ? baseline.files.map((f) => f.path + "  (" + size(f.blob.size) + ")").join("\n")
           : "No files loaded.";
+      }
+      // After Open, a team package or an autosave restore with no baseline loaded: the loader's Model
+      // family and label are set from the project's record, so one folder pick re-attaches it.
+      function prefillBaselineFields() {
+        if (baseline || !baselineExpected) return;
+        const m = $("baseModel");
+        if ([...m.options].some((o) => o.value === baselineExpected.model)) m.value = baselineExpected.model;
+        if (typeof baselineExpected.version === "string" && baselineExpected.version) $("baseVersion").value = baselineExpected.version;
       }
       function size(n) {
         return n >= 1048576 ? (n / 1048576).toFixed(1) + " MiB" : (n / 1024).toFixed(1) + " KiB";
@@ -5268,7 +5344,7 @@
           }
           if (!kv) box.append((kv = el("table", { className: "dlg-kv" })));
           // A hash never breaks inside (it is compared with a manifest by eye): one line that scrolls.
-          kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : "" }, el("th", { scope: "row" }, summaryKeyLabel(m[1])),
+          kv.append(el("tr", { className: /^(Hostname|MGMT_IP)$/.test(m[1]) ? "dlg-key" : /DIFFERS/.test(m[2]) ? "dlg-differs" : "" }, el("th", { scope: "row" }, summaryKeyLabel(m[1])),
             el("td", { className: /^[0-9a-f]{64}$/i.test(m[2]) ? "dlg-hash" : "" }, m[2])));
         }
         return box;
@@ -5287,7 +5363,9 @@
       }
       // Review-before-download gate: the primary action stays disabled until the box is ticked.
       // rows (bulk exports): [{ n, host, ip, sha256, lines, state }] for the switch table.
-      function writeDialog({ title, summary, primary, rows }) {
+      // warning: a review note shown above the summary (the baseline fingerprint differs from the
+      // project's record); it does not block, the tick still decides.
+      function writeDialog({ title, summary, primary, rows, warning }) {
         const text = String(summary).replace(/\s*Cancel = no download\.\s*$/, "");
         const check = el("input", { type: "checkbox" });
         const copy = el("button", {
@@ -5300,6 +5378,7 @@
         });
         // The tick is a boxed safety step of its own, and gets the first focus.
         const body = el("div", {},
+          warning ? el("p", { className: "dlg-warning", role: "note" }, el("strong", {}, "Review: "), warning) : null,
           summaryView(text, rows),
           el("div", { className: "dlg-copy" }, copy),
           el("label", { className: "review-tick" }, check,
@@ -5678,6 +5757,22 @@
         if (!v) return "switch";
         return v.replace(/[^a-zA-Z0-9_-]+/g, "_");
       }
+      // The export dialogs' fingerprint line (single card, Build and the Cards bulk exports alike).
+      function baselineFingerprintLine() {
+        return "Baseline fingerprint: " +
+          (baseline && baseline.fingerprint
+            ? baseline.fingerprint.digest.slice(0, 16) + "… " + (baseline.compare ? baseline.compare.summary : "(no project record to compare with)")
+            : "(none)");
+      }
+      // The loaded baseline's fingerprint differs from the one recorded in the open project: a warning
+      // on every export path (Build and Cards gates, every write dialog), never a block, because
+      // re-saving the project is how a new baseline is adopted (docs/SAFETY-EXPORT.md).
+      function baselineDiffersWarning() {
+        const c = baseline && baseline.compare;
+        if (!c || c.same) return "";
+        return "Baseline fingerprint " + c.summary + (c.changed.length ? "; changed: " + c.changed.slice(0, 5).join(", ") : "") +
+          ". Use the recorded folder, or Save project to record this one.";
+      }
       function exportConfirmSummary(r, g) {
         const lines = [
           "Export SD-card ZIP with this editcontent.txt?",
@@ -5718,10 +5813,7 @@
             (baseline
               ? baseline.model + " / " + baseline.version
               : "(none)"),
-          "Baseline fingerprint: " +
-            (baseline && baseline.fingerprint
-              ? baseline.fingerprint.digest.slice(0, 16) + "… " + (baseline.compare ? baseline.compare.summary : "(no project record to compare with)")
-              : "(none)"),
+          baselineFingerprintLine(),
           "",
           "Root editcontent.txt in the ZIP is exactly this preview text.",
           "",
@@ -6260,6 +6352,12 @@
         };
         return short[reason] || reason;
       }
+      // Short label of a non-blocking gate warning; the full sentence stays as the item's title.
+      function gateWarnLabel(t) {
+        return /^Baseline fingerprint DIFFERS/.test(t)
+          ? "Review: baseline fingerprint DIFFERS from the project's record (use the recorded folder, or Save project to record this one)"
+          : t;
+      }
       // The way out of a gate, as a button in the box: the Example recipe tick or the baseline loader.
       const GATE_FIXES = [
         [/^Example recipe:/, "Open recipe editor", () => openExampleSetting()],
@@ -6268,12 +6366,17 @@
       // The gate box (under Build's export buttons, above the bulk buttons on Cards): one headline,
       // one short item per reason, and a button for the first reason that has a way out.
       // errors (Build): the error findings, so the input-errors item names each one as a link.
-      function renderGate(box, reasons, okText, fixId, errors) {
+      // warnings: review notes that do not block (the baseline fingerprint differs from the project's
+      // record); shown in amber beside "Ready to export", or after the blocking reasons.
+      function renderGate(box, reasons, okText, fixId, errors, warnings) {
+        const warn = (warnings || []).map((t) => el("li", { className: "gate-warn-item", title: t }, gateWarnLabel(t)));
         box.replaceChildren();
         box.classList.toggle("gate-bad", reasons.length > 0);
-        box.classList.toggle("gate-ok", !reasons.length && !!okText);
+        box.classList.toggle("gate-ok", !reasons.length && !!okText && !warn.length);
+        box.classList.toggle("gate-warn", !reasons.length && !!okText && warn.length > 0);
         if (!reasons.length) {
           if (okText) box.append(el("span", { className: "gate-head" }, okText));
+          if (okText && warn.length) box.append(el("ul", { className: "gate-list" }, warn));
           return;
         }
         const items = reasons.map((t) => {
@@ -6282,16 +6385,24 @@
           if (t === GATE_ERRORS && errors && errors.length) {
             const n = errors.length;
             const li = el("li", { title: t }, n + (n === 1 ? " error: " : " errors: "));
-            errors.forEach((f, i) => {
+            // Two checks on one cell ("Gi1/5 VLAN" twice) share one link: "Gi1/5 VLAN (2)", both texts
+            // in its title.
+            const byName = new Map();
+            for (const f of errors) {
+              const name = findingShortName(f);
+              if (byName.has(name)) byName.get(name).push(f);
+              else byName.set(name, [f]);
+            }
+            [...byName].forEach(([name, fs], i) => {
               if (i) li.append(", ");
-              li.append(el("button", { type: "button", className: "finding-link", title: f.text, onclick: () => focusFinding(f.where, { view: "build" }) },
-                findingShortName(f)));
+              li.append(el("button", { type: "button", className: "finding-link", title: fs.map((f) => f.text).join("\n"),
+                onclick: () => focusFinding(fs[0].where, { view: "build", text: fs[0].text }) }, name + (fs.length > 1 ? " (" + fs.length + ")" : "")));
             });
             return li;
           }
           return el("li", { title: t }, gateLabel(t));
         });
-        box.append(el("span", { className: "gate-head" }, "Export blocked"), el("ul", { className: "gate-list" }, items));
+        box.append(el("span", { className: "gate-head" }, "Export blocked"), el("ul", { className: "gate-list" }, items, warn));
         for (const [re, label, run] of GATE_FIXES)
           if (reasons.some((t) => re.test(t))) {
             box.append(el("button", { type: "button", id: fixId, className: "gate-fix", onclick: run }, label));
@@ -6427,7 +6538,8 @@
         if (g.errors.length) why.push("Fix red input errors first.");
         if (b.length) why.push(...b.filter((x) => !why.includes(x)));
         const ew = $("exportWhy");
-        if (ew) renderGate(ew, $("downloadCard").disabled ? (why.length ? why : ["Export unavailable."]) : [], "Ready to export.", "exportFixGate", found("error"));
+        if (ew) renderGate(ew, $("downloadCard").disabled ? (why.length ? why : ["Export unavailable."]) : [], "Ready to export.", "exportFixGate", found("error"),
+          [baselineDiffersWarning()].filter(Boolean));
         $("downloadCard").title = $("downloadCard").disabled
           ? why.join(" ") || "Export blocked"
           : "Download ZIP for the SD card root";
@@ -6505,7 +6617,7 @@
               b.type = "button";
               b.className = "finding-link";
               b.textContent = t.text;
-              b.addEventListener("click", () => focusFinding(t.where, ctx || { view: "build" }));
+              b.addEventListener("click", () => focusFinding(t.where, { ...(ctx || { view: "build" }), text: t.text }));
               li.append(b);
             }
             ul.append(li, document.createTextNode(" "));
@@ -6523,6 +6635,9 @@
       function updateDiscardButton() {
         const btn = $("discardDraft");
         if (btn) btn.hidden = !editorPending;
+        // The rail is locked while a draft is unapplied, so Save project is offered here as well.
+        const save = $("saveProjectDraft");
+        if (save) save.hidden = !editorPending;
       }
       function loadEditor() {
         const r = current();
@@ -7109,6 +7224,7 @@
         teamPolicies = Array.isArray(p.teamPolicies) ? [...p.teamPolicies] : [];
         baselineExpected = p.baseline ? { ...p.baseline } : null;
         if (b && baselineExpected && baselineExpected.fingerprint && b.fingerprint) b.compare = compareFingerprints(baselineExpected.fingerprint, b.fingerprint);
+        prefillBaselineFields();
         customSkuPresets = normalizeCustomSkuPresets(p.customSkuPresets);
         persistCustomSkuPresetsLocal();
         renderAll();
@@ -7743,6 +7859,8 @@
           rawHeader,
           rows: nonEmpty.slice(1).map((r) => r.map((c) => sanitizeSingleLine(c).text.trim())),
           delimiter: delim,
+          // Quoted data cells that held line breaks (joined into one line by sanitizeSingleLine).
+          multiline: nonEmpty.slice(1).reduce((n, r) => n + r.filter((c) => /[\r\n]/.test(c)).length, 0),
         };
       }
       // --- Fleet CSV helpers (v0.7.1): column order, CSV text, "Duplicate switch" rows ---
@@ -8037,6 +8155,8 @@
       // views stay closed (showView says why), so its progress and Cancel stay in sight and its pacing
       // between downloads is never cut short.
       let cardRun = null;
+      // Shown beside the progress for a few seconds after a click on another view during the run.
+      const CARD_RUN_NOTE = " · other views open again when this run ends (or use Cancel after this card)";
       const RAIL_LOCK_TITLE = "A card export is running: other views open again when it ends (or use Cancel after this card).";
       function lockRailForCardRun(on) {
         const rail = $("rail");
@@ -8075,6 +8195,7 @@
           "",
           "Recipe: " + r.name,
           "Baseline: " + (baseline ? baseline.model + " / " + baseline.version : "(none)"),
+          baselineFingerprintLine(),
           "",
         ];
         // Padded columns, so rows 1-9 and 10+ line up in the monospace summary.
@@ -8091,6 +8212,7 @@
           title: textOnly ? "Export text-only ZIP?" : "Export SD-card ZIPs?",
           summary: lines.join("\n"),
           primary: textOnly ? "Download ZIP" : "Download ZIPs",
+          warning: baselineDiffersWarning(),
           // The dialog's switch table marks each card's state against its last export.
           rows: results.map((row) => ({ n: row.n, host: row.host, ip: row.ip, sha256: row.sha256, lines: row.lines,
             state: exportState(r, row.host, row.sha256).state })),
@@ -8115,6 +8237,7 @@
             download(await zip(files, when), "switchcard-fleet-" + RELEASE + "-text.zip");
             for (const row of results) recordExport(r, row.host, row.text);
             recorded = n;
+            touchAndAutosaveNow();
           } else {
             // Progress in the Cards view ("Card 8 of 24: file") with a Cancel button that ends the run
             // after the card being written. run() disabled every button, so Cancel is enabled here.
@@ -8139,11 +8262,13 @@
                 const name = folderFor(row) + "-switchcard-" + RELEASE + "-sdcard.zip";
                 const step = "Card " + (i + 1) + " of " + n + ": " + name;
                 cardRun.step = step;
-                label.textContent = step;
+                const noted = cardRun.noteUntil > Date.now();
+                label.textContent = step + (noted ? CARD_RUN_NOTE : "") + (stopped ? STOPPING : "");
                 download(await zip(buildCardFiles({ text: row.text }), when), name);
-                message(step); // after zip(), whose own "Packaging" lines would hide it
+                if (!(cardRun.noteUntil > Date.now())) message(step); // after zip(), whose own "Packaging" lines would hide it
                 recordExport(r, row.host, row.text); // right away, so a later failure keeps this one
                 recorded++;
+                touchAndAutosaveNow(); // and in the browser autosave, so a reload mid-run keeps it too
                 if (typeof scheduleRailUpdate === "function") scheduleRailUpdate(); // chips and rows follow the run
                 manifest.push([row.n, row.host, row.ip, name, row.sha256, row.lines, row.bytes].join("\t"));
                 await new Promise((resolve) => setTimeout(resolve, 400));
@@ -8414,6 +8539,9 @@
           result.errors.push("Paste a CSV with a header row first.");
           return result;
         }
+        if (parsed.multiline)
+          result.warnings.push(parsed.multiline + (parsed.multiline === 1 ? " quoted cell held" : " quoted cells held") +
+            " line breaks; each was joined into one line. Check those values in the list.");
         const rawHeader = parsed.rawHeader || parsed.header;
         rawHeader.forEach((c, i) => {
           if (!String(c).includes("\uFFFD")) return;
@@ -9143,6 +9271,9 @@
             message("Apply your recipe changes before switching recipes.");
             return;
           }
+          // Picking the recipe that is already active changes nothing, so it does not mark the
+          // workspace as unsaved (a false "You have unsaved changes" on the next Open).
+          if ($(id).value === active) return;
           active = $(id).value;
           touch();
           renderAll();
@@ -9338,10 +9469,12 @@
           const model = $("baseModel").value,
             rawVersion = $("baseVersion").value,
             version = sanitizeSingleLine(rawVersion).text.trim();
+          // Taken and cleared first, so picking the same folder again after a refusal fires change again.
+          const selected = [...$("folderInput").files];
+          $("folderInput").value = "";
           $("baseVersion").value = version;
           if (!version)
             throw Error("Enter a firmware / baseline label first, then select the folder again.");
-          const selected = [...$("folderInput").files];
           if (!selected.length) return;
           // webkitRelativePath is "FolderName/rel/path"; slice(1) drops the outer folder name
           const files = selected.map((f) => ({
@@ -9356,6 +9489,10 @@
           baseline = { model, version, files, fingerprint, compare };
           touch();
           renderBaseline();
+          // The fingerprint covers the files only; say so when the model or label differs from the record.
+          const recordDiffers = baselineExpected && (baselineExpected.model !== model || baselineExpected.version !== version)
+            ? " Note: the project recorded " + baselineExpected.model + " / " + baselineExpected.version + "; this baseline is loaded as " + model + " / " + version + "."
+            : "";
           const nonAscii = files.filter((f) => /[^\x20-\x7e]/.test(f.path)).length;
           message(
             "Baseline loaded. Verify its file list and model; automatic firmware identification is not included." +
@@ -9364,6 +9501,7 @@
                   ? " Fingerprint matches the project's recorded baseline."
                   : " WARNING: fingerprint " + compare.summary + (compare.changed.length ? "; changed: " + compare.changed.slice(0, 5).join(", ") : "") + ". Use the recorded folder, or Save project to record this one."
                 : " Fingerprint recorded (" + fingerprint.digest.slice(0, 12) + "…); Save project keeps it.") +
+              recordDiffers +
               (version !== rawVersion ? " Cleaned baseline label; updated value is shown in the editor." : "") +
               (nonAscii
                 ? " Note: " + nonAscii + " file name(s) contain non-ASCII characters; the ZIP marks them as UTF-8 but some extractors may still show them incorrectly."
@@ -9422,6 +9560,7 @@
               title: "Export SD-card ZIP?",
               summary: exportConfirmSummary(r, g),
               primary: "Download ZIP",
+              warning: baselineDiffersWarning(),
             }))
           ) {
             message("SD-card ZIP export cancelled.");
@@ -9486,6 +9625,7 @@
           message(e.message || String(e));
         }
       };
+      $("saveProjectDraft").onclick = () => $("saveProject").onclick();
       $("projectInput").onchange = () =>
         run(async () => {
           const f = $("projectInput").files[0];
@@ -9666,6 +9806,11 @@
         if (!VIEW_SECTIONS[name]) return false;
         if (typeof cardRun !== "undefined" && cardRun && name !== currentView) {
           message("A card export is running (" + cardRun.step + "). Other views open again when it ends; use Cancel after this card to stop early.");
+          // The next progress tick would replace that line within a moment: the reason also stays
+          // beside the progress for a few seconds.
+          cardRun.noteUntil = Date.now() + 4000;
+          const label = $("cdProgressText");
+          if (label && !label.textContent.includes(CARD_RUN_NOTE)) label.textContent += CARD_RUN_NOTE;
           return false;
         }
         if (name !== "manage" && editorPending) {
@@ -9714,7 +9859,9 @@
         chip.classList.toggle("chip-bad", bad > 0);
         const up = res.rows.filter((x) => exportState(r, x.host, x.sha256).state === "current").length;
         $("chipCards").textContent = rows.length ? up + " of " + rows.length + " up to date" : "nothing to export yet";
-        $("chipManage").textContent = baseline ? baseline.version : "no baseline";
+        // An unapplied recipe draft locks the other views: the chip says so before a click finds out.
+        $("chipManage").replaceChildren(baseline ? baseline.version : "no baseline");
+        if (editorPending) $("chipManage").append(" · ", el("span", { className: "chip-err" }, "draft not applied"));
         // The open Cards view follows the same changes (recipe, switches, template, baseline, policies).
         if (currentView === "cards" && typeof renderCards === "function") renderCards();
       }
@@ -9733,6 +9880,8 @@
         if (gridKey !== swGridKey) buildSwitchGrid(cols, rows);
         swGridKey = gridKey;
         patchSwitchGrid(r);
+        // The view may have been hidden when the preview text was set: measure its width again.
+        scheduleSwPreviewWide();
       }
       // Short column headers for the common fields, so headers stay on one line; the title has the rest.
       const SW_SHORT_LABELS = { MGMT_IP: "Mgmt IP", MGMT_MASK: "Mask", MGMT_VLAN: "VLAN", GATEWAY: "Gateway", MGMT_LOOPBACK: "Loopback" };
@@ -9842,9 +9991,14 @@
           const set = Object.values(x.row.ports || {}).filter((p) => p && Object.keys(p).length).length;
           const pb = tr.querySelector("button.sw-ports");
           pb.textContent = set ? set + " set" : "table";
+          const label = "Ports of switch " + x.n + ", " + (set ? set + " set for this switch" : "all from the port table");
+          if (pb.getAttribute("aria-label") !== label) pb.setAttribute("aria-label", label);
           pb.classList.toggle("has-set", set > 0);
           const st = switchStatus(x);
           const td = tr.querySelector("td.status");
+          // Unchanged rows are left alone, so a keystroke repaints only the rows whose status moved.
+          tr.classList.toggle("selected", tr.dataset.row === swSelectedId);
+          if (td.textContent === st.text && td.title === st.title && td.classList.contains(st.bad ? "bad" : "ok")) continue;
           // A clean row stays quiet: "OK" in muted text, the note count fainter still (same text). On
           // an error row the kind of error sits under the count ("1 error" / "duplicate"); the cell's
           // text is still "1 error · duplicate" (the separator is there, only not drawn).
@@ -9857,7 +10011,6 @@
           td.title = st.title;
           td.className = "status " + (st.bad ? "bad" : "ok");
           tr.classList.toggle("row-bad", st.bad);
-          tr.classList.toggle("selected", tr.dataset.row === swSelectedId);
         }
         $("swEmpty").hidden = rows.length > 0;
         // An empty list shows the empty state alone (no placeholder side panel).
@@ -9876,21 +10029,26 @@
         scheduleRailUpdate();
       }
       // Side panel: the selected row's checks, its editcontent.txt and changes since its last export.
+      // Each part is redrawn only when what it shows changed (keys below), so a keystroke that leaves
+      // the checks alone does not re-insert the detail row and re-lay out the whole table.
+      let swPanelKeys = { checks: null, text: null, diff: null };
       function renderSwitchPanel(r, x) {
         const checks = $("swChecks");
-        checks.replaceChildren();
-        $("swDiffPanel").hidden = true;
         $("swPanelEmpty").hidden = !!x;
         $("swPreview").hidden = !x;
-        const old = $("swRows").querySelector("tr.sw-detail");
-        if (old) old.remove();
         if (!x) {
+          if (swPanelKeys.checks === "none") return;
+          swPanelKeys = { checks: "none", text: null, diff: null };
+          checks.replaceChildren();
+          $("swDiffPanel").hidden = true;
+          const old = $("swRows").querySelector("tr.sw-detail");
+          if (old) old.remove();
           $("swPanelTitle").textContent = "Selected switch";
           $("swPreview").textContent = "Select a row to see its checks and its editcontent.txt.";
+          $("swPreview").classList.remove("wide");
           return;
         }
         const title = "Switch " + x.n + (x.host ? " · " + x.host : "");
-        $("swPanelTitle").textContent = title;
         const items = [
           ...x.findings.map((f) => ({ level: f.level, text: f.text, where: f.where })),
           // Team-policy results are listed even while the row has other errors (the row check stops at
@@ -9898,40 +10056,64 @@
           ...(x.policy.length ? x.policy : x.errors.length && x.text ? policyViolations(x.text, teamPolicies) : [])
             .map((p) => ({ level: "error", text: "Team policy: " + p, where: { kind: "policy" } })),
         ].sort((a, b) => (a.level === "error" ? 0 : 1) - (b.level === "error" ? 0 : 1)); // errors first (stable)
-        // Each check is a button that jumps to what it is about (this row's cell, its Ports dialog, ...).
-        const ctx = { view: "switches", rowId: x.row.id };
-        const checkList = (ul) => {
-          for (const f of items)
-            ul.append(el("li", { className: f.level === "error" ? "bad" : "warn" },
-              el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, ctx) }, f.text)));
-          if (!items.length) ul.append(el("li", { className: "ok" }, "No problems found."));
-          return ul;
-        };
-        checkList(checks);
-        // The same checks inline under the row: shown by CSS only while the panel sits below the grid
-        // (narrow windows), so the reason for an error is never out of view.
         const tr = [...$("swRows").querySelectorAll("tr[data-row]")].find((t) => t.dataset.row === x.row.id);
-        if (tr) {
-          const cols = tr.children.length;
-          // Copy and Remove here too: below 1000 px the icon columns are hidden and these show instead.
-          tr.after(el("tr", { className: "sw-detail" },
-            el("td", { colSpan: cols },
-              el("span", { className: "sw-detail-title" }, title),
-              checkList(el("ul", { className: "sw-checks" })),
-              el("div", { className: "sw-detail-actions" },
-                el("button", { type: "button", title: "Copy this switch below itself", onclick: () => copySwitchRow(x.row.id) }, "Copy below"),
-                el("button", { type: "button", className: "danger", title: "Remove this switch", onclick: () => removeSwitchRow(x.row.id) }, "Remove")))));
+        const detail = $("swRows").querySelector("tr.sw-detail");
+        const detailOk = !tr || (detail && detail.dataset.for === x.row.id && tr.nextElementSibling === detail);
+        const checksKey = JSON.stringify([x.row.id, title, items.map((f) => [f.level, f.text, f.where || null])]);
+        if (checksKey !== swPanelKeys.checks || !detailOk) {
+          swPanelKeys.checks = checksKey;
+          $("swPanelTitle").textContent = title;
+          checks.replaceChildren();
+          if (detail) detail.remove();
+          // Each check is a button that jumps to what it is about (this row's cell, its Ports dialog, ...).
+          const ctx = { view: "switches", rowId: x.row.id };
+          const checkList = (ul) => {
+            for (const f of items)
+              ul.append(el("li", { className: f.level === "error" ? "bad" : "warn" },
+                el("button", { type: "button", className: "finding-link", onclick: () => focusFinding(f.where, { ...ctx, text: f.text }) }, f.text)));
+            if (!items.length) ul.append(el("li", { className: "ok" }, "No problems found."));
+            return ul;
+          };
+          checkList(checks);
+          // The same checks inline under the row: shown by CSS only while the panel sits below the grid
+          // (narrow windows), so the reason for an error is never out of view.
+          if (tr) {
+            const cols = tr.children.length;
+            // Copy and Remove here too: below 1000 px the icon columns are hidden and these show instead.
+            tr.after(el("tr", { className: "sw-detail", dataFor: x.row.id },
+              el("td", { colSpan: cols },
+                el("span", { className: "sw-detail-title" }, title),
+                checkList(el("ul", { className: "sw-checks" })),
+                el("div", { className: "sw-detail-actions" },
+                  el("button", { type: "button", title: "Copy this switch below itself", onclick: () => copySwitchRow(x.row.id) }, "Copy below"),
+                  el("button", { type: "button", className: "danger", title: "Remove this switch", onclick: () => removeSwitchRow(x.row.id) }, "Remove")))));
+          }
         }
         // The text as it is, one whole line per line (the box scrolls sideways for a wide comment, and
-        // fades at that edge to say so).
+        // fades at that edge to say so; measured with the next frame's layout, not forced here).
         const pre = $("swPreview");
-        pre.textContent = x.text || "No output: fix the errors above.";
-        pre.classList.toggle("wide", pre.scrollWidth > pre.clientWidth + 1);
-        const prev = lastExport(r, x.host);
-        if (prev && !x.errors.length) {
-          $("swDiffPanel").hidden = false;
-          fillDiff($("swDiffSummary"), $("swDiff"), prev, x.text);
+        const shown = x.text || "No output: fix the errors above.";
+        if (swPanelKeys.text !== shown) {
+          swPanelKeys.text = shown;
+          pre.textContent = shown;
+          scheduleSwPreviewWide();
         }
+        const prev = lastExport(r, x.host);
+        const diffKey = prev && !x.errors.length ? JSON.stringify([prev.at, prev.sha256, x.text]) : "";
+        if (diffKey !== swPanelKeys.diff) {
+          swPanelKeys.diff = diffKey;
+          $("swDiffPanel").hidden = !diffKey;
+          if (diffKey) fillDiff($("swDiffSummary"), $("swDiff"), prev, x.text);
+        }
+      }
+      let swWideFrame = 0;
+      function scheduleSwPreviewWide() {
+        if (swWideFrame) return;
+        swWideFrame = requestAnimationFrame(() => {
+          swWideFrame = 0;
+          const pre = $("swPreview");
+          if (!pre.hidden) pre.classList.toggle("wide", pre.scrollWidth > pre.clientWidth + 1);
+        });
       }
       function selectSwitch(id) {
         if (id === swSelectedId) return;
@@ -10244,20 +10426,29 @@
         // Edits apply as they are typed (the grid and the preview follow). Done keeps them; Cancel (or
         // Esc) puts this switch's port settings back as they were when the dialog opened.
         const before = JSON.stringify(row.ports || {});
+        // Nothing typed here reaches the browser autosave before Done: a pending write of earlier edits
+        // goes out now, then autosave pauses (as during the boot dialog) until the dialog closes, so a
+        // reload or crash with the dialog open restores the ports as they were (an implicit Cancel).
+        if (autosaveTimer && !autosavePaused) autosave();
+        clearTimeout(autosaveTimer);
+        autosaveTimer = null;
+        const pausedBefore = autosavePaused;
+        autosavePaused = true;
         return showDialog({
           title: "Ports · switch " + n + (host ? " (" + host + ")" : ""),
           body: wrap,
           actions: [{ label: "Cancel", value: false }, { label: "Done", value: true, primary: true }],
-          note: "Changes apply as you type. Done keeps them; Cancel or Esc puts the ports back as they were.",
+          note: "Changes apply as you type and are kept (and autosaved) only when you press Done; Cancel or Esc puts the ports back as they were.",
           onOpen: (dlg) => {
             dlg.classList.add("dlg-wide");
             if (focus) draw(focus);
           },
         }).then((v) => {
+          autosavePaused = pausedBefore;
           if (v !== true && JSON.stringify(row.ports || {}) !== before) {
             row.ports = JSON.parse(before);
             touch();
-          }
+          } else if (dirty) scheduleAutosave();
           if (currentView !== "switches") return;
           renderSwitches();
           // A fixed check removes the button that opened the dialog: focus goes to this row's Ports button.
@@ -10337,6 +10528,12 @@
         // Open the collapsed sections around the target (Management sources, team rules, ...).
         for (let d = target.closest("details"); d; d = d.parentElement && d.parentElement.closest("details")) d.open = true;
         target.focus({ preventScroll: true });
+        // A check about one line of the template (the example header) selects that line, so typing
+        // replaces it instead of appending at the end.
+        if (target === $("template") && ctx && /^The template still contains the example header line/.test(ctx.text || "")) {
+          const at = target.value.indexOf(CONFIG.EXAMPLE_HEADER_LINE);
+          if (at >= 0) target.setSelectionRange(at, at + CONFIG.EXAMPLE_HEADER_LINE.length);
+        }
         target.scrollIntoView({ block: "center" });
         if (pre && w.line) highlightPreviewLine(pre, w.line);
         return flashTarget(target);
@@ -10500,8 +10697,19 @@
           return;
         }
         downloadCsv(csv.text, "switchcard-switches-" + csvFileStem(r) + ".csv");
+        // The file keeps the values exactly (a round trip reproduces the list), so a value that a
+        // spreadsheet would run as a formula is pointed out rather than altered.
+        const back = parseCsv(csv.text);
+        const risky = [];
+        back.rows.forEach((cells, i) => cells.forEach((c, j) => {
+          if (/^[=+\-@]/.test(c)) risky.push("row " + (i + 1) + " " + (back.rawHeader[j] || back.header[j]));
+        }));
         message("Exported " + rows.length + " switch" + (rows.length === 1 ? "" : "es") + " as CSV (" + csv.columns.length +
-          " columns; empty cells follow Device details).");
+          " columns; empty cells follow Device details)." +
+          (risky.length
+            ? " Note: " + risky.length + (risky.length === 1 ? " cell starts" : " cells start") + " with =, +, - or @ (" + listFew(risky, 3) +
+              "); a spreadsheet such as Excel may run it as a formula. Open the file as text, or check those cells."
+            : ""));
       };
       $("swTemplate").onclick = () => {
         const r = current();
@@ -10559,11 +10767,17 @@
       function rowProblem(x) {
         const e = x.errors[0];
         if (!e) return x.policy.length ? "team policy: " + String(x.policy[0]).replace(/\.$/, "") : "";
+        // A row that repeats both the hostname and the address of another says both at once.
+        if (/^duplicate HOSTNAME/.test(e) && x.errors.some((y) => /^duplicate MGMT_IP/.test(y)))
+          return "duplicate HOSTNAME " + x.host + " and MGMT_IP " + x.ip;
         if (/^duplicate HOSTNAME/.test(e)) return "duplicate HOSTNAME " + x.host;
         if (/^duplicate MGMT_IP/.test(e)) return "duplicate MGMT_IP " + x.ip;
         if (/^The template still contains the example header line/.test(e)) return "template still contains the example header";
         const t = String(e).replace(/\.$/, "");
-        return t.length > 70 ? t.slice(0, 67) + "…" : t;
+        // An address check names the value it refused, so the bad cell is found without a hunt.
+        const bad = /^(MGMT_IP|GATEWAY|MGMT_MASK) must be a valid IPv4 address/.exec(e);
+        const got = bad && x.values && x.values[bad[1]] ? ' (got "' + x.values[bad[1]] + '")' : "";
+        return (t.length > 70 ? t.slice(0, 67) + "…" : t) + got;
       }
       // "2, 3 (duplicate MGMT_IP 10.20.30.13) · 5 (template still contains the example header)": rows
       // grouped by problem, the first three problems, then "and N more rows".
@@ -10650,7 +10864,8 @@
         const reasons = [...gates];
         if (badRows.length)
           reasons.push("Rows with errors: " + badRowsSummary(items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x)) + ".");
-        renderGate($("cdGates"), reasons, items.length ? "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + "." : "", "cdFixGate");
+        renderGate($("cdGates"), reasons, items.length ? "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + "." : "", "cdFixGate",
+          null, items.length ? [baselineDiffersWarning()].filter(Boolean) : []);
         const changed = items.filter(({ st }) => st.state === "new" || st.state === "changed").length;
         // Counts at a glance: "12 switches · 6 up to date · 3 changed · 3 new · 1 with errors".
         const count = (state) => items.filter(({ st }) => st.state === state).length;
@@ -10680,7 +10895,8 @@
         if (gates.length) throw Error(gates[0]);
         if (cardRowBad(result)) throw Error("Switch " + result.n + " has errors; nothing was exported.");
         const g = { text: result.text };
-        if (!(await writeDialog({ title: "Export SD-card ZIP?", summary: exportConfirmSummary(result.recipe, g), primary: "Download ZIP" }))) {
+        if (!(await writeDialog({ title: "Export SD-card ZIP?", summary: exportConfirmSummary(result.recipe, g), primary: "Download ZIP",
+          warning: baselineDiffersWarning() }))) {
           message("SD-card ZIP export cancelled.");
           return false;
         }

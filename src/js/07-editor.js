@@ -32,6 +32,12 @@ function gateLabel(reason) {
   };
   return short[reason] || reason;
 }
+// Short label of a non-blocking gate warning; the full sentence stays as the item's title.
+function gateWarnLabel(t) {
+  return /^Baseline fingerprint DIFFERS/.test(t)
+    ? "Review: baseline fingerprint DIFFERS from the project's record (use the recorded folder, or Save project to record this one)"
+    : t;
+}
 // The way out of a gate, as a button in the box: the Example recipe tick or the baseline loader.
 const GATE_FIXES = [
   [/^Example recipe:/, "Open recipe editor", () => openExampleSetting()],
@@ -40,12 +46,17 @@ const GATE_FIXES = [
 // The gate box (under Build's export buttons, above the bulk buttons on Cards): one headline,
 // one short item per reason, and a button for the first reason that has a way out.
 // errors (Build): the error findings, so the input-errors item names each one as a link.
-function renderGate(box, reasons, okText, fixId, errors) {
+// warnings: review notes that do not block (the baseline fingerprint differs from the project's
+// record); shown in amber beside "Ready to export", or after the blocking reasons.
+function renderGate(box, reasons, okText, fixId, errors, warnings) {
+  const warn = (warnings || []).map((t) => el("li", { className: "gate-warn-item", title: t }, gateWarnLabel(t)));
   box.replaceChildren();
   box.classList.toggle("gate-bad", reasons.length > 0);
-  box.classList.toggle("gate-ok", !reasons.length && !!okText);
+  box.classList.toggle("gate-ok", !reasons.length && !!okText && !warn.length);
+  box.classList.toggle("gate-warn", !reasons.length && !!okText && warn.length > 0);
   if (!reasons.length) {
     if (okText) box.append(el("span", { className: "gate-head" }, okText));
+    if (okText && warn.length) box.append(el("ul", { className: "gate-list" }, warn));
     return;
   }
   const items = reasons.map((t) => {
@@ -54,16 +65,24 @@ function renderGate(box, reasons, okText, fixId, errors) {
     if (t === GATE_ERRORS && errors && errors.length) {
       const n = errors.length;
       const li = el("li", { title: t }, n + (n === 1 ? " error: " : " errors: "));
-      errors.forEach((f, i) => {
+      // Two checks on one cell ("Gi1/5 VLAN" twice) share one link: "Gi1/5 VLAN (2)", both texts
+      // in its title.
+      const byName = new Map();
+      for (const f of errors) {
+        const name = findingShortName(f);
+        if (byName.has(name)) byName.get(name).push(f);
+        else byName.set(name, [f]);
+      }
+      [...byName].forEach(([name, fs], i) => {
         if (i) li.append(", ");
-        li.append(el("button", { type: "button", className: "finding-link", title: f.text, onclick: () => focusFinding(f.where, { view: "build" }) },
-          findingShortName(f)));
+        li.append(el("button", { type: "button", className: "finding-link", title: fs.map((f) => f.text).join("\n"),
+          onclick: () => focusFinding(fs[0].where, { view: "build", text: fs[0].text }) }, name + (fs.length > 1 ? " (" + fs.length + ")" : "")));
       });
       return li;
     }
     return el("li", { title: t }, gateLabel(t));
   });
-  box.append(el("span", { className: "gate-head" }, "Export blocked"), el("ul", { className: "gate-list" }, items));
+  box.append(el("span", { className: "gate-head" }, "Export blocked"), el("ul", { className: "gate-list" }, items, warn));
   for (const [re, label, run] of GATE_FIXES)
     if (reasons.some((t) => re.test(t))) {
       box.append(el("button", { type: "button", id: fixId, className: "gate-fix", onclick: run }, label));
@@ -199,7 +218,8 @@ function renderPreview() {
   if (g.errors.length) why.push("Fix red input errors first.");
   if (b.length) why.push(...b.filter((x) => !why.includes(x)));
   const ew = $("exportWhy");
-  if (ew) renderGate(ew, $("downloadCard").disabled ? (why.length ? why : ["Export unavailable."]) : [], "Ready to export.", "exportFixGate", found("error"));
+  if (ew) renderGate(ew, $("downloadCard").disabled ? (why.length ? why : ["Export unavailable."]) : [], "Ready to export.", "exportFixGate", found("error"),
+    [baselineDiffersWarning()].filter(Boolean));
   $("downloadCard").title = $("downloadCard").disabled
     ? why.join(" ") || "Export blocked"
     : "Download ZIP for the SD card root";
@@ -277,7 +297,7 @@ function statusNotice(kind, heading, items, footer, ctx) {
         b.type = "button";
         b.className = "finding-link";
         b.textContent = t.text;
-        b.addEventListener("click", () => focusFinding(t.where, ctx || { view: "build" }));
+        b.addEventListener("click", () => focusFinding(t.where, { ...(ctx || { view: "build" }), text: t.text }));
         li.append(b);
       }
       ul.append(li, document.createTextNode(" "));
@@ -295,6 +315,9 @@ function statusNotice(kind, heading, items, footer, ctx) {
 function updateDiscardButton() {
   const btn = $("discardDraft");
   if (btn) btn.hidden = !editorPending;
+  // The rail is locked while a draft is unapplied, so Save project is offered here as well.
+  const save = $("saveProjectDraft");
+  if (save) save.hidden = !editorPending;
 }
 function loadEditor() {
   const r = current();

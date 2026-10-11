@@ -1136,6 +1136,23 @@ h3.ed-group:first-of-type {
 [hidden] {
   display: none !important;
 }
+/* Scale (200+ switches): the Switches view keeps its layout while another view is shown, so
+   coming back to it needs a repaint only, not a fresh style and layout pass over every cell. It
+   stays out of sight, out of the tab order and out of the accessibility tree (visibility), takes
+   no room (absolute, zero height), and keeps the width it has when shown (.views has no padding). */
+.views {
+  position: relative;
+}
+#switches[hidden] {
+  display: block !important;
+  visibility: hidden;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0;
+  overflow: hidden;
+}
 /* --- v0.7.0: theme picker, diff view, transliteration notice --- */
 .theme-pick {
   display: inline-flex;
@@ -1233,6 +1250,12 @@ footer {
   outline: none;
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-dim);
+}
+/* Keyboard focus on a file button (Open project, Load file, ...): a solid ring as well, since the
+   soft halo alone is hard to see on the page background. */
+.filebutton:has(.fileinput:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 .compact {
   min-height: 88px;
@@ -1919,6 +1942,11 @@ button.primary.danger:focus-visible {
   text-overflow: ellipsis;
   border-color: var(--cell-line); /* the solid/dashed cue holds 3:1 on the table background */
 }
+/* The cell being typed in is its own compositing layer, so a keystroke repaints that cell and
+   not the layers of a 200-row grid. */
+#swTable td input:focus {
+  will-change: transform;
+}
 #swTable td input[data-key="HOSTNAME"] {
   width: 106px;
 }
@@ -2427,6 +2455,15 @@ pre::-webkit-scrollbar-thumb:hover,
 .gate.gate-bad .gate-head {
   color: var(--err);
 }
+/* Ready to export, with a review note that does not block (baseline fingerprint differs). */
+.gate.gate-warn {
+  background: var(--warn-bg);
+  border-color: var(--warn-line);
+  border-left-color: var(--warn);
+}
+.gate.gate-warn .gate-head {
+  color: var(--text);
+}
 .gate-list {
   list-style: none;
   margin: 0;
@@ -2451,6 +2488,12 @@ pre::-webkit-scrollbar-thumb:hover,
   height: 6px;
   border-radius: 50%;
   background: var(--err);
+}
+.gate-list li.gate-warn-item {
+  font-weight: 650;
+}
+.gate-list li.gate-warn-item::before {
+  background: var(--warn);
 }
 .gate-list li button.finding-link {
   color: var(--err);
@@ -2690,6 +2733,21 @@ pre::-webkit-scrollbar-thumb:hover,
 }
 
 /* --- Write dialogs: the review tick is its own boxed safety step --- */
+/* Write dialog review note (baseline fingerprint differs from the project's record). */
+.dlg-warning {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border: 1px solid var(--warn-line);
+  border-left: 3px solid var(--warn);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: var(--warn-bg);
+  font-size: 13px;
+}
+.dlg-kv tr.dlg-differs th,
+.dlg-kv tr.dlg-differs td {
+  background: var(--warn-bg);
+  font-weight: 650;
+}
 .dlg-copy {
   display: flex;
   justify-content: flex-end;

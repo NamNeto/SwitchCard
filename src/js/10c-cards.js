@@ -18,11 +18,17 @@ function cardRowBad(x) {
 function rowProblem(x) {
   const e = x.errors[0];
   if (!e) return x.policy.length ? "team policy: " + String(x.policy[0]).replace(/\.$/, "") : "";
+  // A row that repeats both the hostname and the address of another says both at once.
+  if (/^duplicate HOSTNAME/.test(e) && x.errors.some((y) => /^duplicate MGMT_IP/.test(y)))
+    return "duplicate HOSTNAME " + x.host + " and MGMT_IP " + x.ip;
   if (/^duplicate HOSTNAME/.test(e)) return "duplicate HOSTNAME " + x.host;
   if (/^duplicate MGMT_IP/.test(e)) return "duplicate MGMT_IP " + x.ip;
   if (/^The template still contains the example header line/.test(e)) return "template still contains the example header";
   const t = String(e).replace(/\.$/, "");
-  return t.length > 70 ? t.slice(0, 67) + "…" : t;
+  // An address check names the value it refused, so the bad cell is found without a hunt.
+  const bad = /^(MGMT_IP|GATEWAY|MGMT_MASK) must be a valid IPv4 address/.exec(e);
+  const got = bad && x.values && x.values[bad[1]] ? ' (got "' + x.values[bad[1]] + '")' : "";
+  return (t.length > 70 ? t.slice(0, 67) + "…" : t) + got;
 }
 // "2, 3 (duplicate MGMT_IP 10.20.30.13) · 5 (template still contains the example header)": rows
 // grouped by problem, the first three problems, then "and N more rows".
@@ -109,7 +115,8 @@ function renderCards() {
   const reasons = [...gates];
   if (badRows.length)
     reasons.push("Rows with errors: " + badRowsSummary(items.filter(({ x }) => cardRowBad(x)).map(({ x }) => x)) + ".");
-  renderGate($("cdGates"), reasons, items.length ? "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + "." : "", "cdFixGate");
+  renderGate($("cdGates"), reasons, items.length ? "Ready to export " + items.length + " card" + (items.length === 1 ? "" : "s") + "." : "", "cdFixGate",
+    null, items.length ? [baselineDiffersWarning()].filter(Boolean) : []);
   const changed = items.filter(({ st }) => st.state === "new" || st.state === "changed").length;
   // Counts at a glance: "12 switches · 6 up to date · 3 changed · 3 new · 1 with errors".
   const count = (state) => items.filter(({ st }) => st.state === state).length;
@@ -139,7 +146,8 @@ async function exportOneCard(r, result) {
   if (gates.length) throw Error(gates[0]);
   if (cardRowBad(result)) throw Error("Switch " + result.n + " has errors; nothing was exported.");
   const g = { text: result.text };
-  if (!(await writeDialog({ title: "Export SD-card ZIP?", summary: exportConfirmSummary(result.recipe, g), primary: "Download ZIP" }))) {
+  if (!(await writeDialog({ title: "Export SD-card ZIP?", summary: exportConfirmSummary(result.recipe, g), primary: "Download ZIP",
+    warning: baselineDiffersWarning() }))) {
     message("SD-card ZIP export cancelled.");
     return false;
   }

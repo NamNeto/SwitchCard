@@ -356,6 +356,22 @@ function exportHostnameForFile(r) {
   if (!v) return "switch";
   return v.replace(/[^a-zA-Z0-9_-]+/g, "_");
 }
+// The export dialogs' fingerprint line (single card, Build and the Cards bulk exports alike).
+function baselineFingerprintLine() {
+  return "Baseline fingerprint: " +
+    (baseline && baseline.fingerprint
+      ? baseline.fingerprint.digest.slice(0, 16) + "… " + (baseline.compare ? baseline.compare.summary : "(no project record to compare with)")
+      : "(none)");
+}
+// The loaded baseline's fingerprint differs from the one recorded in the open project: a warning
+// on every export path (Build and Cards gates, every write dialog), never a block, because
+// re-saving the project is how a new baseline is adopted (docs/SAFETY-EXPORT.md).
+function baselineDiffersWarning() {
+  const c = baseline && baseline.compare;
+  if (!c || c.same) return "";
+  return "Baseline fingerprint " + c.summary + (c.changed.length ? "; changed: " + c.changed.slice(0, 5).join(", ") : "") +
+    ". Use the recorded folder, or Save project to record this one.";
+}
 function exportConfirmSummary(r, g) {
   const lines = [
     "Export SD-card ZIP with this editcontent.txt?",
@@ -396,10 +412,7 @@ function exportConfirmSummary(r, g) {
       (baseline
         ? baseline.model + " / " + baseline.version
         : "(none)"),
-    "Baseline fingerprint: " +
-      (baseline && baseline.fingerprint
-        ? baseline.fingerprint.digest.slice(0, 16) + "… " + (baseline.compare ? baseline.compare.summary : "(no project record to compare with)")
-        : "(none)"),
+    baselineFingerprintLine(),
     "",
     "Root editcontent.txt in the ZIP is exactly this preview text.",
     "",

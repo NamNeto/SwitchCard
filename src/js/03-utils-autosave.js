@@ -20,6 +20,14 @@ function touch() {
   dirty = true;
   scheduleAutosave();
 }
+// A change that must survive a reload at once (a card just handed to the download): written now,
+// not after the debounce, unless autosave is paused.
+function touchAndAutosaveNow() {
+  dirty = true;
+  clearTimeout(autosaveTimer);
+  autosaveTimer = null;
+  if (!autosavePaused) autosave();
+}
 function scheduleAutosave() {
   clearTimeout(autosaveTimer);
   autosaveTimer = null;
@@ -537,6 +545,7 @@ function commitRestoredWorkspace(result) {
   teamHints = Array.isArray(p.teamHints) ? [...p.teamHints] : [];
   teamPolicies = Array.isArray(p.teamPolicies) ? [...p.teamPolicies] : [];
   baselineExpected = p.baseline ? { ...p.baseline } : null;
+  prefillBaselineFields();
   customSkuPresets = Object.assign(
     Object.create(null),
     loadCustomSkuPresetsFromLocal(),

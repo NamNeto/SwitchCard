@@ -453,6 +453,9 @@ for (const id of ["recipe", "editRecipe", "swRecipe", "cdRecipe"])
       message("Apply your recipe changes before switching recipes.");
       return;
     }
+    // Picking the recipe that is already active changes nothing, so it does not mark the
+    // workspace as unsaved (a false "You have unsaved changes" on the next Open).
+    if ($(id).value === active) return;
     active = $(id).value;
     touch();
     renderAll();
@@ -648,10 +651,12 @@ $("folderInput").onchange = () =>
     const model = $("baseModel").value,
       rawVersion = $("baseVersion").value,
       version = sanitizeSingleLine(rawVersion).text.trim();
+    // Taken and cleared first, so picking the same folder again after a refusal fires change again.
+    const selected = [...$("folderInput").files];
+    $("folderInput").value = "";
     $("baseVersion").value = version;
     if (!version)
       throw Error("Enter a firmware / baseline label first, then select the folder again.");
-    const selected = [...$("folderInput").files];
     if (!selected.length) return;
     // webkitRelativePath is "FolderName/rel/path"; slice(1) drops the outer folder name
     const files = selected.map((f) => ({
@@ -666,6 +671,10 @@ $("folderInput").onchange = () =>
     baseline = { model, version, files, fingerprint, compare };
     touch();
     renderBaseline();
+    // The fingerprint covers the files only; say so when the model or label differs from the record.
+    const recordDiffers = baselineExpected && (baselineExpected.model !== model || baselineExpected.version !== version)
+      ? " Note: the project recorded " + baselineExpected.model + " / " + baselineExpected.version + "; this baseline is loaded as " + model + " / " + version + "."
+      : "";
     const nonAscii = files.filter((f) => /[^\x20-\x7e]/.test(f.path)).length;
     message(
       "Baseline loaded. Verify its file list and model; automatic firmware identification is not included." +
@@ -674,6 +683,7 @@ $("folderInput").onchange = () =>
             ? " Fingerprint matches the project's recorded baseline."
             : " WARNING: fingerprint " + compare.summary + (compare.changed.length ? "; changed: " + compare.changed.slice(0, 5).join(", ") : "") + ". Use the recorded folder, or Save project to record this one."
           : " Fingerprint recorded (" + fingerprint.digest.slice(0, 12) + "…); Save project keeps it.") +
+        recordDiffers +
         (version !== rawVersion ? " Cleaned baseline label; updated value is shown in the editor." : "") +
         (nonAscii
           ? " Note: " + nonAscii + " file name(s) contain non-ASCII characters; the ZIP marks them as UTF-8 but some extractors may still show them incorrectly."
@@ -732,6 +742,7 @@ $("downloadCard").onclick = () =>
         title: "Export SD-card ZIP?",
         summary: exportConfirmSummary(r, g),
         primary: "Download ZIP",
+        warning: baselineDiffersWarning(),
       }))
     ) {
       message("SD-card ZIP export cancelled.");
@@ -796,6 +807,7 @@ $("saveProject").onclick = async () => {
     message(e.message || String(e));
   }
 };
+$("saveProjectDraft").onclick = () => $("saveProject").onclick();
 $("projectInput").onchange = () =>
   run(async () => {
     const f = $("projectInput").files[0];
