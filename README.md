@@ -1,6 +1,6 @@
 # SwitchCard
 
-`v0.8.0` · offline · single HTML file · CSP `connect-src 'none'` · MIT · [online demo](https://namneto.github.io/SwitchCard/)
+`v0.8.0` · offline · single HTML file · CSP `connect-src 'none'` · MIT · [online demo](https://cokeandrice.github.io/SwitchCard/)
 
 **SwitchCard** builds SD-card media for Cisco Industrial Ethernet switches (IE3100, IE3x00, IE9300) in environments that use an **on-switch EEM script** to apply a root `editcontent.txt`. Load a firmware baseline folder once, keep configuration **recipes** (templates + port roles), fill in one switch's details and export a ZIP. Extract its contents to the card root and the card is ready.
 
@@ -29,7 +29,7 @@
 
 ## Quick start
 
-To use SwitchCard you need only `SwitchCard.html` from the [latest release](https://github.com/NamNeto/SwitchCard/releases/latest). It runs in the browser and writes nothing to disk except the files you download; everything else in this repository is documentation and maintainer tooling.
+To use SwitchCard you need only `SwitchCard.html` from the [latest release](https://github.com/cokeandrice/SwitchCard/releases/latest). It runs in the browser and writes nothing to disk except the files you download; everything else in this repository is documentation and maintainer tooling.
 
 1. Open `SwitchCard.html` locally in Edge or Chrome.
 2. Explore an **EXAMPLE ONLY** recipe (card export is blocked for examples). Four are built in, including one switch managed through a loopback.
@@ -80,8 +80,8 @@ Details for each are in [docs/USER-GUIDE.md](docs/USER-GUIDE.md); the exact gate
 
 ## Try it, verify it
 
-- **Demo:** [namneto.github.io/SwitchCard](https://namneto.github.io/SwitchCard/) serves the same single file from GitHub Pages. Explore the examples there; for real work download the file and open it locally.
-- **Verify a download:** every [release](https://github.com/NamNeto/SwitchCard/releases) lists the SHA-256 of `SwitchCard.html`. On Windows run `certutil -hashfile SwitchCard.html SHA256`, on Linux or macOS `sha256sum SwitchCard.html`, and compare.
+- **Demo:** [cokeandrice.github.io/SwitchCard](https://cokeandrice.github.io/SwitchCard/) serves the same single file from GitHub Pages. Explore the examples there; for real work download the file and open it locally.
+- **Verify a download:** every [release](https://github.com/cokeandrice/SwitchCard/releases) lists the SHA-256 of `SwitchCard.html`. On Windows run `certutil -hashfile SwitchCard.html SHA256`, on Linux or macOS `sha256sum SwitchCard.html`, and compare.
 - **Build from source:** `python build.py` assembles the file from `src/`; CI fails if the committed file drifts. See [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md).
 
 ## Related tools
@@ -102,7 +102,7 @@ Real configurations, credentials, SNMP communities, site names and team packages
 
 ## Contributing
 
-Feature requests and bug reports are welcome as [issues](https://github.com/NamNeto/SwitchCard/issues/new/choose); use placeholder values, never real configurations. Pull requests are read as proposals, and changes are made by the maintainer. See [CONTRIBUTING.md](CONTRIBUTING.md).
+Feature requests and bug reports are welcome as [issues](https://github.com/cokeandrice/SwitchCard/issues/new/choose); use placeholder values, never real configurations. Pull requests are read as proposals, and changes are made by the maintainer. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
