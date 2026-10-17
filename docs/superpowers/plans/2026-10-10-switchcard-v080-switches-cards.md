@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Branch `v0.8-switches-cards`; commit identity `NamNeto <11177435+NamNeto@users.noreply.github.com>`; commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. No push, tag or release without the owner's request.
+- Branch `v0.8-switches-cards`; commit identity `CokeandRice <11177435+cokeandrice@users.noreply.github.com>`; commit messages end with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. No push, tag or release without the owner's request.
 - After every source change: `python build.py`, commit `SwitchCard.html` with the source (`build.py --check` in CI).
 - Test command: `SWITCHCARD_PW_CHANNEL=msedge python -m pytest -q` (all tests, goldens included, must pass at the end of every task).
 - `generate()` output bytes unchanged (`tests/golden/example-*.txt`); `errors`/`warnings` strings, order and de-duplication unchanged.
