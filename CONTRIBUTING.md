@@ -4,7 +4,7 @@ SwitchCard is maintained as a public good: free to use, study and fork under the
 
 ## Feature requests and bug reports are welcome
 
-Open an [issue](https://github.com/NamNeto/SwitchCard/issues/new/choose) with one of the templates and describe what you need or what went wrong.
+Open an [issue](https://github.com/cokeandrice/SwitchCard/issues/new/choose) with one of the templates and describe what you need or what went wrong.
 
 - **Never paste real configurations**, credentials, SNMP communities, hostnames, addresses or site names. Use placeholders such as `EXAMPLE-SW1` and addresses from 192.0.2.0/24, 198.51.100.0/24 or 203.0.113.0/24.
 - Do not attach firmware, baselines, team packages or project files.
